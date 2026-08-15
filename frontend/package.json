@@ -1,0 +1,31 @@
+{
+  "name": "tribuparidas-frontend",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "nuxt dev --host 0.0.0.0",
+    "build": "nuxt build",
+    "generate": "nuxt generate",
+    "preview": "nuxt preview",
+    "postinstall": "nuxt prepare",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "axios": "^1.7.4",
+    "nuxt": "^3.13.0",
+    "pinia": "^2.2.2",
+    "@pinia/nuxt": "^0.5.5",
+    "vue": "^3.4.38",
+    "vue-router": "^4.4.3"
+  },
+  "devDependencies": {
+    "@nuxtjs/tailwindcss": "^6.12.1",
+    "@nuxt/test-utils": "^3.14.1",
+    "@vue/test-utils": "^2.4.6",
+    "happy-dom": "^15.7.3",
+    "typescript": "^5.5.4",
+    "vitest": "^3.2.0"
+  }
+}
