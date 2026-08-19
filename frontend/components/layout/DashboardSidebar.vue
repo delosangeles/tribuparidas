@@ -25,8 +25,8 @@ async function handleLogout() {
       v-for="link in links"
       :key="link.to"
       :to="link.to"
-      class="flex items-center justify-between rounded-xl2 px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-pink-light hover:text-pink"
-      active-class="!bg-pink-light !text-pink"
+      class="flex items-center justify-between rounded-xl2 px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-gold-light hover:text-gold"
+      active-class="!bg-gold-light !text-gold"
     >
       <span class="flex items-center gap-3">
         <AppIcon :name="link.icon" :size="18" />
@@ -34,7 +34,7 @@ async function handleLogout() {
       </span>
       <span
         v-if="link.to === '/dashboard/questions' && questionsStore.pendingCount > 0"
-        class="rounded-full bg-pink px-2 py-0.5 text-xs font-semibold text-white"
+        class="rounded-full bg-gold px-2 py-0.5 text-xs font-semibold text-white"
       >
         {{ questionsStore.pendingCount }}
       </span>

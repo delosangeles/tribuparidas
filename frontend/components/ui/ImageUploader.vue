@@ -73,7 +73,7 @@ function triggerSelect() {
   <div>
     <button
       type="button"
-      class="group relative flex items-center justify-center overflow-hidden border-2 border-dashed border-line bg-pink-light/40 text-pink transition hover:border-pink"
+      class="group relative flex items-center justify-center overflow-hidden border-2 border-dashed border-line bg-gold-light/40 text-gold transition hover:border-gold"
       :class="shapeClass"
       @click="triggerSelect"
     >
@@ -91,7 +91,7 @@ function triggerSelect() {
       </span>
 
       <span v-if="loading" class="absolute inset-0 flex items-center justify-center bg-white/70">
-        <span class="h-6 w-6 animate-spin rounded-full border-2 border-pink-light border-t-pink" />
+        <span class="h-6 w-6 animate-spin rounded-full border-2 border-gold-light border-t-gold" />
       </span>
     </button>
 

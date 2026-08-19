@@ -33,7 +33,7 @@ function handleSubmit() {
       <textarea v-model="form.description" rows="3" class="field" />
     </div>
     <label class="flex items-center gap-2 text-sm text-ink">
-      <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-line text-pink focus:ring-pink" />
+      <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-line text-gold focus:ring-gold" />
       Producto visible en mi perfil
     </label>
     <div class="flex gap-2">

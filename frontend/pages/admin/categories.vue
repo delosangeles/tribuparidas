@@ -90,7 +90,7 @@ async function confirmDelete() {
           <textarea v-model="form.description" rows="2" class="field" />
         </div>
         <label class="flex items-center gap-2 text-sm text-ink">
-          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-line text-pink focus:ring-pink" />
+          <input v-model="form.is_active" type="checkbox" class="h-4 w-4 rounded border-line text-gold focus:ring-gold" />
           Categoría activa
         </label>
         <p v-if="error" class="text-sm text-rose-500">{{ error }}</p>
@@ -103,7 +103,7 @@ async function confirmDelete() {
 
     <div class="mt-6 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
       <div v-for="category in categoriesStore.items" :key="category.id" class="card p-4">
-        <span class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-pink-light text-pink">
+        <span class="flex h-12 w-12 items-center justify-center overflow-hidden rounded-full bg-gold-light text-gold">
           <img v-if="category.image" :src="category.image" class="h-full w-full object-cover" />
           <AppIcon v-else name="box" :size="20" />
         </span>

@@ -112,20 +112,20 @@ function shareBusiness() {
 <template>
   <div v-if="business" class="mx-auto max-w-6xl px-4 py-6 sm:px-6">
     <nav class="mb-4 flex items-center gap-1 text-xs text-muted">
-      <NuxtLink to="/" class="hover:text-pink">Inicio</NuxtLink>
+      <NuxtLink to="/" class="hover:text-gold">Inicio</NuxtLink>
       <span>/</span>
-      <NuxtLink to="/businesses" class="hover:text-pink">Emprendimientos</NuxtLink>
+      <NuxtLink to="/businesses" class="hover:text-gold">Emprendimientos</NuxtLink>
       <span>/</span>
-      <NuxtLink :to="`/businesses?category=${business.category.slug}`" class="hover:text-pink">{{ business.category.name }}</NuxtLink>
+      <NuxtLink :to="`/businesses?category=${business.category.slug}`" class="hover:text-gold">{{ business.category.name }}</NuxtLink>
       <span>/</span>
       <span class="text-ink">{{ business.name }}</span>
     </nav>
 
     <div class="flex items-start justify-between">
       <div class="flex items-start gap-4">
-        <span class="flex h-20 w-20 shrink-0 overflow-hidden rounded-full bg-pink-light">
+        <span class="flex h-20 w-20 shrink-0 overflow-hidden rounded-full bg-gold-light">
           <img v-if="business.logo" :src="business.logo" :alt="business.name" class="h-full w-full object-cover" />
-          <span v-else class="flex h-full w-full items-center justify-center text-pink">
+          <span v-else class="flex h-full w-full items-center justify-center text-gold">
             <AppIcon name="briefcase" :size="28" />
           </span>
         </span>
@@ -134,7 +134,7 @@ function shareBusiness() {
           <p class="text-sm text-muted">{{ business.category.name }}</p>
           <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
             <span class="inline-flex items-center gap-1"><AppIcon name="location" :size="14" />{{ business.city }}</span>
-            <a v-if="business.instagram" :href="`https://instagram.com/${business.instagram.replace('@','')}`" target="_blank" class="inline-flex items-center gap-1 hover:text-pink">
+            <a v-if="business.instagram" :href="`https://instagram.com/${business.instagram.replace('@','')}`" target="_blank" class="inline-flex items-center gap-1 hover:text-gold">
               <AppIcon name="instagram" :size="14" />@{{ business.instagram.replace('@','') }}
             </a>
             <a v-if="business.whatsapp" :href="`https://wa.me/${business.whatsapp.replace(/\\D/g,'')}`" target="_blank" class="inline-flex items-center gap-1 text-emerald-600 hover:underline">
@@ -145,7 +145,7 @@ function shareBusiness() {
       </div>
       <div class="flex shrink-0 gap-2">
         <button class="btn-ghost" @click="toggleFavorite">
-          <AppIcon :name="isFavorite ? 'heart-filled' : 'heart'" :size="16" :class="isFavorite && 'text-pink'" /> Guardar
+          <AppIcon :name="isFavorite ? 'heart-filled' : 'heart'" :size="16" :class="isFavorite && 'text-gold'" /> Guardar
         </button>
         <button class="btn-ghost" @click="shareBusiness">
           <AppIcon name="share" :size="16" /> Compartir
@@ -154,9 +154,9 @@ function shareBusiness() {
     </div>
 
     <div class="mt-6 grid gap-4 lg:grid-cols-3">
-      <div class="overflow-hidden rounded-xl2 bg-pink-light lg:col-span-2">
+      <div class="overflow-hidden rounded-xl2 bg-gold-light lg:col-span-2">
         <img v-if="business.cover_image" :src="business.cover_image" :alt="business.name" class="h-64 w-full object-cover sm:h-80" />
-        <div v-else class="flex h-64 w-full items-center justify-center text-pink sm:h-80">
+        <div v-else class="flex h-64 w-full items-center justify-center text-gold sm:h-80">
           <AppIcon name="images" :size="36" />
         </div>
       </div>
@@ -175,7 +175,7 @@ function shareBusiness() {
         v-for="tab in tabs"
         :key="tab.key"
         class="whitespace-nowrap border-b-2 px-1 pb-3 transition"
-        :class="activeTab === tab.key ? 'border-pink text-pink' : 'border-transparent text-muted hover:text-ink'"
+        :class="activeTab === tab.key ? 'border-gold text-gold' : 'border-transparent text-muted hover:text-ink'"
         @click="activeTab = tab.key"
       >
         {{ tab.label }}
@@ -190,7 +190,7 @@ function shareBusiness() {
 
           <div class="mt-8 flex items-center justify-between">
             <h2 class="font-semibold text-ink">Productos destacados</h2>
-            <button class="text-sm font-semibold text-pink hover:underline" @click="activeTab = 'productos'">Ver todos</button>
+            <button class="text-sm font-semibold text-gold hover:underline" @click="activeTab = 'productos'">Ver todos</button>
           </div>
           <div v-if="products.length" class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
             <ProductCard v-for="product in products.slice(0, 3)" :key="product.id" :product="product" />
@@ -213,7 +213,7 @@ function shareBusiness() {
             <div v-if="business.address" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Dirección</dt><dd class="text-ink">{{ business.address }}</dd></div>
             <div v-if="business.department" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Departamento</dt><dd class="text-ink">{{ business.department }}</dd></div>
             <div v-if="business.opening_hours" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Horario</dt><dd class="text-ink">{{ business.opening_hours }}</dd></div>
-            <div v-if="business.website" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Web</dt><dd><a :href="business.website" target="_blank" class="text-pink hover:underline">{{ business.website }}</a></dd></div>
+            <div v-if="business.website" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Web</dt><dd><a :href="business.website" target="_blank" class="text-gold hover:underline">{{ business.website }}</a></dd></div>
           </dl>
         </div>
 
@@ -262,17 +262,17 @@ function shareBusiness() {
             <a v-if="business.whatsapp" :href="`https://wa.me/${business.whatsapp.replace(/\\D/g,'')}`" target="_blank" class="btn-primary w-full">
               <AppIcon name="whatsapp" :size="16" /> Enviar mensaje
             </a>
-            <a v-if="business.facebook" :href="business.facebook" target="_blank" class="flex items-center gap-2 text-muted hover:text-pink">
+            <a v-if="business.facebook" :href="business.facebook" target="_blank" class="flex items-center gap-2 text-muted hover:text-gold">
               <AppIcon name="facebook" :size="16" /> Facebook
             </a>
-            <a v-if="business.website" :href="business.website" target="_blank" class="flex items-center gap-2 text-muted hover:text-pink">
+            <a v-if="business.website" :href="business.website" target="_blank" class="flex items-center gap-2 text-muted hover:text-gold">
               <AppIcon name="globe" :size="16" /> Sitio web
             </a>
           </div>
         </div>
         <div class="card p-4">
           <p class="flex items-center gap-2 text-sm font-semibold text-ink">
-            <AppIcon name="clock" :size="16" class="text-pink" /> Horario
+            <AppIcon name="clock" :size="16" class="text-gold" /> Horario
           </p>
           <p class="mt-2 text-sm text-muted">{{ business.opening_hours || "No especificado" }}</p>
         </div>

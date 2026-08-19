@@ -55,7 +55,7 @@ async function confirmDelete() {
 
       <LoadingSpinner v-if="loading" />
       <div v-else-if="images.length" class="mt-6 grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-        <div v-for="image in images" :key="image.id" class="group relative aspect-square overflow-hidden rounded-xl2 bg-pink-light">
+        <div v-for="image in images" :key="image.id" class="group relative aspect-square overflow-hidden rounded-xl2 bg-gold-light">
           <img :src="image.image" class="h-full w-full object-cover" />
           <button
             class="absolute right-1.5 top-1.5 hidden h-7 w-7 items-center justify-center rounded-full bg-white text-rose-500 shadow-soft group-hover:flex"

@@ -9,7 +9,7 @@ withDefaults(
   <div class="card p-5">
     <div class="flex items-start justify-between">
       <p class="text-sm text-muted">{{ label }}</p>
-      <span class="flex h-9 w-9 items-center justify-center rounded-full bg-pink-light text-pink">
+      <span class="flex h-9 w-9 items-center justify-center rounded-full bg-gold-light text-gold">
         <AppIcon :name="icon" :size="18" />
       </span>
     </div>

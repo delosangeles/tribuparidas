@@ -71,7 +71,7 @@ async function handleBusinessSubmit(payload: any) {
         </button>
       </form>
       <p class="mt-4 text-center text-sm text-muted">
-        ¿Ya tienes cuenta? <NuxtLink to="/login?redirect=/registro/emprendimiento" class="font-semibold text-pink hover:underline">Inicia sesión</NuxtLink>
+        ¿Ya tienes cuenta? <NuxtLink to="/login?redirect=/registro/emprendimiento" class="font-semibold text-gold hover:underline">Inicia sesión</NuxtLink>
       </p>
     </div>
 

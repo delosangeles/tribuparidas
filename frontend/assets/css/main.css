@@ -1,4 +1,4 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600;700;800&family=Montserrat:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
@@ -9,28 +9,33 @@
     @apply font-sans text-ink;
   }
   body {
-    @apply bg-cream;
+    @apply bg-vanilla;
+  }
+  h1,
+  h2,
+  h3 {
+    @apply font-display;
   }
 }
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-pink px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pink-dark disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full bg-gold px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-gold-dark disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-outline {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-pink hover:text-pink disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex items-center justify-center gap-2 rounded-full border border-line bg-white px-5 py-2.5 text-sm font-semibold text-ink transition hover:border-gold hover:text-gold disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-muted transition hover:bg-pink-light hover:text-pink;
+    @apply inline-flex items-center justify-center gap-2 rounded-full px-4 py-2 text-sm font-medium text-muted transition hover:bg-gold-light hover:text-gold;
   }
   .card {
     @apply rounded-xl2 border border-line bg-white shadow-soft;
   }
   .input {
-    @apply w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:border-pink focus:outline-none focus:ring-2 focus:ring-pink-light;
+    @apply w-full rounded-full border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold-light;
   }
   .field {
-    @apply w-full rounded-xl2 border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:border-pink focus:outline-none focus:ring-2 focus:ring-pink-light;
+    @apply w-full rounded-xl2 border border-line bg-white px-4 py-2.5 text-sm text-ink placeholder:text-muted focus:border-gold focus:outline-none focus:ring-2 focus:ring-gold-light;
   }
   .badge {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold;

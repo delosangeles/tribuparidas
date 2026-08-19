@@ -24,11 +24,8 @@ async function handleSubmit() {
 
 <template>
   <div class="mx-auto flex max-w-md flex-col items-center px-4 py-16">
-    <NuxtLink to="/" class="flex items-center gap-2 text-lg font-bold text-ink">
-      <span class="flex h-8 w-8 items-center justify-center rounded-full bg-pink text-white">
-        <AppIcon name="heart-filled" :size="16" />
-      </span>
-      Tribu Paridas
+    <NuxtLink to="/">
+      <BrandMark />
     </NuxtLink>
 
     <div class="card mt-8 w-full p-6">
@@ -52,7 +49,7 @@ async function handleSubmit() {
 
       <p class="mt-6 text-center text-sm text-muted">
         ¿No tienes cuenta?
-        <NuxtLink to="/registro" class="font-semibold text-pink hover:underline">Regístrate</NuxtLink>
+        <NuxtLink to="/registro" class="font-semibold text-gold hover:underline">Regístrate</NuxtLink>
       </p>
     </div>
   </div>

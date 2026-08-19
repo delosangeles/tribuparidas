@@ -24,7 +24,7 @@ function formatDate(value: string) {
   <div class="border-b border-line py-4 last:border-0">
     <div class="flex items-start justify-between gap-3">
       <div class="flex items-start gap-3">
-        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-pink-light text-sm font-semibold text-pink">
+        <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gold-light text-sm font-semibold text-gold">
           {{ question.user_name?.charAt(0) || "?" }}
         </span>
         <div>
@@ -35,8 +35,8 @@ function formatDate(value: string) {
       <span class="shrink-0 text-xs text-muted">{{ formatDate(question.created_at) }}</span>
     </div>
 
-    <div v-if="question.answer" class="ml-12 mt-3 rounded-xl2 bg-pink-light/50 p-3">
-      <p class="text-xs font-semibold text-pink">Respuesta</p>
+    <div v-if="question.answer" class="ml-12 mt-3 rounded-xl2 bg-gold-light/50 p-3">
+      <p class="text-xs font-semibold text-gold">Respuesta</p>
       <p class="mt-1 text-sm text-ink">{{ question.answer.answer }}</p>
     </div>
 

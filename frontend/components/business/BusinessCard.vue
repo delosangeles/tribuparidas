@@ -9,14 +9,14 @@ defineProps<{ business: Business }>();
     :to="`/businesses/${business.slug}`"
     class="card group flex flex-col overflow-hidden transition hover:shadow-card"
   >
-    <div class="aspect-[4/3] w-full overflow-hidden bg-pink-light">
+    <div class="aspect-[4/3] w-full overflow-hidden bg-gold-light">
       <img
         v-if="business.cover_image"
         :src="business.cover_image"
         :alt="business.name"
         class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
       />
-      <div v-else class="flex h-full w-full items-center justify-center text-pink">
+      <div v-else class="flex h-full w-full items-center justify-center text-gold">
         <AppIcon name="images" :size="32" />
       </div>
     </div>

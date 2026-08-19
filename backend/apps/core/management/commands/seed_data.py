@@ -13,13 +13,13 @@ from apps.reviews.models import Review
 from apps.users.models import User
 
 CATEGORIES = [
-    ("Repostería", "Postres y dulces hechos a mano.", "#F05A83"),
-    ("Moda", "Ropa y accesorios con estilo propio.", "#D8446C"),
-    ("Belleza", "Cuidado personal y cosmética artesanal.", "#F08FA8"),
-    ("Artesanías", "Piezas únicas hechas a mano.", "#C77B96"),
-    ("Comida", "Sabores caseros y comida preparada.", "#E76F8E"),
-    ("Hogar", "Decoración y productos para el hogar.", "#B96580"),
-    ("Servicios", "Servicios profesionales y personalizados.", "#8C5A6B"),
+    ("Repostería", "Postres y dulces hechos a mano.", "#C9A35A"),
+    ("Moda", "Ropa y accesorios con estilo propio.", "#A9803C"),
+    ("Belleza", "Cuidado personal y cosmética artesanal.", "#DCC1B2"),
+    ("Artesanías", "Piezas únicas hechas a mano.", "#CBB8AB"),
+    ("Comida", "Sabores caseros y comida preparada.", "#E8CF9D"),
+    ("Hogar", "Decoración y productos para el hogar.", "#B08A5E"),
+    ("Servicios", "Servicios profesionales y personalizados.", "#8A7A66"),
 ]
 
 VISITORS = [

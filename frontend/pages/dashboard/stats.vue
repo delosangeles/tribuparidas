@@ -57,7 +57,7 @@ const ratingDistribution = computed(() => {
           <div v-for="row in [...ratingDistribution].reverse()" :key="row.stars" class="flex items-center gap-3">
             <span class="w-10 shrink-0 text-sm text-muted">{{ row.stars }} ★</span>
             <div class="h-2.5 flex-1 overflow-hidden rounded-full bg-line">
-              <div class="h-full rounded-full bg-pink" :style="{ width: row.pct + '%' }" />
+              <div class="h-full rounded-full bg-gold" :style="{ width: row.pct + '%' }" />
             </div>
             <span class="w-8 shrink-0 text-right text-sm text-muted">{{ row.count }}</span>
           </div>

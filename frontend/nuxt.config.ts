@@ -4,6 +4,10 @@ export default defineNuxtConfig({
   modules: ["@nuxtjs/tailwindcss", "@pinia/nuxt"],
   css: ["~/assets/css/main.css"],
 
+  // SPA puro (sin proceso Node en producción): más liviano de operar en un
+  // droplet pequeño a costa de perder SSR/SEO en el home público.
+  ssr: false,
+
   runtimeConfig: {
     // Solo disponible en el servidor (SSR). Dentro de Docker, el backend
     // se alcanza por el nombre del servicio, no por "localhost".
@@ -16,6 +20,8 @@ export default defineNuxtConfig({
   },
 
   app: {
+    // "/" en desarrollo; "/directorio/" quedó montado bajo esa ruta en producción.
+    baseURL: process.env.NUXT_APP_BASE_URL || "/",
     head: {
       title: "Tribu Paridas",
       htmlAttrs: { lang: "es" },

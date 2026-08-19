@@ -64,10 +64,10 @@ function changePage(next: number) {
     <p class="mt-1 text-sm text-muted">Aprueba, rechaza o revisa los emprendimientos publicados.</p>
 
     <div class="mt-4 flex gap-2">
-      <button class="btn-outline" :class="statusFilter === '' && '!border-pink !text-pink'" @click="statusFilter = ''">Todos</button>
-      <button class="btn-outline" :class="statusFilter === 'pending' && '!border-pink !text-pink'" @click="statusFilter = 'pending'">Pendientes</button>
-      <button class="btn-outline" :class="statusFilter === 'approved' && '!border-pink !text-pink'" @click="statusFilter = 'approved'">Aprobados</button>
-      <button class="btn-outline" :class="statusFilter === 'rejected' && '!border-pink !text-pink'" @click="statusFilter = 'rejected'">Rechazados</button>
+      <button class="btn-outline" :class="statusFilter === '' && '!border-gold !text-gold'" @click="statusFilter = ''">Todos</button>
+      <button class="btn-outline" :class="statusFilter === 'pending' && '!border-gold !text-gold'" @click="statusFilter = 'pending'">Pendientes</button>
+      <button class="btn-outline" :class="statusFilter === 'approved' && '!border-gold !text-gold'" @click="statusFilter = 'approved'">Aprobados</button>
+      <button class="btn-outline" :class="statusFilter === 'rejected' && '!border-gold !text-gold'" @click="statusFilter = 'rejected'">Rechazados</button>
     </div>
 
     <LoadingSpinner v-if="loading" />

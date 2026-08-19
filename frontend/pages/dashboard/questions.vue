@@ -18,11 +18,11 @@ const filtered = computed(() => {
     <p class="mt-1 text-sm text-muted">Responde las preguntas de tu comunidad.</p>
 
     <div class="mt-4 flex gap-2">
-      <button class="btn-outline" :class="filter === 'all' && '!border-pink !text-pink'" @click="filter = 'all'">Todas</button>
-      <button class="btn-outline" :class="filter === 'pending' && '!border-pink !text-pink'" @click="filter = 'pending'">
+      <button class="btn-outline" :class="filter === 'all' && '!border-gold !text-gold'" @click="filter = 'all'">Todas</button>
+      <button class="btn-outline" :class="filter === 'pending' && '!border-gold !text-gold'" @click="filter = 'pending'">
         Sin responder ({{ questionsStore.pendingCount }})
       </button>
-      <button class="btn-outline" :class="filter === 'answered' && '!border-pink !text-pink'" @click="filter = 'answered'">Respondidas</button>
+      <button class="btn-outline" :class="filter === 'answered' && '!border-gold !text-gold'" @click="filter = 'answered'">Respondidas</button>
     </div>
 
     <div class="card mt-6 p-5">

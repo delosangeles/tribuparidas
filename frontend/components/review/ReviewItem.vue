@@ -12,7 +12,7 @@ function formatDate(value: string) {
   <div class="border-b border-line py-4 last:border-0">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
-        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-pink-light text-sm font-semibold text-pink">
+        <span class="flex h-9 w-9 items-center justify-center rounded-full bg-gold-light text-sm font-semibold text-gold">
           {{ review.user_name?.charAt(0) || "?" }}
         </span>
         <div>

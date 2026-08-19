@@ -9,7 +9,7 @@ defineProps<{ category: Category }>();
     :to="`/businesses?category=${category.slug}`"
     class="flex flex-col items-center gap-2 text-center"
   >
-    <span class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-pink-light text-pink transition hover:bg-pink hover:text-white">
+    <span class="flex h-16 w-16 items-center justify-center overflow-hidden rounded-full bg-gold-light text-gold transition hover:bg-gold hover:text-white">
       <img v-if="category.image" :src="category.image" :alt="category.name" class="h-full w-full object-cover" />
       <AppIcon v-else name="box" :size="24" />
     </span>

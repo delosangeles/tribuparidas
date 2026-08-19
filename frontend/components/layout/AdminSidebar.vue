@@ -18,7 +18,7 @@ async function handleLogout() {
   <aside class="flex w-full shrink-0 flex-col gap-1 border-line bg-white p-4 md:h-full md:w-64 md:border-r">
     <p class="flex items-center gap-2 px-3 pb-4 text-sm font-bold text-ink">
       <span class="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-white">
-        <AppIcon name="heart-filled" :size="14" />
+        <AppIcon name="logo" :size="14" />
       </span>
       Panel de administración
     </p>
@@ -26,8 +26,8 @@ async function handleLogout() {
       v-for="link in links"
       :key="link.to"
       :to="link.to"
-      class="flex items-center gap-3 rounded-xl2 px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-pink-light hover:text-pink"
-      active-class="!bg-pink-light !text-pink"
+      class="flex items-center gap-3 rounded-xl2 px-3 py-2.5 text-sm font-medium text-muted transition hover:bg-gold-light hover:text-gold"
+      active-class="!bg-gold-light !text-gold"
     >
       <AppIcon :name="link.icon" :size="18" />
       {{ link.label }}

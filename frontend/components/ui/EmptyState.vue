@@ -7,7 +7,7 @@ withDefaults(
 
 <template>
   <div class="flex flex-col items-center justify-center gap-3 rounded-xl2 border border-dashed border-line bg-white/60 px-6 py-14 text-center">
-    <span class="flex h-12 w-12 items-center justify-center rounded-full bg-pink-light text-pink">
+    <span class="flex h-12 w-12 items-center justify-center rounded-full bg-gold-light text-gold">
       <AppIcon :name="icon" :size="24" />
     </span>
     <p class="font-semibold text-ink">{{ title }}</p>

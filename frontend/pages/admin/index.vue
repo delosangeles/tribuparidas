@@ -38,13 +38,13 @@ const { data } = await useAsyncData("admin-overview", async () => {
     <div class="mt-8 card p-5">
       <div class="flex items-center justify-between">
         <p class="font-semibold text-ink">Emprendimientos recientes</p>
-        <NuxtLink to="/admin/businesses" class="text-sm font-semibold text-pink hover:underline">Ver todos</NuxtLink>
+        <NuxtLink to="/admin/businesses" class="text-sm font-semibold text-gold hover:underline">Ver todos</NuxtLink>
       </div>
 
       <div class="mt-4 divide-y divide-line">
         <div v-for="business in data?.recent" :key="business.id" class="flex items-center justify-between py-3">
           <div class="flex items-center gap-3">
-            <span class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-pink-light text-pink">
+            <span class="flex h-10 w-10 items-center justify-center overflow-hidden rounded-full bg-gold-light text-gold">
               <img v-if="business.logo" :src="business.logo" class="h-full w-full object-cover" />
               <AppIcon v-else name="briefcase" :size="16" />
             </span>
