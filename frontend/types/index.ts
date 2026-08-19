@@ -23,6 +23,15 @@ export interface Category {
 
 export type BusinessStatus = "pending" | "approved" | "rejected";
 
+export type BenefitType =
+  | "descuento"
+  | "envio_gratis"
+  | "promocion"
+  | "precio_especial"
+  | "beneficio_exclusivo"
+  | "otro"
+  | "";
+
 export interface BusinessImage {
   id: number;
   business: number;
@@ -51,6 +60,13 @@ export interface Business {
   opening_hours: string;
   status: BusinessStatus;
   average_rating: string;
+  home_delivery: boolean;
+  tribe_benefit: boolean;
+  benefit_type: BenefitType;
+  benefit_detail: string;
+  is_mama_tribu: boolean;
+  responsible_name: string;
+  tribe_recommended: boolean;
   images?: BusinessImage[];
   created_at: string;
   updated_at?: string;
@@ -68,21 +84,15 @@ export interface BusinessFormPayload {
   facebook: string;
   website: string;
   opening_hours: string;
+  home_delivery: boolean;
+  tribe_benefit: boolean;
+  benefit_type: BenefitType;
+  benefit_detail: string;
+  is_mama_tribu: boolean;
+  responsible_name: string;
+  tribe_recommended: boolean;
   logo?: File | null;
   cover_image?: File | null;
-}
-
-export interface Product {
-  id: number;
-  business: number;
-  name: string;
-  slug: string;
-  description: string;
-  image: string | null;
-  price: string;
-  is_active: boolean;
-  created_at: string;
-  updated_at: string;
 }
 
 export interface Answer {

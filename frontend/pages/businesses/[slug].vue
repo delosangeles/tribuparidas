@@ -1,9 +1,8 @@
 <script setup lang="ts">
 import { businessService } from "~/services/business.service";
-import { productService } from "~/services/product.service";
 import { questionService } from "~/services/question.service";
 import { reviewService } from "~/services/review.service";
-import type { Product, Question, Review } from "~/types";
+import type { Question, Review } from "~/types";
 
 const route = useRoute();
 const slug = route.params.slug as string;
@@ -18,16 +17,23 @@ if (error.value) {
   throw createError({ statusCode: 404, statusMessage: "Emprendimiento no encontrado" });
 }
 
+const BENEFIT_LABELS: Record<string, string> = {
+  descuento: "Descuento",
+  envio_gratis: "Envío gratis",
+  promocion: "Promoción",
+  precio_especial: "Precio especial",
+  beneficio_exclusivo: "Beneficio exclusivo",
+  otro: "Beneficio especial",
+};
+
 const tabs = [
   { key: "inicio", label: "Inicio" },
-  { key: "productos", label: "Productos" },
   { key: "sobre", label: "Sobre mí" },
   { key: "opiniones", label: "Opiniones" },
   { key: "preguntas", label: "Preguntas" },
 ];
 const activeTab = ref("inicio");
 
-const products = ref<Product[]>([]);
 const reviews = ref<Review[]>([]);
 const questions = ref<Question[]>([]);
 const isFavorite = ref(false);
@@ -37,12 +43,10 @@ async function loadSecondaryData() {
   if (!business.value) return;
   loadingSecondary.value = true;
   try {
-    const [productsRes, reviewsRes, questionsRes] = await Promise.all([
-      productService.listByBusinessSlug(business.value.slug),
+    const [reviewsRes, questionsRes] = await Promise.all([
       reviewService.listByBusiness(business.value.id),
       questionService.listByBusiness(business.value.id),
     ]);
-    products.value = productsRes.data.results;
     reviews.value = reviewsRes.data.results;
     questions.value = questionsRes.data.results;
   } finally {
@@ -130,10 +134,15 @@ function shareBusiness() {
           </span>
         </span>
         <div>
-          <h1 class="text-2xl font-bold text-ink">{{ business.name }}</h1>
+          <div class="flex flex-wrap items-center gap-2">
+            <h1 class="text-2xl font-bold text-ink">{{ business.name }}</h1>
+            <span v-if="business.is_mama_tribu" class="badge bg-gold-light text-gold">Mamá Tribu</span>
+            <span v-if="business.tribe_recommended" class="badge bg-gold-light text-gold">Recomendado por la tribu</span>
+          </div>
           <p class="text-sm text-muted">{{ business.category.name }}</p>
           <div class="mt-2 flex flex-wrap items-center gap-3 text-sm text-muted">
             <span class="inline-flex items-center gap-1"><AppIcon name="location" :size="14" />{{ business.city }}</span>
+            <span v-if="business.home_delivery" class="inline-flex items-center gap-1"><AppIcon name="check-circle" :size="14" />Domicilio</span>
             <a v-if="business.instagram" :href="`https://instagram.com/${business.instagram.replace('@','')}`" target="_blank" class="inline-flex items-center gap-1 hover:text-gold">
               <AppIcon name="instagram" :size="14" />@{{ business.instagram.replace('@','') }}
             </a>
@@ -188,32 +197,25 @@ function shareBusiness() {
           <h2 class="font-semibold text-ink">Sobre el emprendimiento</h2>
           <p class="mt-2 whitespace-pre-line text-sm text-muted">{{ business.description || "Este emprendimiento aún no agregó una descripción." }}</p>
 
-          <div class="mt-8 flex items-center justify-between">
-            <h2 class="font-semibold text-ink">Productos destacados</h2>
-            <button class="text-sm font-semibold text-gold hover:underline" @click="activeTab = 'productos'">Ver todos</button>
+          <div v-if="business.tribe_benefit" class="mt-6 rounded-xl2 border border-gold/30 bg-gold-light/40 p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-gold-dark">
+              <AppIcon name="heart-filled" :size="16" />
+              Beneficio Tribu: {{ BENEFIT_LABELS[business.benefit_type] || "Beneficio especial" }}
+            </p>
+            <p v-if="business.benefit_detail" class="mt-1 text-sm text-ink">{{ business.benefit_detail }}</p>
           </div>
-          <div v-if="products.length" class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <ProductCard v-for="product in products.slice(0, 3)" :key="product.id" :product="product" />
-          </div>
-          <p v-else class="mt-2 text-sm text-muted">Todavía no hay productos publicados.</p>
-        </div>
-
-        <div v-else-if="activeTab === 'productos'">
-          <h2 class="font-semibold text-ink">Productos</h2>
-          <div v-if="products.length" class="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-3">
-            <ProductCard v-for="product in products" :key="product.id" :product="product" />
-          </div>
-          <EmptyState v-else icon="box" title="Sin productos" description="Este emprendimiento aún no publica productos." class="mt-4" />
         </div>
 
         <div v-else-if="activeTab === 'sobre'">
           <h2 class="font-semibold text-ink">Sobre mí</h2>
           <p class="mt-2 whitespace-pre-line text-sm text-muted">{{ business.description || "Sin información adicional." }}</p>
           <dl class="mt-4 space-y-2 text-sm">
-            <div v-if="business.address" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Dirección</dt><dd class="text-ink">{{ business.address }}</dd></div>
-            <div v-if="business.department" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Departamento</dt><dd class="text-ink">{{ business.department }}</dd></div>
-            <div v-if="business.opening_hours" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Horario</dt><dd class="text-ink">{{ business.opening_hours }}</dd></div>
-            <div v-if="business.website" class="flex gap-2"><dt class="w-28 shrink-0 text-muted">Web</dt><dd><a :href="business.website" target="_blank" class="text-gold hover:underline">{{ business.website }}</a></dd></div>
+            <div v-if="business.address" class="flex gap-2"><dt class="w-32 shrink-0 text-muted">Dirección</dt><dd class="text-ink">{{ business.address }}</dd></div>
+            <div v-if="business.department" class="flex gap-2"><dt class="w-32 shrink-0 text-muted">Departamento</dt><dd class="text-ink">{{ business.department }}</dd></div>
+            <div v-if="business.opening_hours" class="flex gap-2"><dt class="w-32 shrink-0 text-muted">Horario</dt><dd class="text-ink">{{ business.opening_hours }}</dd></div>
+            <div class="flex gap-2"><dt class="w-32 shrink-0 text-muted">Domicilio</dt><dd class="text-ink">{{ business.home_delivery ? "Sí" : "No" }}</dd></div>
+            <div v-if="business.responsible_name" class="flex gap-2"><dt class="w-32 shrink-0 text-muted">Responsable</dt><dd class="text-ink">{{ business.responsible_name }}</dd></div>
+            <div v-if="business.website" class="flex gap-2"><dt class="w-32 shrink-0 text-muted">Web</dt><dd><a :href="business.website" target="_blank" class="text-gold hover:underline">{{ business.website }}</a></dd></div>
           </dl>
         </div>
 

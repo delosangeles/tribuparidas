@@ -5,7 +5,6 @@ const questionsStore = useQuestionsStore();
 const links = [
   { to: "/dashboard", label: "Inicio", icon: "home" },
   { to: "/dashboard/business", label: "Mi emprendimiento", icon: "briefcase" },
-  { to: "/dashboard/products", label: "Productos", icon: "box" },
   { to: "/dashboard/gallery", label: "Galería", icon: "images" },
   { to: "/dashboard/questions", label: "Preguntas", icon: "message" },
   { to: "/dashboard/stats", label: "Estadísticas", icon: "chart" },

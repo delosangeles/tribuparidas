@@ -7,6 +7,15 @@ const emit = defineEmits<{ (e: "submit", payload: BusinessFormPayload): void }>(
 const categoriesStore = useCategoriesStore();
 await categoriesStore.fetchAll();
 
+const BENEFIT_TYPES = [
+  { value: "descuento", label: "Descuento" },
+  { value: "envio_gratis", label: "Envío gratis" },
+  { value: "promocion", label: "Promoción" },
+  { value: "precio_especial", label: "Precio especial" },
+  { value: "beneficio_exclusivo", label: "Beneficio exclusivo" },
+  { value: "otro", label: "Otro" },
+];
+
 const form = reactive({
   name: props.initial?.name || "",
   description: props.initial?.description || "",
@@ -19,7 +28,24 @@ const form = reactive({
   facebook: props.initial?.facebook || "",
   website: props.initial?.website || "",
   opening_hours: props.initial?.opening_hours || "",
+  home_delivery: props.initial?.home_delivery ?? false,
+  tribe_benefit: props.initial?.tribe_benefit ?? false,
+  benefit_type: props.initial?.benefit_type || "",
+  benefit_detail: props.initial?.benefit_detail || "",
+  is_mama_tribu: props.initial?.is_mama_tribu ?? false,
+  responsible_name: props.initial?.responsible_name || "",
+  tribe_recommended: props.initial?.tribe_recommended ?? false,
 });
+
+watch(
+  () => form.tribe_benefit,
+  (enabled) => {
+    if (!enabled) {
+      form.benefit_type = "";
+      form.benefit_detail = "";
+    }
+  }
+);
 
 const logoFile = ref<File | null>(null);
 const coverFile = ref<File | null>(null);
@@ -83,16 +109,67 @@ function handleSubmit() {
         <input v-model="form.facebook" type="text" class="field" />
       </div>
       <div>
-        <label class="mb-1 block text-sm font-medium text-ink">Sitio web</label>
+        <label class="mb-1 block text-sm font-medium text-ink">Sitio web (opcional)</label>
         <input v-model="form.website" type="url" placeholder="https://" class="field" />
       </div>
-      <div class="sm:col-span-2">
+      <div>
         <label class="mb-1 block text-sm font-medium text-ink">Horario de atención</label>
         <input v-model="form.opening_hours" type="text" placeholder="Lun-Sáb 9am-6pm" class="field" />
+      </div>
+      <div>
+        <label class="mb-1 block text-sm font-medium text-ink">¿Ofrece domicilio?</label>
+        <select v-model="form.home_delivery" class="field">
+          <option :value="true">Sí</option>
+          <option :value="false">No</option>
+        </select>
       </div>
       <div class="sm:col-span-2">
         <label class="mb-1 block text-sm font-medium text-ink">Descripción</label>
         <textarea v-model="form.description" rows="4" class="field" placeholder="Cuéntale a la comunidad qué haces..." />
+      </div>
+    </div>
+
+    <div class="rounded-xl2 border border-line p-4">
+      <p class="mb-3 text-sm font-semibold text-ink">Comunidad Tribu</p>
+      <div class="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label class="mb-1 block text-sm font-medium text-ink">¿Emprendimiento de mamá tribu?</label>
+          <select v-model="form.is_mama_tribu" class="field">
+            <option :value="true">Sí</option>
+            <option :value="false">No</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-ink">¿Recomendado por la tribu?</label>
+          <select v-model="form.tribe_recommended" class="field">
+            <option :value="true">Sí</option>
+            <option :value="false">No</option>
+          </select>
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-ink">Responsable</label>
+          <input v-model="form.responsible_name" type="text" placeholder="Nombre de la persona de contacto" class="field" />
+        </div>
+        <div>
+          <label class="mb-1 block text-sm font-medium text-ink">¿Tiene beneficio tribu?</label>
+          <select v-model="form.tribe_benefit" class="field">
+            <option :value="true">Sí</option>
+            <option :value="false">No</option>
+          </select>
+        </div>
+        <template v-if="form.tribe_benefit">
+          <div>
+            <label class="mb-1 block text-sm font-medium text-ink">Tipo de beneficio</label>
+            <select v-model="form.benefit_type" required class="field">
+              <option value="" disabled>Selecciona una opción</option>
+              <option v-for="opt in BENEFIT_TYPES" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
+            </select>
+          </div>
+          <div class="sm:col-span-2">
+            <label class="mb-1 block text-sm font-medium text-ink">Detalle del beneficio</label>
+            <textarea v-model="form.benefit_detail" rows="2" class="field" placeholder="Ej: 10% de descuento para mamás de la tribu" />
+          </div>
+        </template>
       </div>
     </div>
 

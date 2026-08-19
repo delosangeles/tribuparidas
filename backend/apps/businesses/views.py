@@ -1,7 +1,9 @@
 from django.shortcuts import get_object_or_404
-from rest_framework import permissions, status, viewsets
+from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+
+MAX_IMAGES_PER_BUSINESS = 4
 
 from .models import Business, BusinessImage
 from .permissions import IsBusinessOwner
@@ -71,7 +73,12 @@ class MyBusinessImageViewSet(viewsets.ModelViewSet):
         return BusinessImage.objects.filter(business=self.get_business())
 
     def perform_create(self, serializer):
-        serializer.save(business=self.get_business())
+        business = self.get_business()
+        if business.images.count() >= MAX_IMAGES_PER_BUSINESS:
+            raise serializers.ValidationError(
+                {"image": f"Máximo {MAX_IMAGES_PER_BUSINESS} imágenes por emprendimiento."}
+            )
+        serializer.save(business=business)
 
 
 class AdminBusinessViewSet(viewsets.ReadOnlyModelViewSet):

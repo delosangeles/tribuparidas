@@ -29,6 +29,11 @@ class BusinessListSerializer(serializers.ModelSerializer):
             "department",
             "average_rating",
             "status",
+            "home_delivery",
+            "tribe_benefit",
+            "benefit_type",
+            "is_mama_tribu",
+            "tribe_recommended",
             "created_at",
         ]
 
@@ -59,6 +64,13 @@ class BusinessDetailSerializer(serializers.ModelSerializer):
             "opening_hours",
             "status",
             "average_rating",
+            "home_delivery",
+            "tribe_benefit",
+            "benefit_type",
+            "benefit_detail",
+            "is_mama_tribu",
+            "responsible_name",
+            "tribe_recommended",
             "images",
             "created_at",
             "updated_at",
@@ -92,9 +104,25 @@ class BusinessWriteSerializer(serializers.ModelSerializer):
             "opening_hours",
             "status",
             "average_rating",
+            "home_delivery",
+            "tribe_benefit",
+            "benefit_type",
+            "benefit_detail",
+            "is_mama_tribu",
+            "responsible_name",
+            "tribe_recommended",
             "slug",
         ]
         read_only_fields = ["id", "status", "average_rating", "slug"]
+
+    def validate(self, attrs):
+        benefit_type = attrs.get("benefit_type", getattr(self.instance, "benefit_type", ""))
+        tribe_benefit = attrs.get("tribe_benefit", getattr(self.instance, "tribe_benefit", False))
+        if benefit_type and not tribe_benefit:
+            raise serializers.ValidationError(
+                {"benefit_type": "Solo aplica si 'Beneficio Tribu' está activado."}
+            )
+        return attrs
 
     def to_representation(self, instance):
         return BusinessDetailSerializer(instance, context=self.context).data

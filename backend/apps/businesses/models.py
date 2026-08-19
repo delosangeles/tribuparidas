@@ -13,6 +13,14 @@ class Business(TimeStampedModel):
         APPROVED = "approved", "Aprobado"
         REJECTED = "rejected", "Rechazado"
 
+    class BenefitType(models.TextChoices):
+        DESCUENTO = "descuento", "Descuento"
+        ENVIO_GRATIS = "envio_gratis", "Envío gratis"
+        PROMOCION = "promocion", "Promoción"
+        PRECIO_ESPECIAL = "precio_especial", "Precio especial"
+        BENEFICIO_EXCLUSIVO = "beneficio_exclusivo", "Beneficio exclusivo"
+        OTRO = "otro", "Otro"
+
     owner = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="businesses"
     )
@@ -34,6 +42,17 @@ class Business(TimeStampedModel):
     opening_hours = models.CharField(max_length=255, blank=True)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     average_rating = models.DecimalField(max_digits=3, decimal_places=2, default=0)
+
+    # Campos del directorio de beneficios de la tribu
+    home_delivery = models.BooleanField("¿Ofrece domicilio?", default=False)
+    tribe_benefit = models.BooleanField("¿Tiene beneficio tribu?", default=False)
+    benefit_type = models.CharField(
+        "Tipo de beneficio", max_length=20, choices=BenefitType.choices, blank=True
+    )
+    benefit_detail = models.TextField("Detalle del beneficio", blank=True)
+    is_mama_tribu = models.BooleanField("¿Emprendimiento de mamá tribu?", default=False)
+    responsible_name = models.CharField("Responsable", max_length=150, blank=True)
+    tribe_recommended = models.BooleanField("¿Recomendado por la tribu?", default=False)
 
     class Meta:
         ordering = ["-created_at"]

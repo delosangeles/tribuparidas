@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { productService } from "~/services/product.service";
 import { reviewService } from "~/services/review.service";
 import type { Review } from "~/types";
 
@@ -12,16 +11,10 @@ await questionsStore.fetchMyQuestions();
 const business = computed(() => businessStore.primaryBusiness);
 
 const reviews = ref<Review[]>([]);
-const productsCount = ref(0);
 
 if (business.value) {
-  const [reviewsRes, productsRes] = await Promise.all([
-    reviewService.listByBusiness(business.value.id, { page_size: 100 }),
-    productService.myList(business.value.id),
-  ]);
-  reviews.value = reviewsRes.data.results;
-  const productsData: any = productsRes.data;
-  productsCount.value = Array.isArray(productsData) ? productsData.length : productsData.count ?? 0;
+  const { data } = await reviewService.listByBusiness(business.value.id, { page_size: 100 });
+  reviews.value = data.results;
 }
 
 const ratingDistribution = computed(() => {
@@ -47,7 +40,7 @@ const ratingDistribution = computed(() => {
       <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Rating promedio" :value="business.average_rating" icon="star" />
         <StatCard label="Opiniones totales" :value="reviews.length" icon="message" />
-        <StatCard label="Productos activos" :value="productsCount" icon="box" />
+        <StatCard label="Fotos en galería" :value="`${business.images?.length ?? 0}/4`" icon="images" />
         <StatCard label="Preguntas respondidas" :value="`${questionsStore.myQuestions.length - questionsStore.pendingCount}/${questionsStore.myQuestions.length}`" icon="check-circle" />
       </div>
 

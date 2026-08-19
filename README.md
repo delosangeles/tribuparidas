@@ -44,7 +44,6 @@ tribuparidas/
 │       ├── users/             # Custom User (login por email) + JWT
 │       ├── categories/
 │       ├── businesses/        # Business + BusinessImage
-│       ├── products/
 │       ├── questions/         # Question + Answer
 │       └── reviews/           # Review + Favorite
 │
@@ -54,7 +53,7 @@ tribuparidas/
 │   ├── .env.example
 │   ├── nuxt.config.ts
 │   ├── pages/                 # rutas (Inicio, Emprendimientos, Dashboard, Admin, ...)
-│   ├── components/            # ui/, business/, product/, question/, review/, layout/
+│   ├── components/            # ui/, business/, question/, review/, layout/
 │   ├── composables/
 │   ├── stores/                 # Pinia: auth, business, categories, questions
 │   ├── services/                # una capa por recurso, toda la comunicación HTTP vive aquí
@@ -132,14 +131,14 @@ Crea (de forma idempotente, se puede correr varias veces sin duplicar):
 
 - 7 categorías: Repostería, Moda, Belleza, Artesanías, Comida, Hogar, Servicios.
 - 5 emprendimientos aprobados con logo, portada y galería (imágenes generadas con Pillow): Dulces de Stephania, Luna & Sol, Vela Viva, Verde Hogar, Manos que crean.
-- Productos, una pregunta respondida y varias opiniones por emprendimiento.
+- Una pregunta respondida y varias opiniones por emprendimiento.
 - 3 usuarios "visitantes" y un usuario "emprendedor" dueño por cada negocio (contraseña `ClaveSegura123`).
 
 Después de cargar los datos, `http://localhost:3000` muestra contenido real de inmediato.
 
 ## 9. Ejecutar tests
 
-Backend (pytest-django, cubre registro, login, permisos de negocio, productos, preguntas/respuestas y reviews):
+Backend (pytest-django, cubre registro, login, permisos de negocio, preguntas/respuestas y reviews):
 
 ```bash
 docker compose exec backend pytest
@@ -205,5 +204,5 @@ Flujo típico: hacer cambios en local → `git push` → correr `deploy-backend.
 ## Notas de diseño
 
 - **Imágenes**: se manejan con Pillow en el backend (`MEDIA_ROOT`/`MEDIA_URL`, servidas por Django en desarrollo dentro de un volumen Docker persistente). La arquitectura queda preparada para migrar a S3/Cloudinary vía `django-storages` sin reescribir el resto del código (ver comentario en `backend/config/settings/base.py`).
-- **Estadísticas del dashboard**: solo se muestran métricas reales que existen en el modelo de datos (preguntas, productos, opiniones, calificación promedio). No se simula un contador de "visitas" porque no hay un modelo de tracking de visitas en el alcance del proyecto — agregarlo sería una extensión futura razonable, no un dato inventado en el frontend.
+- **Estadísticas del dashboard**: solo se muestran métricas reales que existen en el modelo de datos (preguntas, galería, opiniones, calificación promedio). No se simula un contador de "visitas" porque no hay un modelo de tracking de visitas en el alcance del proyecto — agregarlo sería una extensión futura razonable, no un dato inventado en el frontend.
 - **Categorías**: las borra o edita únicamente un administrador (`IsAdminOrReadOnly`); si una categoría tiene emprendimientos asociados, el borrado falla a propósito (`on_delete=PROTECT`) para no dejar negocios huérfanos — el panel admin explica esto y sugiere desactivarla en su lugar.

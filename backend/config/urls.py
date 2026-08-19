@@ -15,7 +15,6 @@ urlpatterns = [
     path("api/", include("apps.users.urls")),
     path("api/", include("apps.categories.urls")),
     path("api/", include("apps.businesses.urls")),
-    path("api/", include("apps.products.urls")),
     path("api/", include("apps.questions.urls")),
     path("api/", include("apps.reviews.urls")),
 ]

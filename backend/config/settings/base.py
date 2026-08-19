@@ -49,7 +49,6 @@ INSTALLED_APPS = [
     "apps.users",
     "apps.categories",
     "apps.businesses",
-    "apps.products",
     "apps.questions",
     "apps.reviews",
 ]

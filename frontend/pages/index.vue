@@ -27,7 +27,7 @@ function submitSearch() {
             <span class="text-gold">hechos con pasión ♡</span>
           </h1>
           <p class="mt-4 max-w-md text-muted">
-            Conoce productos y servicios de personas que están construyendo sus propios sueños.
+            Conoce emprendimientos y servicios de personas que están construyendo sus propios sueños.
           </p>
 
           <form class="mt-6 flex max-w-lg gap-2 rounded-full border border-line bg-white p-1.5 shadow-soft" @submit.prevent="submitSearch">
@@ -37,7 +37,7 @@ function submitSearch() {
             <input
               v-model="searchQuery"
               type="text"
-              placeholder="Buscar emprendimiento, producto o categoría..."
+              placeholder="Buscar emprendimiento o categoría..."
               class="flex-1 border-none bg-transparent px-2 text-sm outline-none"
             />
             <button type="submit" class="btn-primary">Buscar</button>

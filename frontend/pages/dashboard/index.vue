@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { productService } from "~/services/product.service";
 import { reviewService } from "~/services/review.service";
 import type { Review } from "~/types";
 
@@ -12,20 +11,15 @@ await businessStore.fetchMyBusinesses();
 await questionsStore.fetchMyQuestions();
 
 const business = computed(() => businessStore.primaryBusiness);
-const productsCount = ref(0);
 const reviews = ref<Review[]>([]);
 
 if (business.value) {
-  const [productsRes, reviewsRes] = await Promise.all([
-    productService.myList(business.value.id),
-    reviewService.listByBusiness(business.value.id),
-  ]);
-  const productsData: any = productsRes.data;
-  productsCount.value = Array.isArray(productsData) ? productsData.length : productsData.count ?? productsData.results?.length ?? 0;
-  reviews.value = reviewsRes.data.results;
+  const { data } = await reviewService.listByBusiness(business.value.id);
+  reviews.value = data.results;
 }
 
 const answeredCount = computed(() => questionsStore.myQuestions.filter((q) => q.answer).length);
+const imagesCount = computed(() => business.value?.images?.length ?? 0);
 </script>
 
 <template>
@@ -61,7 +55,7 @@ const answeredCount = computed(() => questionsStore.myQuestions.filter((q) => q.
       <div class="mt-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <StatCard label="Preguntas" :value="questionsStore.myQuestions.length" icon="message" :trend="`${answeredCount} respondidas`" />
         <StatCard label="Sin responder" :value="questionsStore.pendingCount" icon="clock" :trend-positive="false" />
-        <StatCard label="Productos" :value="productsCount" icon="box" />
+        <StatCard label="Fotos en galería" :value="`${imagesCount}/4`" icon="images" />
         <StatCard label="Opiniones" :value="reviews.length" icon="star" :trend="`${business.average_rating} ★ promedio`" />
       </div>
 
