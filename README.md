@@ -176,9 +176,31 @@ docker compose exec frontend npm run test
 ## 12. Cómo se comunican frontend y backend
 
 - El **navegador** llama a la API usando `NUXT_PUBLIC_API_BASE` (`http://localhost:8000/api`), porque necesita una URL alcanzable desde fuera de Docker.
-- El **contenedor del frontend**, cuando renderiza páginas en el servidor (SSR), usa `NUXT_API_BASE_SERVER` (`http://backend:8000/api`) — dentro de la red de Docker, `localhost` apuntaría al propio contenedor del frontend, no al backend. Esta separación se resuelve en `nuxt.config.ts` (`runtimeConfig.apiBaseServer` vs `runtimeConfig.public.apiBase`) y en `plugins/api.ts` (`import.meta.server ? apiBaseServer : apiBase`).
+- El frontend corre en modo **SPA puro** (`ssr: false` en `nuxt.config.ts`): no hay renderizado en servidor, todo se resuelve en el navegador con la API definida arriba. `runtimeConfig.apiBaseServer`/`NUXT_API_BASE_SERVER` quedan en el código por si en el futuro se reactiva SSR (útil dentro de Docker, donde `localhost` apuntaría al contenedor del frontend y no al backend), pero hoy no se usan en runtime.
 - CORS está configurado en el backend con `django-cors-headers` y `CORS_ALLOWED_ORIGINS` explícito por variable de entorno (nunca `*`).
 - Toda la lógica de llamadas HTTP vive en `frontend/services/*.ts` — ningún componente hace `fetch`/`axios` directamente.
+
+## 13. Despliegue a producción
+
+En producción (`tribuparidas.com/directorio`) **no se usa Docker**: el droplet tiene poca RAM, así que el backend corre bare-metal (venv + Gunicorn vía systemd) y el frontend se compila como sitio estático (SPA) servido directo por nginx, sin proceso Node corriendo. Ver `[Tribu Paridas producción DigitalOcean]` en la memoria del proyecto para el detalle completo de la arquitectura del servidor.
+
+**Backend** — conectado por SSH al servidor:
+
+```bash
+sudo /opt/tribuparidas/deploy-backend.sh
+```
+
+Hace `git pull`, reinstala dependencias si cambiaron, corre migraciones, recolecta estáticos y reinicia el servicio.
+
+**Frontend** — desde tu máquina, en la raíz del repo (Git Bash):
+
+```bash
+./deploy-frontend.sh
+```
+
+Compila el sitio estático con las variables de entorno de producción y lo sube al servidor por SCP. Requiere la llave SSH `~/.ssh/id_tribuparidas` autorizada en el droplet.
+
+Flujo típico: hacer cambios en local → `git push` → correr `deploy-backend.sh` en el servidor si tocaste `backend/` → correr `./deploy-frontend.sh` en local si tocaste `frontend/`.
 
 ## Notas de diseño
 
