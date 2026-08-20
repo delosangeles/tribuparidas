@@ -59,4 +59,14 @@ export const businessService = {
   reject(id: number) {
     return useApi().patch<Business>(`/admin/businesses/${id}/reject/`);
   },
+  adminCreate(payload: BusinessFormPayload & { status?: string }) {
+    return useApi().post<Business>("/admin/businesses/", toFormData(payload), {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
+  adminUpdate(id: number, payload: Partial<BusinessFormPayload> & { status?: string }) {
+    return useApi().patch<Business>(`/admin/businesses/${id}/`, toFormData(payload), {
+      headers: { "Content-Type": "multipart/form-data" },
+    });
+  },
 };

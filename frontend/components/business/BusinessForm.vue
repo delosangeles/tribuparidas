@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import type { Business, BusinessFormPayload } from "~/types";
 
-const props = defineProps<{ initial?: Business | null; submitLabel: string; loading?: boolean }>();
-const emit = defineEmits<{ (e: "submit", payload: BusinessFormPayload): void }>();
+const props = withDefaults(
+  defineProps<{ initial?: Business | null; submitLabel: string; loading?: boolean; showStatus?: boolean }>(),
+  { showStatus: false }
+);
+const emit = defineEmits<{ (e: "submit", payload: BusinessFormPayload & { status?: string }): void }>();
 
 const categoriesStore = useCategoriesStore();
 await categoriesStore.fetchAll();
@@ -14,6 +17,12 @@ const BENEFIT_TYPES = [
   { value: "precio_especial", label: "Precio especial" },
   { value: "beneficio_exclusivo", label: "Beneficio exclusivo" },
   { value: "otro", label: "Otro" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "approved", label: "Aprobado" },
+  { value: "pending", label: "Pendiente" },
+  { value: "rejected", label: "Rechazado" },
 ];
 
 const form = reactive({
@@ -35,6 +44,7 @@ const form = reactive({
   is_mama_tribu: props.initial?.is_mama_tribu ?? false,
   responsible_name: props.initial?.responsible_name || "",
   tribe_recommended: props.initial?.tribe_recommended ?? false,
+  status: props.initial?.status || "approved",
 });
 
 watch(
@@ -82,6 +92,12 @@ function handleSubmit() {
         <label class="mb-1 block text-sm font-medium text-ink">Categoría</label>
         <select v-model="form.category" required class="field">
           <option v-for="c in categoriesStore.items" :key="c.id" :value="c.id">{{ c.name }}</option>
+        </select>
+      </div>
+      <div v-if="showStatus">
+        <label class="mb-1 block text-sm font-medium text-ink">Estado</label>
+        <select v-model="form.status" class="field">
+          <option v-for="opt in STATUS_OPTIONS" :key="opt.value" :value="opt.value">{{ opt.label }}</option>
         </select>
       </div>
       <div>

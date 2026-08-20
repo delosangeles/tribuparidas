@@ -126,3 +126,11 @@ class BusinessWriteSerializer(serializers.ModelSerializer):
 
     def to_representation(self, instance):
         return BusinessDetailSerializer(instance, context=self.context).data
+
+
+class AdminBusinessWriteSerializer(BusinessWriteSerializer):
+    """Igual que BusinessWriteSerializer, pero permite al admin crear/editar
+    emprendimientos de cualquier usuario y decidir el estado directamente."""
+
+    class Meta(BusinessWriteSerializer.Meta):
+        read_only_fields = ["id", "average_rating", "slug"]

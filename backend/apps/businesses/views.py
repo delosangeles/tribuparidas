@@ -8,6 +8,7 @@ MAX_IMAGES_PER_BUSINESS = 4
 from .models import Business, BusinessImage
 from .permissions import IsBusinessOwner
 from .serializers import (
+    AdminBusinessWriteSerializer,
     BusinessDetailSerializer,
     BusinessImageSerializer,
     BusinessListSerializer,
@@ -81,15 +82,27 @@ class MyBusinessImageViewSet(viewsets.ModelViewSet):
         serializer.save(business=business)
 
 
-class AdminBusinessViewSet(viewsets.ReadOnlyModelViewSet):
-    """/api/admin/businesses/ — moderación: listar en cualquier estado, aprobar/rechazar."""
+class AdminBusinessViewSet(viewsets.ModelViewSet):
+    """/api/admin/businesses/ — moderación, alta directa y edición de cualquier emprendimiento."""
 
-    serializer_class = BusinessDetailSerializer
     permission_classes = [permissions.IsAdminUser]
     filterset_fields = ["status", "category__slug", "city"]
     search_fields = ["name", "owner__email", "city"]
     ordering_fields = ["created_at", "name", "status"]
     queryset = Business.objects.all().select_related("category", "owner")
+    http_method_names = ["get", "post", "patch", "head", "options"]
+
+    def get_serializer_class(self):
+        if self.action in ("create", "update", "partial_update"):
+            return AdminBusinessWriteSerializer
+        return BusinessDetailSerializer
+
+    def perform_create(self, serializer):
+        # El admin queda como dueño (puede administrarlo luego desde su propio
+        # panel); si más adelante la emprendedora real se registra, se puede
+        # transferir el emprendimiento manualmente. El estado lo decide el
+        # admin en el formulario (por defecto "aprobado" desde el frontend).
+        serializer.save(owner=self.request.user)
 
     @action(detail=True, methods=["patch"])
     def approve(self, request, pk=None):

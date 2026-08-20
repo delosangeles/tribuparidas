@@ -11,6 +11,11 @@ const businesses = ref<Business[]>([]);
 const pagination = ref<{ next: string | null; previous: string | null }>({ next: null, previous: null });
 const actingId = ref<number | null>(null);
 
+const showForm = ref(false);
+const editing = ref<Business | null>(null);
+const formLoading = ref(false);
+const formError = ref("");
+
 async function load() {
   loading.value = true;
   try {
@@ -56,14 +61,62 @@ function changePage(next: number) {
   page.value = next;
   load();
 }
+
+function openCreate() {
+  editing.value = null;
+  formError.value = "";
+  showForm.value = true;
+}
+
+function openEdit(business: Business) {
+  editing.value = business;
+  formError.value = "";
+  showForm.value = true;
+}
+
+async function handleSubmit(payload: any) {
+  formLoading.value = true;
+  formError.value = "";
+  try {
+    if (editing.value) {
+      await businessService.adminUpdate(editing.value.id, payload);
+    } else {
+      await businessService.adminCreate(payload);
+    }
+    showForm.value = false;
+    await load();
+  } catch (err) {
+    formError.value = useErrorMessage(err);
+  } finally {
+    formLoading.value = false;
+  }
+}
 </script>
 
 <template>
   <div>
-    <h1 class="text-2xl font-bold text-ink">Emprendimientos</h1>
-    <p class="mt-1 text-sm text-muted">Aprueba, rechaza o revisa los emprendimientos publicados.</p>
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-bold text-ink">Emprendimientos</h1>
+        <p class="mt-1 text-sm text-muted">Aprueba, rechaza, edita o agrega emprendimientos directamente.</p>
+      </div>
+      <button class="btn-primary" @click="openCreate"><AppIcon name="plus" :size="16" /> Nuevo emprendimiento</button>
+    </div>
 
-    <div class="mt-4 flex gap-2">
+    <div v-if="showForm" class="card mt-6 p-6">
+      <p class="mb-4 font-semibold text-ink">{{ editing ? "Editar emprendimiento" : "Nuevo emprendimiento" }}</p>
+      <p v-if="formError" class="mb-4 text-sm text-rose-500">{{ formError }}</p>
+      <BusinessForm
+        :initial="editing"
+        show-status
+        :submit-label="editing ? 'Guardar cambios' : 'Crear emprendimiento'"
+        :loading="formLoading"
+        @submit="handleSubmit"
+      />
+      <button type="button" class="btn-ghost mt-2" @click="showForm = false">Cancelar</button>
+    </div>
+
+    <div class="mt-6 flex gap-2">
       <button class="btn-outline" :class="statusFilter === '' && '!border-gold !text-gold'" @click="statusFilter = ''">Todos</button>
       <button class="btn-outline" :class="statusFilter === 'pending' && '!border-gold !text-gold'" @click="statusFilter = 'pending'">Pendientes</button>
       <button class="btn-outline" :class="statusFilter === 'approved' && '!border-gold !text-gold'" @click="statusFilter = 'approved'">Aprobados</button>
@@ -89,8 +142,9 @@ function changePage(next: number) {
             <td class="px-4 py-3 text-muted">{{ business.city }}</td>
             <td class="px-4 py-3"><StatusBadge :status="business.status" /></td>
             <td class="px-4 py-3">
-              <div class="flex gap-2">
+              <div class="flex flex-wrap gap-2">
                 <NuxtLink :to="`/businesses/${business.slug}`" target="_blank" class="btn-ghost !px-2 !py-1">Ver</NuxtLink>
+                <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(business)">Editar</button>
                 <button
                   v-if="business.status !== 'approved'"
                   class="btn-outline !px-2 !py-1 text-xs !text-emerald-600"
