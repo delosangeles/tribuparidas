@@ -1,3 +1,6 @@
+from datetime import timedelta
+from unittest.mock import patch
+
 import pytest
 from django.contrib.auth import get_user_model
 from rest_framework import status
@@ -6,10 +9,14 @@ from rest_framework.test import APIClient
 from apps.core.models import ActivityLog
 
 from .models import Notification
+from .serializers import OPEN_REGISTRATION_END, OPEN_REGISTRATION_START
 
 User = get_user_model()
 
 pytestmark = pytest.mark.django_db
+
+OUTSIDE_LAUNCH_WINDOW = OPEN_REGISTRATION_START - timedelta(days=1)
+INSIDE_LAUNCH_WINDOW = OPEN_REGISTRATION_START + timedelta(hours=1)
 
 
 @pytest.fixture
@@ -18,21 +25,64 @@ def api():
 
 
 def test_register_creates_inactive_user_without_tokens(api):
-    response = api.post(
-        "/api/auth/register/",
-        {
-            "email": "nueva@example.com",
-            "password": "ClaveSegura123",
-            "first_name": "Nueva",
-            "last_name": "Usuaria",
-            "whatsapp": "+57 300 000 0000",
-        },
-        format="json",
-    )
+    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
+        response = api.post(
+            "/api/auth/register/",
+            {
+                "email": "nueva@example.com",
+                "password": "ClaveSegura123",
+                "first_name": "Nueva",
+                "last_name": "Usuaria",
+                "whatsapp": "+57 300 000 0000",
+            },
+            format="json",
+        )
     assert response.status_code == status.HTTP_201_CREATED
     assert "access" not in response.data
     assert "refresh" not in response.data
     user = User.objects.get(email="nueva@example.com")
+    assert user.is_active is False
+
+
+def test_register_during_launch_window_is_active_immediately(api):
+    with patch("apps.users.serializers.timezone.now", return_value=INSIDE_LAUNCH_WINDOW):
+        response = api.post(
+            "/api/auth/register/",
+            {
+                "email": "lanzamiento@example.com",
+                "password": "ClaveSegura123",
+                "first_name": "Lanzamiento",
+                "last_name": "Usuaria",
+                "whatsapp": "+57 300 000 0000",
+            },
+            format="json",
+        )
+    assert response.status_code == status.HTTP_201_CREATED
+    assert "activa" in response.data["detail"]
+    user = User.objects.get(email="lanzamiento@example.com")
+    assert user.is_active is True
+
+    login = api.post("/api/auth/login/", {"email": "lanzamiento@example.com", "password": "ClaveSegura123"}, format="json")
+    assert login.status_code == status.HTTP_200_OK
+
+
+def test_register_after_launch_window_ends_is_pending_again(api):
+    after_window = OPEN_REGISTRATION_END + timedelta(hours=1)
+    with patch("apps.users.serializers.timezone.now", return_value=after_window):
+        response = api.post(
+            "/api/auth/register/",
+            {
+                "email": "tarde@example.com",
+                "password": "ClaveSegura123",
+                "first_name": "Tarde",
+                "last_name": "Usuaria",
+                "whatsapp": "+57 300 000 0000",
+            },
+            format="json",
+        )
+    assert response.status_code == status.HTTP_201_CREATED
+    assert "revisión" in response.data["detail"]
+    user = User.objects.get(email="tarde@example.com")
     assert user.is_active is False
 
 
@@ -47,17 +97,18 @@ def test_register_rejects_duplicate_email(api):
 
 
 def test_pending_user_cannot_login(api):
-    api.post(
-        "/api/auth/register/",
-        {
-            "email": "pendiente@example.com",
-            "password": "ClaveSegura123",
-            "first_name": "Pendiente",
-            "last_name": "Usuaria",
-            "whatsapp": "+57 300 000 0000",
-        },
-        format="json",
-    )
+    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
+        api.post(
+            "/api/auth/register/",
+            {
+                "email": "pendiente@example.com",
+                "password": "ClaveSegura123",
+                "first_name": "Pendiente",
+                "last_name": "Usuaria",
+                "whatsapp": "+57 300 000 0000",
+            },
+            format="json",
+        )
     response = api.post(
         "/api/auth/login/", {"email": "pendiente@example.com", "password": "ClaveSegura123"}, format="json"
     )

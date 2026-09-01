@@ -8,12 +8,14 @@ const form = reactive({ first_name: "", last_name: "", email: "", whatsapp: "", 
 const loading = ref(false);
 const error = ref("");
 const submitted = ref(false);
+const registerMessage = ref("");
 
 async function handleSubmit() {
   loading.value = true;
   error.value = "";
   try {
-    await authStore.register({ ...form });
+    const data = await authStore.register({ ...form });
+    registerMessage.value = data.detail;
     submitted.value = true;
   } catch (err) {
     error.value = useErrorMessage(err);
@@ -88,10 +90,8 @@ function submitSearch() {
         <AppIcon name="check-circle" :size="26" />
       </span>
       <p class="mt-4 font-semibold text-ink">¡Registro recibido!</p>
-      <p class="mt-1 text-sm text-muted">
-        Tu cuenta está en revisión. Te daremos acceso apenas confirmemos que perteneces a la tribu.
-      </p>
-      <NuxtLink to="/login" class="btn-outline mt-4 inline-flex">Ya tengo acceso, iniciar sesión</NuxtLink>
+      <p class="mt-1 text-sm text-muted">{{ registerMessage }}</p>
+      <NuxtLink to="/login" class="btn-outline mt-4 inline-flex">Iniciar sesión</NuxtLink>
     </div>
 
     <div v-else class="card mt-8 w-full p-6">

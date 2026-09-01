@@ -22,13 +22,16 @@ from .serializers import (
     PasswordResetRequestSerializer,
     RegisterSerializer,
     UserSerializer,
+    is_open_registration_window,
     user_role,
 )
 
 
 class RegisterView(generics.CreateAPIView):
-    """POST /api/auth/register/ — crea la cuenta, pero queda inactiva (sin
-    tokens: no hay auto-login) hasta que un admin la aprueba manualmente."""
+    """POST /api/auth/register/ — normalmente queda inactiva (sin tokens: no
+    hay auto-login) hasta que un admin la aprueba manualmente. Durante la
+    ventana de lanzamiento (ver is_open_registration_window) queda activa
+    de una vez y puede iniciar sesión directo."""
 
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -38,11 +41,12 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        if is_open_registration_window():
+            detail = "¡Registro recibido! Tu cuenta ya está activa, puedes iniciar sesión."
+        else:
+            detail = "¡Registro recibido! Tu cuenta está en revisión, te avisaremos cuando quede aprobada."
         return Response(
-            {
-                "detail": "¡Registro recibido! Tu cuenta está en revisión, te avisaremos cuando quede aprobada.",
-                "user": UserSerializer(user).data,
-            },
+            {"detail": detail, "user": UserSerializer(user).data},
             status=status.HTTP_201_CREATED,
         )
 

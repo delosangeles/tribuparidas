@@ -1,7 +1,10 @@
 import secrets
+from datetime import datetime, timedelta
+from datetime import timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
@@ -66,6 +69,19 @@ class ChangePasswordSerializer(serializers.Serializer):
         user.save(update_fields=["password"])
 
 
+
+# Ventana de lanzamiento: 24h desde que abre el sitio (2026-09-01 7:00pm
+# Colombia) donde el registro queda activo de una vez, sin esperar
+# aprobación manual — para no generar cuello de botella la noche del
+# lanzamiento. Después de esta ventana, vuelve a quedar pendiente.
+OPEN_REGISTRATION_START = datetime(2026, 9, 1, 19, 0, 0, tzinfo=dt_timezone(timedelta(hours=-5)))
+OPEN_REGISTRATION_END = OPEN_REGISTRATION_START + timedelta(hours=24)
+
+
+def is_open_registration_window():
+    return OPEN_REGISTRATION_START <= timezone.now() <= OPEN_REGISTRATION_END
+
+
 class RegisterSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, validators=[validate_password])
 
@@ -81,13 +97,11 @@ class RegisterSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        # Queda inactiva hasta que un admin confirme que pertenece a la tribu.
-        user = User.objects.create_user(**validated_data, is_active=False)
-        Notification.objects.create(
-            type=Notification.Type.NEW_REGISTRATION,
-            related_user=user,
-            message=f"{user.get_full_name()} ({user.email}) se registró y espera aprobación.",
-        )
+        auto_active = is_open_registration_window()
+        user = User.objects.create_user(**validated_data, is_active=auto_active)
+        message = f"{user.get_full_name()} ({user.email}) se registró"
+        message += " (activo automático por lanzamiento)." if auto_active else " y espera aprobación."
+        Notification.objects.create(type=Notification.Type.NEW_REGISTRATION, related_user=user, message=message)
         return user
 
 
