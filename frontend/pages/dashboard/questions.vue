@@ -1,5 +1,5 @@
 <script setup lang="ts">
-definePageMeta({ layout: "dashboard", middleware: "auth" });
+definePageMeta({ layout: "dashboard", middleware: "entrepreneur" });
 
 const questionsStore = useQuestionsStore();
 await questionsStore.fetchMyQuestions();

@@ -12,6 +12,7 @@ export const useAuthStore = defineStore("auth", () => {
 
   const isAuthenticated = computed(() => Boolean(accessToken.value));
   const isAdmin = computed(() => Boolean(user.value?.is_staff));
+  const isSuperAdmin = computed(() => Boolean(user.value?.is_superuser));
   const isEntrepreneur = computed(() => Boolean(user.value?.is_entrepreneur));
 
   function setSession(tokens: { access: string; refresh: string; user: User }) {
@@ -30,11 +31,14 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  async function register(payload: { email: string; password: string; first_name: string; last_name: string }) {
+  // No hay auto-login: la cuenta queda en revisión hasta que un admin la
+  // aprueba (ver RegisterView en el backend). Devuelve el mensaje para que
+  // la página de registro lo muestre.
+  async function register(payload: { email: string; password: string; first_name: string; last_name: string; whatsapp: string }) {
     loading.value = true;
     try {
       const { data } = await authService.register(payload);
-      setSession(data);
+      return data;
     } finally {
       loading.value = false;
     }
@@ -84,6 +88,7 @@ export const useAuthStore = defineStore("auth", () => {
     loading,
     isAuthenticated,
     isAdmin,
+    isSuperAdmin,
     isEntrepreneur,
     login,
     register,

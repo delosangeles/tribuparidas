@@ -2,14 +2,18 @@
 const authStore = useAuthStore();
 const questionsStore = useQuestionsStore();
 
-const links = [
+const ENTREPRENEUR_LINKS = [
   { to: "/dashboard", label: "Inicio", icon: "home" },
   { to: "/dashboard/business", label: "Mi emprendimiento", icon: "briefcase" },
   { to: "/dashboard/gallery", label: "Galería", icon: "images" },
   { to: "/dashboard/questions", label: "Preguntas", icon: "message" },
   { to: "/dashboard/stats", label: "Estadísticas", icon: "chart" },
-  { to: "/dashboard/settings", label: "Configuración", icon: "settings" },
 ];
+const SETTINGS_LINK = { to: "/dashboard/settings", label: "Configuración", icon: "settings" };
+
+const links = computed(() =>
+  authStore.isEntrepreneur ? [...ENTREPRENEUR_LINKS, SETTINGS_LINK] : [SETTINGS_LINK]
+);
 
 async function handleLogout() {
   await authStore.logout();
@@ -19,7 +23,9 @@ async function handleLogout() {
 
 <template>
   <aside class="flex w-full shrink-0 flex-col gap-1 border-line bg-white p-4 md:h-full md:w-64 md:border-r">
-    <p class="px-3 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Emprendedor</p>
+    <p class="px-3 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">
+      {{ authStore.isEntrepreneur ? "Emprendedor" : "Mi cuenta" }}
+    </p>
     <NuxtLink
       v-for="link in links"
       :key="link.to"

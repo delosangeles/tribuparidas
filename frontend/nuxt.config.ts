@@ -30,7 +30,7 @@ export default defineNuxtConfig({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         { name: "description", content: "Descubre emprendimientos hechos con pasión." },
       ],
-      link: [{ rel: "icon", type: "image/svg+xml", href: "/favicon.svg" }],
+      link: [{ rel: "icon", type: "image/png", href: "/favicon.png" }],
     },
   },
 

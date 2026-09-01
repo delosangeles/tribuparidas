@@ -3,6 +3,8 @@ from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.core.models import log_activity
+
 MAX_IMAGES_PER_BUSINESS = 4
 
 from .models import Business, BusinessImage
@@ -17,9 +19,10 @@ from .serializers import (
 
 
 class BusinessPublicViewSet(viewsets.ReadOnlyModelViewSet):
-    """GET /api/businesses/ y /api/businesses/{slug}/ — solo negocios aprobados."""
+    """GET /api/businesses/ y /api/businesses/{slug}/ — solo negocios aprobados,
+    y solo visibles para quien haya iniciado sesión (sitio privado de la tribu)."""
 
-    permission_classes = [permissions.AllowAny]
+    permission_classes = [permissions.IsAuthenticated]
     lookup_field = "slug"
     filterset_fields = ["category__slug", "city", "department"]
     search_fields = ["name", "description", "city"]
@@ -102,13 +105,29 @@ class AdminBusinessViewSet(viewsets.ModelViewSet):
         # panel); si más adelante la emprendedora real se registra, se puede
         # transferir el emprendimiento manualmente. El estado lo decide el
         # admin en el formulario (por defecto "aprobado" desde el frontend).
-        serializer.save(owner=self.request.user)
+        business = serializer.save(owner=self.request.user)
+        log_activity(
+            self.request.user,
+            "business_created_by_admin",
+            f"{self.request.user.email} creó el emprendimiento «{business.name}» desde el panel admin.",
+            target=business,
+        )
+
+    def perform_update(self, serializer):
+        business = serializer.save()
+        log_activity(
+            self.request.user,
+            "business_updated_by_admin",
+            f"{self.request.user.email} editó el emprendimiento «{business.name}» desde el panel admin.",
+            target=business,
+        )
 
     @action(detail=True, methods=["patch"])
     def approve(self, request, pk=None):
         business = self.get_object()
         business.status = Business.Status.APPROVED
         business.save(update_fields=["status", "updated_at"])
+        log_activity(request.user, "business_approved", f"{request.user.email} aprobó «{business.name}».", target=business)
         return Response(BusinessDetailSerializer(business).data, status=status.HTTP_200_OK)
 
     @action(detail=True, methods=["patch"])
@@ -116,4 +135,5 @@ class AdminBusinessViewSet(viewsets.ModelViewSet):
         business = self.get_object()
         business.status = Business.Status.REJECTED
         business.save(update_fields=["status", "updated_at"])
+        log_activity(request.user, "business_rejected", f"{request.user.email} rechazó «{business.name}».", target=business)
         return Response(BusinessDetailSerializer(business).data, status=status.HTTP_200_OK)

@@ -2,7 +2,7 @@
 import { reviewService } from "~/services/review.service";
 import type { Review } from "~/types";
 
-definePageMeta({ layout: "dashboard", middleware: "auth" });
+definePageMeta({ layout: "dashboard", middleware: "entrepreneur" });
 
 const businessStore = useBusinessStore();
 const questionsStore = useQuestionsStore();

@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from apps.categories.models import Category
 from apps.businesses.models import Business
+from apps.core.models import ActivityLog
 
 User = get_user_model()
 
@@ -49,14 +50,20 @@ def test_create_business_defaults_to_pending(api, owner, category):
     assert business.owner == owner
 
 
-def test_pending_business_not_visible_in_public_list(api, owner, category):
+def test_anonymous_cannot_list_businesses(api):
+    response = api.get("/api/businesses/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_pending_business_not_visible_in_list(api, owner, category):
     Business.objects.create(owner=owner, name="Negocio Pendiente", category=category, city="Cali", department="Valle")
+    api.force_authenticate(user=owner)
     response = api.get("/api/businesses/")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["count"] == 0
 
 
-def test_approved_business_visible_in_public_list(api, owner, category):
+def test_approved_business_visible_to_logged_in_users(api, owner, category):
     Business.objects.create(
         owner=owner,
         name="Negocio Aprobado",
@@ -65,6 +72,7 @@ def test_approved_business_visible_in_public_list(api, owner, category):
         department="Valle",
         status=Business.Status.APPROVED,
     )
+    api.force_authenticate(user=owner)
     response = api.get("/api/businesses/")
     assert response.data["count"] == 1
 
@@ -102,3 +110,11 @@ def test_non_admin_cannot_approve_business(api, owner, category):
     api.force_authenticate(user=owner)
     response = api.patch(f"/api/admin/businesses/{business.id}/approve/")
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_approve_business_writes_activity_log(api, owner, category):
+    admin = User.objects.create_superuser(email="admin6@example.com", password="ClaveSegura123")
+    business = Business.objects.create(owner=owner, name="Log Business", category=category, city="Cali", department="Valle")
+    api.force_authenticate(user=admin)
+    api.patch(f"/api/admin/businesses/{business.id}/approve/")
+    assert ActivityLog.objects.filter(action="business_approved", object_id=business.id).exists()

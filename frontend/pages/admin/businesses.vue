@@ -143,7 +143,14 @@ async function handleSubmit(payload: any) {
             <td class="px-4 py-3"><StatusBadge :status="business.status" /></td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
-                <NuxtLink :to="`/businesses/${business.slug}`" target="_blank" class="btn-ghost !px-2 !py-1">Ver</NuxtLink>
+                <NuxtLink
+                  v-if="business.status === 'approved'"
+                  :to="`/emprendimientos/${business.slug}`"
+                  target="_blank"
+                  class="btn-ghost !px-2 !py-1"
+                >
+                  Ver
+                </NuxtLink>
                 <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(business)">Editar</button>
                 <button
                   v-if="business.status !== 'approved'"

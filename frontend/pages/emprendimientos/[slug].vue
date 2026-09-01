@@ -118,19 +118,19 @@ function shareBusiness() {
     <nav class="mb-4 flex items-center gap-1 text-xs text-muted">
       <NuxtLink to="/" class="hover:text-gold">Inicio</NuxtLink>
       <span>/</span>
-      <NuxtLink to="/businesses" class="hover:text-gold">Emprendimientos</NuxtLink>
+      <NuxtLink to="/emprendimientos" class="hover:text-gold">Emprendimientos</NuxtLink>
       <span>/</span>
-      <NuxtLink :to="`/businesses?category=${business.category.slug}`" class="hover:text-gold">{{ business.category.name }}</NuxtLink>
+      <NuxtLink :to="`/emprendimientos?category=${business.category.slug}`" class="hover:text-gold">{{ business.category.name }}</NuxtLink>
       <span>/</span>
       <span class="text-ink">{{ business.name }}</span>
     </nav>
 
     <div class="flex items-start justify-between">
-      <div class="flex items-start gap-4">
-        <span class="flex h-20 w-20 shrink-0 overflow-hidden rounded-full bg-gold-light">
+      <div class="flex items-center gap-5">
+        <span class="flex h-32 w-32 shrink-0 overflow-hidden rounded-full bg-gold-light">
           <img v-if="business.logo" :src="business.logo" :alt="business.name" class="h-full w-full object-cover" />
           <span v-else class="flex h-full w-full items-center justify-center text-gold">
-            <AppIcon name="briefcase" :size="28" />
+            <AppIcon name="briefcase" :size="40" />
           </span>
         </span>
         <div>
@@ -162,21 +162,13 @@ function shareBusiness() {
       </div>
     </div>
 
-    <div class="mt-6 grid gap-4 lg:grid-cols-3">
-      <div class="overflow-hidden rounded-xl2 bg-gold-light lg:col-span-2">
-        <img v-if="business.cover_image" :src="business.cover_image" :alt="business.name" class="h-64 w-full object-cover sm:h-80" />
-        <div v-else class="flex h-64 w-full items-center justify-center text-gold sm:h-80">
-          <AppIcon name="images" :size="36" />
-        </div>
-      </div>
-      <div class="grid grid-cols-3 gap-2 lg:grid-cols-2">
-        <img
-          v-for="image in (business.images || []).slice(0, 4)"
-          :key="image.id"
-          :src="image.image"
-          class="aspect-square w-full rounded-xl2 object-cover"
-        />
-      </div>
+    <div v-if="business.images?.length" class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      <img
+        v-for="image in business.images.slice(0, 4)"
+        :key="image.id"
+        :src="image.image"
+        class="aspect-square w-full rounded-xl2 object-cover"
+      />
     </div>
 
     <div class="mt-8 flex gap-6 overflow-x-auto border-b border-line text-sm font-medium">

@@ -60,8 +60,14 @@ def test_only_owner_can_answer_question(api, owner, visitor, business):
     assert Answer.objects.filter(question=question, user=owner).exists()
 
 
-def test_public_can_list_questions_of_business(api, visitor, business):
+def test_anonymous_cannot_list_questions(api, business):
+    response = api.get(f"/api/businesses/{business.id}/questions/")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_logged_in_user_can_list_questions_of_business(api, visitor, business):
     Question.objects.create(business=business, user=visitor, question="¿Pregunta pública?")
+    api.force_authenticate(user=visitor)
     response = api.get(f"/api/businesses/{business.id}/questions/")
     assert response.status_code == status.HTTP_200_OK
     assert response.data["count"] == 1

@@ -2,7 +2,7 @@
 import { businessService } from "~/services/business.service";
 import type { BusinessImage } from "~/types";
 
-definePageMeta({ layout: "dashboard", middleware: "auth" });
+definePageMeta({ layout: "dashboard", middleware: "entrepreneur" });
 
 const MAX_IMAGES = 4;
 

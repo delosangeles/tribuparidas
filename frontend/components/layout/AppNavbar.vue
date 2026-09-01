@@ -2,6 +2,8 @@
 const authStore = useAuthStore();
 const menuOpen = ref(false);
 
+const COMING_SOON_LINKS = ["Sueño", "Alimentación Complementaria", "Embarazo", "Blogs"];
+
 async function handleLogout() {
   await authStore.logout();
   menuOpen.value = false;
@@ -16,15 +18,18 @@ async function handleLogout() {
         <BrandMark />
       </NuxtLink>
 
-      <nav class="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
+      <nav v-if="authStore.isAuthenticated" class="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
         <NuxtLink to="/" class="transition hover:text-gold" active-class="text-gold">Inicio</NuxtLink>
-        <NuxtLink to="/businesses" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
+        <NuxtLink to="/emprendimientos" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
+        <span v-for="label in COMING_SOON_LINKS" :key="label" class="flex cursor-default flex-col items-center gap-1 text-center text-muted/60">
+          {{ label }}
+          <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none text-white">¡Próximamente!</span>
+        </span>
       </nav>
 
       <div class="flex items-center gap-2">
         <template v-if="!authStore.isAuthenticated">
           <NuxtLink to="/login" class="btn-outline">Iniciar sesión</NuxtLink>
-          <NuxtLink to="/registro" class="btn-primary">Registrarse</NuxtLink>
         </template>
 
         <div v-else class="relative">
@@ -45,9 +50,6 @@ async function handleLogout() {
           >
             <NuxtLink v-if="authStore.isAdmin" to="/admin" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
               <AppIcon name="settings" :size="16" /> Panel admin
-            </NuxtLink>
-            <NuxtLink to="/dashboard" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
-              <AppIcon name="briefcase" :size="16" /> Mi panel
             </NuxtLink>
             <NuxtLink to="/dashboard/settings" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
               <AppIcon name="users" :size="16" /> Mi perfil

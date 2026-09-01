@@ -10,14 +10,10 @@ from .serializers import AnswerCreateSerializer, AnswerSerializer, QuestionCreat
 
 
 class BusinessQuestionsView(generics.ListCreateAPIView):
-    """GET público /api/businesses/{business_id}/questions/, POST requiere sesión."""
+    """/api/businesses/{business_id}/questions/ — requiere sesión (sitio privado)."""
 
     ordering_fields = ["created_at"]
-
-    def get_permissions(self):
-        if self.request.method == "POST":
-            return [permissions.IsAuthenticated()]
-        return [permissions.AllowAny()]
+    permission_classes = [permissions.IsAuthenticated]
 
     def get_serializer_class(self):
         if self.request.method == "POST":

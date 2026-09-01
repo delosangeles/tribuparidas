@@ -154,10 +154,11 @@ docker compose exec frontend npm run test
 
 | URL | Descripción |
 |---|---|
-| `http://localhost:3000` | Frontend (Home) |
-| `http://localhost:3000/businesses` | Listado de emprendimientos |
-| `http://localhost:3000/businesses/{slug}` | Perfil público de un emprendimiento |
-| `http://localhost:3000/login`, `/registro`, `/registro/emprendimiento` | Autenticación y onboarding |
+| `http://localhost:3000` | Registro (portada — requiere aprobación) |
+| `http://localhost:3000/login` | Inicio de sesión |
+| `http://localhost:3000/businesses` | Listado de emprendimientos (requiere sesión aprobada) |
+| `http://localhost:3000/businesses/{slug}` | Perfil de un emprendimiento (requiere sesión aprobada) |
+| `http://localhost:3000/registro/emprendimiento` | Registrar tu propio emprendimiento (requiere sesión) |
 | `http://localhost:3000/dashboard` | Panel del emprendedor |
 | `http://localhost:3000/admin` | Panel de administración (Vue) |
 | `http://localhost:8000/api/` | API REST |
@@ -166,11 +167,12 @@ docker compose exec frontend npm run test
 
 ## 11. Cómo funciona la autenticación
 
-- JWT con [`djangorestframework-simplejwt`](https://django-rest-framework-simplejwt.readthedocs.io/): `POST /api/auth/login/` devuelve `access` (15 min) y `refresh` (7 días, con rotación y blacklist).
+- **Sitio privado**: Tribu Paridas no es un directorio público. `POST /api/auth/register/` crea la cuenta con `is_active=False` y **no** devuelve tokens (sin auto-login) — queda en revisión hasta que un admin confirma manualmente (por WhatsApp) que la persona pertenece a la tribu y la activa desde `/admin/users`. Django ya bloquea el login de cuentas inactivas de fábrica (`ModelBackend` + `SimpleJWT` verifican `is_active` en cada login y en cada request autenticado), así que no hizo falta lógica extra para el bloqueo.
+- JWT con [`djangorestframework-simplejwt`](https://django-rest-framework-simplejwt.readthedocs.io/): `POST /api/auth/login/` devuelve `access` (15 min) y `refresh` (7 días, con rotación y blacklist) — solo si la cuenta está activa.
 - El frontend guarda ambos tokens en cookies (`useCookie` de Nuxt, seguras y compatibles con SSR — no `localStorage`, que no existe durante el renderizado en servidor).
 - Un interceptor de Axios (`plugins/api.ts`) agrega `Authorization: Bearer <access>` a cada petición y, si recibe un `401`, intenta refrescar el token automáticamente y reintenta la petición original; si el refresh también falla, cierra la sesión y redirige a `/login`.
 - **Roles**: no existe un campo `role` en el modelo `User`. Un usuario es **administrador** si `is_staff=True`; es **emprendedor** si tiene al menos un `Business` propio; en cualquier otro caso es **visitante**. Los permisos reales (quién puede editar qué) los deciden las clases de permisos de DRF comparando `business.owner` contra el usuario autenticado — eso es lo que realmente impide que un emprendedor edite el negocio de otro, no una etiqueta de rol.
-- Rutas protegidas en el frontend: `middleware/auth.ts` (requiere sesión) y `middleware/admin.ts` (requiere `is_staff`).
+- **Rutas protegidas en el frontend**: `middleware/auth.global.ts` corre en *todas* las rutas por defecto (sitio privado) excepto `/` (registro) y `/login`; `middleware/admin.ts` se agrega aparte en las páginas de `/admin/*` (requiere `is_staff`).
 
 ## 12. Cómo se comunican frontend y backend
 

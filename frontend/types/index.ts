@@ -1,12 +1,40 @@
+export type UserRole = "user" | "admin" | "super_admin";
+
 export interface User {
   id: number;
   email: string;
   first_name: string;
   last_name: string;
+  whatsapp: string;
   is_staff: boolean;
+  is_superuser: boolean;
+  role: UserRole;
   is_entrepreneur: boolean;
   is_active?: boolean;
   businesses_count?: number;
+  created_at: string;
+}
+
+export type NotificationType = "new_registration" | "password_reset_request";
+
+export interface AppNotification {
+  id: number;
+  type: NotificationType;
+  message: string;
+  related_user: number | null;
+  related_user_email: string | null;
+  is_read: boolean;
+  created_at: string;
+}
+
+export interface ActivityLogEntry {
+  id: number;
+  actor_email: string | null;
+  actor_name: string | null;
+  action: string;
+  description: string;
+  target_type: string | null;
+  object_id: number | null;
   created_at: string;
 }
 
@@ -17,6 +45,9 @@ export interface Category {
   description: string;
   image: string | null;
   is_active: boolean;
+  parent: number | null;
+  parent_name?: string | null;
+  subcategories?: Category[];
   businesses_count?: number;
   created_at: string;
 }
