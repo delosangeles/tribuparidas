@@ -125,17 +125,17 @@ function shareBusiness() {
       <span class="text-ink">{{ business.name }}</span>
     </nav>
 
-    <div class="flex items-start justify-between">
-      <div class="flex items-center gap-5">
-        <span class="flex h-32 w-32 shrink-0 overflow-hidden rounded-full bg-gold-light">
+    <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+      <div class="flex items-center gap-4 sm:gap-5">
+        <span class="flex h-20 w-20 shrink-0 overflow-hidden rounded-full bg-gold-light sm:h-32 sm:w-32">
           <img v-if="business.logo" :src="business.logo" :alt="business.name" class="h-full w-full object-cover" />
           <span v-else class="flex h-full w-full items-center justify-center text-gold">
-            <AppIcon name="briefcase" :size="40" />
+            <AppIcon name="briefcase" :size="32" />
           </span>
         </span>
         <div>
           <div class="flex flex-wrap items-center gap-2">
-            <h1 class="text-2xl font-bold text-ink">{{ business.name }}</h1>
+            <h1 class="text-xl font-bold text-ink sm:text-2xl">{{ business.name }}</h1>
             <span v-if="business.is_mama_tribu" class="badge bg-gold-light text-gold">Mamá Tribu</span>
             <span v-if="business.tribe_recommended" class="badge bg-gold-light text-gold">Recomendado por la tribu</span>
           </div>

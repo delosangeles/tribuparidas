@@ -177,3 +177,13 @@ export interface ApiError {
   detail?: string;
   [field: string]: unknown;
 }
+
+export interface AnalyticsSummary {
+  total_pageviews: number;
+  unique_sessions: number;
+  unique_users: number;
+  by_day: { day: string; count: number }[];
+  by_hour: { hour: number; count: number }[];
+  top_pages: { path: string; count: number }[];
+  last_pages: { path: string; count: number }[];
+}

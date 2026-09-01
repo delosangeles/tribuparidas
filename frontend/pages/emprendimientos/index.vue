@@ -40,7 +40,7 @@ function closeCreate() {
 
 const search = ref((route.query.search as string) || "");
 const category = ref((route.query.category as string) || "");
-const ordering = ref((route.query.ordering as string) || "-created_at");
+const ordering = ref((route.query.ordering as string) || "name");
 const page = ref(Number(route.query.page) || 1);
 
 const params = computed(() => ({

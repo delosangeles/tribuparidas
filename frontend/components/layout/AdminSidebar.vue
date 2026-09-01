@@ -3,13 +3,17 @@ import { userService } from "~/services/user.service";
 
 const authStore = useAuthStore();
 
-const links = [
+const BASE_LINKS = [
   { to: "/admin", label: "Dashboard", icon: "chart" },
   { to: "/admin/businesses", label: "Emprendimientos", icon: "briefcase" },
   { to: "/admin/users", label: "Usuarios", icon: "users" },
   { to: "/admin/categories", label: "Categorías", icon: "box" },
   { to: "/admin/activity", label: "Historial", icon: "clock" },
 ];
+
+const links = computed(() =>
+  authStore.isSuperAdmin ? [...BASE_LINKS, { to: "/admin/analytics", label: "Analítica", icon: "chart" }] : BASE_LINKS
+);
 
 const pendingUsers = ref(0);
 userService.adminList({ is_active: false, page_size: 1 }).then(({ data }) => {

@@ -1,12 +1,14 @@
 <script setup lang="ts">
 const authStore = useAuthStore();
 const menuOpen = ref(false);
+const mobileNavOpen = ref(false);
 
 const COMING_SOON_LINKS = ["Sueño", "Alimentación Complementaria", "Embarazo", "Blogs"];
 
 async function handleLogout() {
   await authStore.logout();
   menuOpen.value = false;
+  mobileNavOpen.value = false;
   navigateTo("/");
 }
 </script>
@@ -28,6 +30,14 @@ async function handleLogout() {
       </nav>
 
       <div class="flex items-center gap-2">
+        <button
+          v-if="authStore.isAuthenticated"
+          class="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink md:hidden"
+          @click="mobileNavOpen = !mobileNavOpen"
+        >
+          <AppIcon :name="mobileNavOpen ? 'x' : 'menu'" :size="18" />
+        </button>
+
         <template v-if="!authStore.isAuthenticated">
           <NuxtLink to="/login" class="btn-outline">Iniciar sesión</NuxtLink>
         </template>
@@ -61,5 +71,31 @@ async function handleLogout() {
         </div>
       </div>
     </div>
+
+    <nav
+      v-if="authStore.isAuthenticated && mobileNavOpen"
+      class="flex flex-col gap-1 border-t border-line px-4 py-3 text-sm font-medium text-muted md:hidden"
+    >
+      <NuxtLink
+        to="/"
+        class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
+        active-class="!bg-gold-light !text-gold"
+        @click="mobileNavOpen = false"
+      >
+        Inicio
+      </NuxtLink>
+      <NuxtLink
+        to="/emprendimientos"
+        class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
+        active-class="!bg-gold-light !text-gold"
+        @click="mobileNavOpen = false"
+      >
+        Emprendimientos
+      </NuxtLink>
+      <span v-for="label in COMING_SOON_LINKS" :key="label" class="flex items-center justify-between rounded-xl2 px-3 py-2.5 text-muted/60">
+        {{ label }}
+        <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none text-white">¡Próximamente!</span>
+      </span>
+    </nav>
   </header>
 </template>

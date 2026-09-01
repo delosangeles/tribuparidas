@@ -36,6 +36,24 @@ class ActivityLog(models.Model):
         return self.description
 
 
+class PageView(models.Model):
+    """Una vista de página del sitio, para analítica de uso (solo Super Admin
+    la consulta). `session_id` lo genera el navegador (sessionStorage) para
+    poder agrupar las vistas de una misma visita sin depender de cookies de
+    sesión de Django (la auth es JWT, sin sesión de servidor)."""
+
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="page_views"
+    )
+    session_id = models.CharField(max_length=40)
+    path = models.CharField(max_length=255)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+        indexes = [models.Index(fields=["session_id", "created_at"])]
+
+
 def log_activity(actor, action, description, target=None):
     """Registra una acción admin en el historial. `target` es la instancia
     afectada (Business, Category, User...), opcional."""

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ActivityLog
+from .models import ActivityLog, PageView
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
@@ -20,3 +20,9 @@ class ActivityLogSerializer(serializers.ModelSerializer):
             "object_id",
             "created_at",
         ]
+
+
+class PageViewCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = PageView
+        fields = ["session_id", "path"]

@@ -4,6 +4,7 @@ import type { Business, BusinessStatus } from "~/types";
 
 definePageMeta({ layout: "admin", middleware: "admin" });
 
+const search = ref("");
 const statusFilter = ref<BusinessStatus | "">("");
 const page = ref(1);
 const loading = ref(false);
@@ -20,6 +21,7 @@ async function load() {
   loading.value = true;
   try {
     const { data } = await businessService.adminList({
+      search: search.value || undefined,
       status: statusFilter.value || undefined,
       page: page.value,
       ordering: "-created_at",
@@ -32,7 +34,7 @@ async function load() {
 }
 await load();
 
-watch(statusFilter, () => {
+watch([search, statusFilter], () => {
   page.value = 1;
   load();
 });
@@ -116,7 +118,12 @@ async function handleSubmit(payload: any) {
       <button type="button" class="btn-ghost mt-2" @click="showForm = false">Cancelar</button>
     </div>
 
-    <div class="mt-6 flex gap-2">
+    <div class="mt-6 flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 sm:max-w-sm">
+      <AppIcon name="search" :size="16" class="text-muted" />
+      <input v-model="search" type="text" placeholder="Buscar por nombre, dueño o ciudad..." class="w-full border-none bg-transparent text-sm outline-none" />
+    </div>
+
+    <div class="mt-3 flex flex-wrap gap-2">
       <button class="btn-outline" :class="statusFilter === '' && '!border-gold !text-gold'" @click="statusFilter = ''">Todos</button>
       <button class="btn-outline" :class="statusFilter === 'pending' && '!border-gold !text-gold'" @click="statusFilter = 'pending'">Pendientes</button>
       <button class="btn-outline" :class="statusFilter === 'approved' && '!border-gold !text-gold'" @click="statusFilter = 'approved'">Aprobados</button>

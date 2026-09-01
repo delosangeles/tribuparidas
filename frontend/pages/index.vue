@@ -25,8 +25,13 @@ async function handleSubmit() {
 const featured = ref<Business[]>([]);
 
 if (authStore.isAuthenticated) {
-  const { data } = await businessService.list({ ordering: "-average_rating", page_size: 8 });
+  const { data } = await businessService.list({ ordering: "name", page_size: 8 });
   featured.value = data.results;
+}
+
+const searchQuery = ref("");
+function submitSearch() {
+  navigateTo({ path: "/emprendimientos", query: searchQuery.value ? { search: searchQuery.value } : {} });
 }
 </script>
 
@@ -34,6 +39,19 @@ if (authStore.isAuthenticated) {
   <div v-if="authStore.isAuthenticated">
     <section class="relative overflow-hidden">
       <img :src="useAssetUrl('hero-inicio.png')" alt="Bienvenidas a nuestra página web" class="w-full" />
+    </section>
+
+    <section class="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
+      <form class="mx-auto flex max-w-lg items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 shadow-soft" @submit.prevent="submitSearch">
+        <AppIcon name="search" :size="16" class="text-muted" />
+        <input
+          v-model="searchQuery"
+          type="text"
+          placeholder="Buscar emprendimiento, categoría o ciudad..."
+          class="w-full border-none bg-transparent text-sm outline-none"
+        />
+        <button type="submit" class="btn-primary shrink-0">Buscar</button>
+      </form>
     </section>
 
     <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
@@ -54,9 +72,9 @@ if (authStore.isAuthenticated) {
 
   <div v-else class="mx-auto flex min-h-[80vh] max-w-md flex-col items-center justify-center px-4 py-16">
     <div class="text-center">
-      <span class="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gold text-white">
-        <AppIcon name="logo" :size="32" />
-      </span>
+      <div class="flex justify-center">
+        <BrandMark />
+      </div>
       <h1 class="mt-4 text-2xl font-bold text-ink">Bienvenida a la tribu</h1>
       <p class="mt-1 text-sm text-muted">Regístrate e ingresa con tu usuario.</p>
     </div>
