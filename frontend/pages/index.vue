@@ -33,7 +33,7 @@ if (authStore.isAuthenticated) {
 <template>
   <div v-if="authStore.isAuthenticated">
     <section class="relative overflow-hidden">
-      <img src="/hero-inicio.png" alt="Bienvenidas a nuestra página web" class="w-full" />
+      <img :src="useAssetUrl('hero-inicio.png')" alt="Bienvenidas a nuestra página web" class="w-full" />
     </section>
 
     <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6">

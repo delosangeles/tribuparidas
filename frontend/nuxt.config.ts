@@ -1,3 +1,5 @@
+const APP_BASE_URL = process.env.NUXT_APP_BASE_URL || "/";
+
 export default defineNuxtConfig({
   compatibilityDate: "2024-08-01",
   devtools: { enabled: true },
@@ -21,7 +23,7 @@ export default defineNuxtConfig({
 
   app: {
     // "/" en desarrollo; "/directorio/" quedó montado bajo esa ruta en producción.
-    baseURL: process.env.NUXT_APP_BASE_URL || "/",
+    baseURL: APP_BASE_URL,
     head: {
       title: "Tribu Paridas",
       htmlAttrs: { lang: "es" },
@@ -30,7 +32,7 @@ export default defineNuxtConfig({
         { name: "viewport", content: "width=device-width, initial-scale=1" },
         { name: "description", content: "Descubre emprendimientos hechos con pasión." },
       ],
-      link: [{ rel: "icon", type: "image/png", href: "/favicon.png" }],
+      link: [{ rel: "icon", type: "image/png", href: `${APP_BASE_URL.replace(/\/$/, "")}/favicon.png` }],
     },
   },
 

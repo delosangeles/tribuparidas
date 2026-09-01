@@ -25,7 +25,7 @@ async function handleLogout() {
 <template>
   <aside class="flex w-full shrink-0 flex-col gap-1 border-line bg-white p-4 md:h-full md:w-64 md:border-r">
     <NuxtLink to="/" class="mb-3 flex items-center gap-2 px-3 text-sm font-medium text-muted transition hover:text-gold">
-      <img src="/logo-mark.png" alt="Tribu Paridas" class="h-8 w-8" />
+      <img :src="useAssetUrl('logo-mark.png')" alt="Tribu Paridas" class="h-8 w-8" />
       Volver al inicio
     </NuxtLink>
     <p class="px-3 pb-3 text-xs font-semibold uppercase tracking-wide text-muted">Panel de administración</p>

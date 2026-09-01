@@ -60,7 +60,7 @@ async function handlePasswordSubmit() {
 <template>
   <div class="max-w-4xl">
     <NuxtLink to="/" class="inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-gold">
-      <img src="/logo-mark.png" alt="Tribu Paridas" class="h-8 w-8" />
+      <img :src="useAssetUrl('logo-mark.png')" alt="Tribu Paridas" class="h-8 w-8" />
       Volver al inicio
     </NuxtLink>
 
