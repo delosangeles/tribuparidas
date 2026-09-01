@@ -15,11 +15,11 @@ cd "$(dirname "$0")/frontend"
 echo "==> Instalando dependencias..."
 npm install
 
-echo "==> Compilando (SPA, /directorio/, API de producción)..."
+echo "==> Compilando (SPA, raíz del dominio, API de producción)..."
 export MSYS_NO_PATHCONV=1
 export MSYS2_ARG_CONV_EXCL="*"
 export NUXT_PUBLIC_API_BASE="https://tribuparidas.com/api"
-export NUXT_APP_BASE_URL="/directorio/"
+export NUXT_APP_BASE_URL="/"
 export NUXT_PUBLIC_SITE_NAME="Tribu Paridas"
 npm run generate
 
@@ -40,4 +40,4 @@ ssh -i "$SSH_KEY" "$SERVER" "
 "
 
 rm /tmp/tribuparidas-frontend.tar.gz
-echo "==> Listo: https://tribuparidas.com/directorio/"
+echo "==> Listo: https://tribuparidas.com/"

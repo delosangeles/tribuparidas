@@ -4,7 +4,7 @@ from django.utils.text import slugify
 
 from apps.categories.models import Category
 from apps.core.models import TimeStampedModel
-from apps.core.validators import validate_image_file
+from apps.core.validators import validate_image_file, validate_phone_with_country_code
 
 
 class Business(TimeStampedModel):
@@ -35,7 +35,7 @@ class Business(TimeStampedModel):
     city = models.CharField(max_length=100)
     department = models.CharField(max_length=100)
     address = models.CharField(max_length=255, blank=True)
-    whatsapp = models.CharField(max_length=30, blank=True)
+    whatsapp = models.CharField(max_length=30, blank=True, validators=[validate_phone_with_country_code])
     instagram = models.CharField(max_length=100, blank=True)
     facebook = models.CharField(max_length=100, blank=True)
     website = models.URLField(blank=True)

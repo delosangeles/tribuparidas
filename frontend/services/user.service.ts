@@ -16,4 +16,7 @@ export const userService = {
   adminCreate(payload: { email: string; first_name: string; last_name: string; whatsapp?: string; is_staff: boolean }) {
     return useApi().post<User & { new_password: string }>("/admin/users/", payload);
   },
+  adminUpdate(userId: number, payload: { first_name: string; last_name: string; whatsapp: string }) {
+    return useApi().patch<User>(`/admin/users/${userId}/`, payload);
+  },
 };

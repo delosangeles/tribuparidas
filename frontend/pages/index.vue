@@ -42,6 +42,10 @@ function submitSearch() {
     </section>
 
     <section class="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
+      <CountdownTimer target="2026-09-01T19:00:00-05:00" label="¡Falta poco!" />
+    </section>
+
+    <section class="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
       <form class="mx-auto flex max-w-lg items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 shadow-soft" @submit.prevent="submitSearch">
         <AppIcon name="search" :size="16" class="text-muted" />
         <input
@@ -108,7 +112,15 @@ function submitSearch() {
         </div>
         <div>
           <label class="mb-1 block text-sm font-medium text-ink">WhatsApp</label>
-          <input v-model="form.whatsapp" type="text" required class="field" placeholder="+57 300 000 0000" />
+          <input
+            v-model="form.whatsapp"
+            type="text"
+            required
+            :pattern="PHONE_PATTERN"
+            :title="PHONE_ERROR_MESSAGE"
+            class="field"
+            placeholder="+57 300 000 0000"
+          />
           <p class="mt-1 text-xs text-muted">Con este número confirmamos que estás en el grupo de la tribu.</p>
         </div>
         <div>

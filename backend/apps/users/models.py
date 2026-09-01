@@ -1,6 +1,8 @@
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
+from apps.core.validators import validate_phone_with_country_code
+
 from .managers import UserManager
 
 
@@ -10,7 +12,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
-    whatsapp = models.CharField(max_length=30, blank=True)
+    whatsapp = models.CharField(max_length=30, blank=True, validators=[validate_phone_with_country_code])
     # Al registrarse queda inactiva hasta que un admin confirma que pertenece
     # al grupo de WhatsApp de la tribu (ver RegisterSerializer).
     is_active = models.BooleanField(default=True)

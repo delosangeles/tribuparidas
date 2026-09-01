@@ -10,6 +10,7 @@ const ACTION_LABELS: Record<string, string> = {
   business_created_by_admin: "Emprendimiento creado (admin)",
   business_updated_by_admin: "Emprendimiento editado (admin)",
   user_created_by_admin: "Usuario creado (admin)",
+  user_info_updated: "Datos de usuario editados",
   user_activated: "Usuario activado",
   user_deactivated: "Usuario desactivado",
   user_password_reset: "Contraseña reseteada",

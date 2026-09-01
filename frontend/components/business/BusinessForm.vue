@@ -133,7 +133,15 @@ function handleSubmit() {
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-ink">WhatsApp</label>
-        <input v-model="form.whatsapp" type="text" placeholder="+57 300 000 0000" :required="requireAll" class="field" />
+        <input
+          v-model="form.whatsapp"
+          type="text"
+          placeholder="+57 300 000 0000"
+          :pattern="PHONE_PATTERN"
+          :title="PHONE_ERROR_MESSAGE"
+          :required="requireAll"
+          class="field"
+        />
       </div>
       <div>
         <label class="mb-1 block text-sm font-medium text-ink">Instagram</label>

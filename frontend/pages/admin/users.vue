@@ -135,6 +135,38 @@ async function copyCreatedPassword() {
 function closeCreate() {
   showCreate.value = false;
 }
+
+const editTarget = ref<User | null>(null);
+const editForm = reactive({ first_name: "", last_name: "", whatsapp: "" });
+const editLoading = ref(false);
+const editError = ref("");
+
+function openEdit(user: User) {
+  editTarget.value = user;
+  editForm.first_name = user.first_name;
+  editForm.last_name = user.last_name;
+  editForm.whatsapp = user.whatsapp;
+  editError.value = "";
+}
+
+async function submitEdit() {
+  if (!editTarget.value) return;
+  editLoading.value = true;
+  editError.value = "";
+  try {
+    const { data } = await userService.adminUpdate(editTarget.value.id, { ...editForm });
+    Object.assign(editTarget.value, data);
+    editTarget.value = null;
+  } catch (err) {
+    editError.value = useErrorMessage(err);
+  } finally {
+    editLoading.value = false;
+  }
+}
+
+function closeEdit() {
+  editTarget.value = null;
+}
 </script>
 
 <template>
@@ -196,6 +228,7 @@ function closeCreate() {
             </td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
+                <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Editar</button>
                 <button v-if="!user.is_staff" class="btn-outline !px-2 !py-1 text-xs" @click="toggleActive(user)">
                   {{ user.is_active ? "Desactivar" : "Activar" }}
                 </button>
@@ -298,7 +331,14 @@ function closeCreate() {
               </div>
               <div>
                 <label class="mb-1 block text-sm font-medium text-ink">WhatsApp</label>
-                <input v-model="createForm.whatsapp" type="text" class="field" placeholder="+57 300 000 0000" />
+                <input
+                  v-model="createForm.whatsapp"
+                  type="text"
+                  :pattern="PHONE_PATTERN"
+                  :title="PHONE_ERROR_MESSAGE"
+                  class="field"
+                  placeholder="+57 300 000 0000"
+                />
               </div>
               <label class="flex items-center gap-2 text-sm text-ink">
                 <input v-model="createForm.is_staff" type="checkbox" class="h-4 w-4 rounded border-line" />
@@ -313,6 +353,44 @@ function closeCreate() {
               </div>
             </form>
           </template>
+        </div>
+      </div>
+    </Teleport>
+
+    <Teleport to="body">
+      <div v-if="editTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
+        <div class="card w-full max-w-sm p-6">
+          <p class="text-lg font-semibold text-ink">Editar usuario</p>
+          <form class="mt-4 space-y-3" @submit.prevent="submitEdit">
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Nombre</label>
+                <input v-model="editForm.first_name" type="text" required class="field" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Apellido</label>
+                <input v-model="editForm.last_name" type="text" required class="field" />
+              </div>
+            </div>
+            <div>
+              <label class="mb-1 block text-sm font-medium text-ink">WhatsApp</label>
+              <input
+                v-model="editForm.whatsapp"
+                type="text"
+                :pattern="PHONE_PATTERN"
+                :title="PHONE_ERROR_MESSAGE"
+                class="field"
+                placeholder="+57 300 000 0000"
+              />
+            </div>
+            <p v-if="editError" class="text-sm text-rose-500">{{ editError }}</p>
+            <div class="flex justify-end gap-2 pt-2">
+              <button type="button" class="btn-ghost" @click="closeEdit">Cancelar</button>
+              <button type="submit" class="btn-primary" :disabled="editLoading">
+                {{ editLoading ? "Guardando..." : "Guardar cambios" }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
     </Teleport>

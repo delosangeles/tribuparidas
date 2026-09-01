@@ -280,7 +280,7 @@ def test_super_admin_can_create_admin_user(api):
 
     response = api.post(
         "/api/admin/users/",
-        {"email": "nuevaadmin@example.com", "first_name": "Nueva", "last_name": "Admin", "whatsapp": "3000000000", "is_staff": True},
+        {"email": "nuevaadmin@example.com", "first_name": "Nueva", "last_name": "Admin", "whatsapp": "+573000000000", "is_staff": True},
         format="json",
     )
     assert response.status_code == status.HTTP_201_CREATED
@@ -312,3 +312,52 @@ def test_regular_admin_cannot_create_user(api):
 
     response = api.post("/api/admin/users/", {"email": "otra@example.com", "first_name": "A", "last_name": "B"}, format="json")
     assert response.status_code == status.HTTP_403_FORBIDDEN
+
+
+def test_admin_can_edit_user_info(api):
+    admin = User.objects.create_user(email="admin8@example.com", password="ClaveSegura123", is_staff=True)
+    target = User.objects.create_user(email="editar@example.com", password="ClaveSegura123", first_name="Vieja", whatsapp="+573000000000")
+    api.force_authenticate(user=admin)
+
+    response = api.patch(
+        f"/api/admin/users/{target.id}/",
+        {"first_name": "Nueva", "last_name": "Apellido", "whatsapp": "+573001112233"},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_200_OK
+    target.refresh_from_db()
+    assert target.first_name == "Nueva"
+    assert target.last_name == "Apellido"
+    assert target.whatsapp == "+573001112233"
+    assert ActivityLog.objects.filter(action="user_info_updated", object_id=target.id).exists()
+
+
+def test_register_rejects_phone_without_country_code(api):
+    response = api.post(
+        "/api/auth/register/",
+        {
+            "email": "sincodigo@example.com",
+            "password": "ClaveSegura123",
+            "first_name": "Sin",
+            "last_name": "Codigo",
+            "whatsapp": "3000000000",
+        },
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "whatsapp" in response.data
+
+
+def test_register_accepts_phone_with_country_code(api):
+    response = api.post(
+        "/api/auth/register/",
+        {
+            "email": "concodigo@example.com",
+            "password": "ClaveSegura123",
+            "first_name": "Con",
+            "last_name": "Codigo",
+            "whatsapp": "+57 300 000 0000",
+        },
+        format="json",
+    )
+    assert response.status_code == status.HTTP_201_CREATED

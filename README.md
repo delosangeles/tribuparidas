@@ -183,7 +183,7 @@ docker compose exec frontend npm run test
 
 ## 13. Despliegue a producción
 
-En producción (`tribuparidas.com/directorio`) **no se usa Docker**: el droplet tiene poca RAM, así que el backend corre bare-metal (venv + Gunicorn vía systemd) y el frontend se compila como sitio estático (SPA) servido directo por nginx, sin proceso Node corriendo. Ver `[Tribu Paridas producción DigitalOcean]` en la memoria del proyecto para el detalle completo de la arquitectura del servidor.
+En producción (`tribuparidas.com`) **no se usa Docker**: el droplet tiene poca RAM, así que el backend corre bare-metal (venv + Gunicorn vía systemd) y el frontend se compila como sitio estático (SPA) servido directo por nginx, sin proceso Node corriendo. Ver `[Tribu Paridas producción DigitalOcean]` en la memoria del proyecto para el detalle completo de la arquitectura del servidor.
 
 **Backend** — conectado por SSH al servidor:
 

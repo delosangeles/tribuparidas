@@ -118,7 +118,8 @@ class ChangePasswordView(APIView):
 
 
 class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
-    """/api/admin/users/ — el admin solo puede activar/desactivar cuentas, no editar datos personales."""
+    """/api/admin/users/ — el admin puede activar/desactivar cuentas y editar
+    nombre/apellido/WhatsApp; el email y el rol no se tocan desde acá."""
 
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = AdminUserSerializer
@@ -153,14 +154,18 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
 
     def perform_update(self, serializer):
         was_active = serializer.instance.is_active
-        user = serializer.save(
-            first_name=serializer.instance.first_name,
-            last_name=serializer.instance.last_name,
-        )
+        before = (serializer.instance.first_name, serializer.instance.last_name, serializer.instance.whatsapp)
+        user = serializer.save()
+
         if user.is_active != was_active:
             action_name = "user_activated" if user.is_active else "user_deactivated"
             verb = "activó" if user.is_active else "desactivó"
             log_activity(self.request.user, action_name, f"{self.request.user.email} {verb} a {user.email}.", target=user)
+
+        if (user.first_name, user.last_name, user.whatsapp) != before:
+            log_activity(
+                self.request.user, "user_info_updated", f"{self.request.user.email} editó los datos de {user.email}.", target=user
+            )
 
     @action(detail=True, methods=["post"])
     def reset_password(self, request, pk=None):

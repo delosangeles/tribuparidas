@@ -1,5 +1,19 @@
+import re
+
 from django.conf import settings
 from django.core.exceptions import ValidationError
+
+PHONE_REGEX = re.compile(r"^\+[1-9]\d{6,14}$")
+
+
+def validate_phone_with_country_code(value):
+    """Exige el código de país (ej: +57 300 000 0000). Tolera espacios/guiones
+    al escribir, pero siempre debe empezar con "+" seguido del indicativo."""
+    if not value:
+        return
+    normalized = re.sub(r"[\s-]", "", value)
+    if not PHONE_REGEX.match(normalized):
+        raise ValidationError("Escribe el número con el código de país, ej: +57 300 000 0000.")
 
 
 def validate_image_file(image_file):
