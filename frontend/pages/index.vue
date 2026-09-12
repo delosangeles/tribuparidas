@@ -39,10 +39,176 @@ const searchQuery = ref("");
 function submitSearch() {
   navigateTo({ path: "/emprendimientos", query: searchQuery.value ? { search: searchQuery.value } : {} });
 }
+
+import { newsService } from "~/services/news.service";
+import type { News } from "~/types";
+
+const activeNews = ref<News[]>([]);
+const currentNewsIndex = ref(0);
+let newsInterval: ReturnType<typeof setInterval> | null = null;
+
+async function loadActiveNews() {
+  try {
+    const { data } = await newsService.active();
+
+    activeNews.value = data.slice(0, 5);
+    currentNewsIndex.value = 0;
+
+    startNewsCarousel();
+  } catch (error) {
+    console.error("Error cargando noticias:", error);
+    activeNews.value = [];
+  }
+}
+
+function startNewsCarousel() {
+  if (newsInterval) {
+    clearInterval(newsInterval);
+  }
+
+  if (activeNews.value.length <= 1) return;
+
+  newsInterval = setInterval(() => {
+    currentNewsIndex.value =
+      (currentNewsIndex.value + 1) % activeNews.value.length;
+  }, 5000);
+}
+
+function nextNews() {
+  if (!activeNews.value.length) return;
+
+  currentNewsIndex.value =
+    (currentNewsIndex.value + 1) % activeNews.value.length;
+
+  startNewsCarousel();
+}
+
+function previousNews() {
+  if (!activeNews.value.length) return;
+
+  currentNewsIndex.value =
+    (currentNewsIndex.value - 1 + activeNews.value.length) %
+    activeNews.value.length;
+
+  startNewsCarousel();
+}
+
+function goToNews(index: number) {
+  currentNewsIndex.value = index;
+  startNewsCarousel();
+}
+
+await loadActiveNews();
+
+onBeforeUnmount(() => {
+  if (newsInterval) {
+    clearInterval(newsInterval);
+  }
+});
 </script>
+
+<style>
+.banner-enter-active,
+.banner-leave-active {
+  transition: opacity 0.4s ease;
+}
+
+.banner-enter-from,
+.banner-leave-to {
+  opacity: 0;
+}
+</style>
 
 <template>
   <div v-if="authStore.isAuthenticated">
+    <section
+      v-if="activeNews.length"
+      class="w-full flex justify-center overflow-hidden"
+    >
+      <div class="relative w-full md:w-3/4 max-w-[1400px]">
+
+        <!-- Banner actual -->
+        <div class="w-full">
+          <a
+            v-if="activeNews[currentNewsIndex]?.link"
+            :href="activeNews[currentNewsIndex].link"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="block w-full"
+          >
+            <picture>
+              <source
+                media="(max-width: 767px)"
+                :srcset="activeNews[currentNewsIndex].image_mobile"
+              />
+
+              <img
+                :src="activeNews[currentNewsIndex].image_desktop"
+                :alt="activeNews[currentNewsIndex].title"
+                class="w-full h-auto block"
+              />
+            </picture>
+          </a>
+
+          <picture v-else>
+            <source
+              media="(max-width: 767px)"
+              :srcset="activeNews[currentNewsIndex].image_mobile"
+            />
+
+            <img
+              :src="activeNews[currentNewsIndex].image_desktop"
+              :alt="activeNews[currentNewsIndex].title"
+              class="w-full h-auto block"
+            />
+          </picture>
+        </div>
+
+        <!-- Flecha anterior -->
+        <button
+          v-if="activeNews.length > 1"
+          type="button"
+          class="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-black/30 px-3 py-2 text-2xl leading-none text-white transition hover:bg-black/50"
+          aria-label="Banner anterior"
+          @click="previousNews"
+        >
+          ‹
+        </button>
+
+        <!-- Flecha siguiente -->
+        <button
+          v-if="activeNews.length > 1"
+          type="button"
+          class="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-black/30 px-3 py-2 text-2xl leading-none text-white transition hover:bg-black/50"
+          aria-label="Siguiente banner"
+          @click="nextNews"
+        >
+          ›
+        </button>
+
+        <!-- Indicadores -->
+        <div
+          v-if="activeNews.length > 1"
+          class="absolute bottom-3 left-1/2 flex -translate-x-1/2 gap-2"
+        >
+          <button
+            v-for="(item, index) in activeNews"
+            :key="item.id"
+            type="button"
+            :aria-label="`Ir al banner ${index + 1}`"
+            class="h-2.5 w-2.5 rounded-full transition"
+            :class="
+              currentNewsIndex === index
+                ? 'scale-110 bg-white'
+                : 'bg-white/50'
+            "
+            @click="goToNews(index)"
+          />
+        </div>
+
+      </div>
+    </section>
+
     <section class="w-full flex justify-center overflow-hidden">
       <NuxtLink
         to="https://wa.me/+573008478168?text=Hola%20Maria%20Isabel%20de%20Tribu%20Paridas,%20quiero%20inscribirme%20en%20la%20Media%20Marat%C3%B3n%20de%20Palmira"

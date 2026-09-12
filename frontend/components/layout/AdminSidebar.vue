@@ -6,6 +6,7 @@ const authStore = useAuthStore();
 const BASE_LINKS = [
   { to: "/admin", label: "Dashboard", icon: "chart" },
   { to: "/admin/businesses", label: "Emprendimientos", icon: "briefcase" },
+  { to: "/admin/News", label: "Noticias", icon: "newspaper" },
   { to: "/admin/users", label: "Usuarios", icon: "users" },
   { to: "/admin/categories", label: "Categorías", icon: "box" },
   { to: "/admin/activity", label: "Historial", icon: "clock" },

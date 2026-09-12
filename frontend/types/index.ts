@@ -187,3 +187,32 @@ export interface AnalyticsSummary {
   top_pages: { path: string; count: number }[];
   last_pages: { path: string; count: number }[];
 }
+
+export interface News {
+  id: number;
+  title: string;
+  description: string;
+  image_desktop: string;
+  image_mobile: string;
+  link: string;
+  published_at: string;
+  expires_at: string;
+  order: number;
+  is_active: boolean;
+  created_by: number;
+  created_by_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface NewsFormPayload {
+  title: string;
+  description: string;
+  link: string;
+  published_at: string;
+  expires_at: string;
+  order: number;
+  is_active: boolean;
+  image_desktop?: File | null;
+  image_mobile?: File | null;
+}
