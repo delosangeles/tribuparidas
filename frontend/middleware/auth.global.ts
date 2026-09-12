@@ -1,6 +1,6 @@
 // Sitio privado: por defecto TODA ruta requiere sesión. Las únicas
 // excepciones son la portada (registro) y el login.
-const PUBLIC_ROUTES = ["/login", "/registro"];
+const PUBLIC_ROUTES = ["/login"];
 
 export default defineNuxtRouteMiddleware(async (to) => {
   if (PUBLIC_ROUTES.includes(to.path)) return;

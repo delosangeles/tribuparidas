@@ -45,7 +45,7 @@ function submitSearch() {
   <div v-if="authStore.isAuthenticated">
     <section class="w-full flex justify-center overflow-hidden">
       <NuxtLink
-        to="https://wa.me/3008478168?text=Hola%20Maria%20Isabel%20de%20Tribu%20Paridas,%20quiero%20inscribirme%20en%20la%20Media%20Marat%C3%B3n%20de%20Palmira"
+        to="https://wa.me/+573008478168?text=Hola%20Maria%20Isabel%20de%20Tribu%20Paridas,%20quiero%20inscribirme%20en%20la%20Media%20Marat%C3%B3n%20de%20Palmira"
         class="block w-full md:w-3/4 max-w-[1400px]"
       >
         <picture>
