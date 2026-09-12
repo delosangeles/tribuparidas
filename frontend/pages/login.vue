@@ -85,7 +85,7 @@ async function submitForgot() {
 
       <p class="mt-6 text-center text-sm text-muted">
         ¿No tienes cuenta?
-        <NuxtLink to="/" class="font-semibold text-gold hover:underline">Regístrate</NuxtLink>
+        <NuxtLink to="/registro" class="font-semibold text-gold hover:underline">Regístrate</NuxtLink>
       </p>
     </div>
 
