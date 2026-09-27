@@ -23,6 +23,8 @@ async function handleLogout() {
       <nav v-if="authStore.isAuthenticated" class="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
         <NuxtLink to="/" class="transition hover:text-gold" active-class="text-gold">Inicio</NuxtLink>
         <NuxtLink to="/emprendimientos" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
+        <NuxtLink to="/noticias" class="transition hover:text-gold" active-class="text-gold">Noticias</NuxtLink>
+        <NuxtLink to="/blog" class="transition hover:text-gold" active-class="text-gold">Blog</NuxtLink>
         <span v-for="label in COMING_SOON_LINKS" :key="label" class="flex cursor-default flex-col items-center gap-1 text-center text-muted/60">
           {{ label }}
           <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none text-white">¡Próximamente!</span>

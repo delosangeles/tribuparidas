@@ -216,3 +216,62 @@ export interface NewsFormPayload {
   image_desktop?: File | null;
   image_mobile?: File | null;
 }
+
+export interface BlogCategory {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  is_active: boolean;
+  order: number;
+}
+
+export interface BlogStage {
+  id: number;
+  name: string;
+  slug: string;
+  is_active: boolean;
+  order: number;
+}
+
+export type BlogContentType =
+  | "ARTICLE"
+  | "GUIDE"
+  | "CHECKLIST"
+  | "RESOURCE"
+  | "RECOMMENDATION"
+  | "TRIBU_STORY";
+
+export interface BlogPost {
+  id: number;
+  title: string;
+  slug: string;
+  summary: string;
+  main_image: string | null;
+  category: number;
+  category_name: string;
+  stage_names: string[];
+  author_name: string;
+  content_type: BlogContentType;
+  publication_date: string | null;
+  featured: boolean;
+  reading_time: number;
+}
+
+export interface BlogFormPayload {
+  title: string;
+  slug: string;
+  summary: string;
+  content: string;
+  main_image: File | null;
+  category: number;
+  stages: number[];
+  content_type: BlogContentType;
+  publication_date: string | null;
+  status: string;
+  featured: boolean;
+  reading_time: number;
+  sources: string;
+  seo_title: string;
+  seo_description: string;
+}
