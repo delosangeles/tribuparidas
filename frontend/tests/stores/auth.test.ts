@@ -25,6 +25,12 @@ vi.mock("~/services/auth.service", () => ({
   },
 }));
 
+vi.mock("~/services/feature-flag.service", () => ({
+  featureFlagService: {
+    list: vi.fn(async () => ({ data: { results: [] } })),
+  },
+}));
+
 describe("auth store", () => {
   beforeEach(() => {
     setActivePinia(createPinia());

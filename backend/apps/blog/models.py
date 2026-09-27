@@ -67,6 +67,7 @@ class BlogPost(models.Model):
 
     class Status(models.TextChoices):
         DRAFT = "DRAFT", "Borrador"
+        IN_REVIEW = "IN_REVIEW", "En revisión"
         PUBLISHED = "PUBLISHED", "Publicado"
 
     class ContentType(models.TextChoices):
@@ -188,3 +189,36 @@ class BlogPost(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class BlogComment(models.Model):
+    post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.CASCADE,
+        related_name="comments",
+        verbose_name="Publicación"
+    )
+
+    author = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="blog_comments",
+        verbose_name="Autor"
+    )
+
+    content = models.TextField(
+        verbose_name="Comentario"
+    )
+
+    created_at = models.DateTimeField(
+        auto_now_add=True,
+        verbose_name="Fecha de creación"
+    )
+
+    class Meta:
+        ordering = ["-created_at"]
+        verbose_name = "Comentario del blog"
+        verbose_name_plural = "Comentarios del blog"
+
+    def __str__(self):
+        return f"{self.author} -> {self.post}: {self.content[:30]}"

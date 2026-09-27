@@ -15,6 +15,15 @@ export interface User {
   created_at: string;
 }
 
+export interface FeatureFlag {
+  key: string;
+  label: string;
+  activate_at: string | null;
+  is_forced_active: boolean;
+  is_active: boolean;
+  updated_at: string;
+}
+
 export type NotificationType = "new_registration" | "password_reset_request";
 
 export interface AppNotification {
@@ -242,6 +251,8 @@ export type BlogContentType =
   | "RECOMMENDATION"
   | "TRIBU_STORY";
 
+export type BlogPostStatus = "DRAFT" | "IN_REVIEW" | "PUBLISHED";
+
 export interface BlogPost {
   id: number;
   title: string;
@@ -253,9 +264,31 @@ export interface BlogPost {
   stage_names: string[];
   author_name: string;
   content_type: BlogContentType;
+  status: BlogPostStatus;
   publication_date: string | null;
   featured: boolean;
   reading_time: number;
+  comments_count: number;
+}
+
+export interface BlogPostDetail extends BlogPost {
+  content: string;
+  category_slug: string;
+  stages_detail: BlogStage[];
+  author: number;
+  updated_at: string;
+  sources: string;
+  seo_title: string;
+  seo_description: string;
+}
+
+export interface BlogComment {
+  id: number;
+  post: number;
+  author: number;
+  author_name: string;
+  content: string;
+  created_at: string;
 }
 
 export interface BlogFormPayload {
@@ -266,9 +299,10 @@ export interface BlogFormPayload {
   main_image: File | null;
   category: number;
   stages: number[];
+  author?: number;
   content_type: BlogContentType;
   publication_date: string | null;
-  status: string;
+  status: BlogPostStatus;
   featured: boolean;
   reading_time: number;
   sources: string;

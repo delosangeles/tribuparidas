@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ActivityLog, PageView
+from .models import ActivityLog, FeatureFlag, PageView
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
@@ -26,3 +26,19 @@ class PageViewCreateSerializer(serializers.ModelSerializer):
     class Meta:
         model = PageView
         fields = ["session_id", "path"]
+
+
+class FeatureFlagSerializer(serializers.ModelSerializer):
+    is_active = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = FeatureFlag
+        fields = [
+            "key",
+            "label",
+            "activate_at",
+            "is_forced_active",
+            "is_active",
+            "updated_at",
+        ]
+        read_only_fields = ["key", "label", "is_active", "updated_at"]

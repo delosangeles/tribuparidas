@@ -26,6 +26,9 @@ export const useAuthStore = defineStore("auth", () => {
     try {
       const { data } = await authService.login(email, password);
       setSession(data);
+      // No se recarga la página tras el login, así que el plugin que carga
+      // los feature flags al iniciar la app no vuelve a correr: se pide acá.
+      await useFeatureFlagStore().load();
     } finally {
       loading.value = false;
     }

@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import { blogService } from "~/services/blog.service";
 import type {
   BlogCategory,
   BlogFormPayload,
+  BlogPostDetail,
+  BlogPostStatus,
   BlogStage,
   BlogContentType,
 } from "~/types";
@@ -10,9 +13,15 @@ const props = withDefaults(
   defineProps<{
     submitLabel: string;
     loading?: boolean;
+    initial?: BlogPostDetail | null;
+    isAdmin?: boolean;
+    authors?: { id: number; label: string }[];
   }>(),
   {
     loading: false,
+    initial: null,
+    isAdmin: false,
+    authors: () => [],
   }
 );
 
@@ -20,7 +29,10 @@ const emit = defineEmits<{
   (e: "submit", payload: BlogFormPayload): void;
 }>();
 
-// Categorías
+// Categorías y etapas: este formulario se monta en varios contextos (modal
+// público, crear y editar en el panel admin) — usar `getCachedData` fuerza
+// una carga fresca en cada montaje en vez de reutilizar por siempre lo que
+// haya quedado cacheado bajo esta misma key la primera vez que se abrió.
 const { data: categoriesData } = await useAsyncData(
   "blog-form-categories",
   async () => {
@@ -29,10 +41,12 @@ const { data: categoriesData } = await useAsyncData(
     });
 
     return data;
+  },
+  {
+    getCachedData: () => undefined,
   }
 );
 
-// Etapas
 const { data: stagesData } = await useAsyncData(
   "blog-form-stages",
   async () => {
@@ -41,16 +55,36 @@ const { data: stagesData } = await useAsyncData(
     });
 
     return data;
+  },
+  {
+    getCachedData: () => undefined,
   }
 );
 
 const categories = computed<BlogCategory[]>(() => {
-  return categoriesData.value?.results || [];
+  const data = categoriesData.value;
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return data?.results || [];
 });
 
 const stages = computed<BlogStage[]>(() => {
-  return stagesData.value?.results || [];
+  const data = stagesData.value;
+
+  if (Array.isArray(data)) {
+    return data;
+  }
+
+  return data?.results || [];
 });
+
+const authorOptions = computed<{ id: number | string; label: string }[]>(() => [
+  { id: "", label: "Sin cambios (por defecto, quien crea el post)" },
+  ...props.authors,
+]);
 
 const CONTENT_TYPES: {
   value: BlogContentType;
@@ -82,10 +116,14 @@ const CONTENT_TYPES: {
   },
 ];
 
-const STATUS_OPTIONS = [
+const STATUS_OPTIONS: { value: BlogPostStatus; label: string }[] = [
   {
     value: "DRAFT",
     label: "Borrador",
+  },
+  {
+    value: "IN_REVIEW",
+    label: "En revisi\u00f3n",
   },
   {
     value: "PUBLISHED",
@@ -93,21 +131,31 @@ const STATUS_OPTIONS = [
   },
 ];
 
+function formatDateTimeLocal(value: string) {
+  const date = new Date(value);
+  const offset = date.getTimezoneOffset();
+  const localDate = new Date(date.getTime() - offset * 60 * 1000);
+  return localDate.toISOString().slice(0, 16);
+}
+
 const form = reactive({
-  title: "",
-  slug: "",
-  summary: "",
-  content: "",
-  category: 0,
-  stages: [] as number[],
-  content_type: "ARTICLE" as BlogContentType,
-  publication_date: "",
-  status: "DRAFT",
-  featured: false,
-  reading_time: 5,
-  sources: "",
-  seo_title: "",
-  seo_description: "",
+  title: props.initial?.title || "",
+  slug: props.initial?.slug || "",
+  summary: props.initial?.summary || "",
+  content: props.initial?.content || "",
+  category: props.initial?.category ?? "",
+  stages: props.initial?.stages_detail?.map((stage) => stage.id) || ([] as number[]),
+  author: props.initial?.author ?? "",
+  content_type: (props.initial?.content_type || "ARTICLE") as BlogContentType,
+  publication_date: props.initial?.publication_date
+    ? formatDateTimeLocal(props.initial.publication_date)
+    : "",
+  status: (props.initial?.status || "DRAFT") as BlogPostStatus,
+  featured: props.initial?.featured ?? false,
+  reading_time: props.initial?.reading_time ?? 5,
+  sources: props.initial?.sources || "",
+  seo_title: props.initial?.seo_title || "",
+  seo_description: props.initial?.seo_description || "",
 });
 
 const mainImage = ref<File | null>(null);
@@ -122,11 +170,19 @@ function generateSlug(value: string) {
 }
 
 function handleTitleInput() {
-  form.slug = generateSlug(form.title);
+  // Al editar no se regenera el slug de un art\u00edculo que ya pudo haberse
+  // compartido: cambiarlo romper\u00eda su URL.
+  if (!props.initial) {
+    form.slug = generateSlug(form.title);
+  }
 }
 
 function handleSubmit() {
-  emit("submit", {
+  if (!form.category) {
+    return;
+  }
+
+  const payload: BlogFormPayload = {
     title: form.title,
     slug: form.slug,
     summary: form.summary,
@@ -142,7 +198,13 @@ function handleSubmit() {
     sources: form.sources,
     seo_title: form.seo_title,
     seo_description: form.seo_description,
-  });
+  };
+
+  if (props.isAdmin && form.author) {
+    payload.author = Number(form.author);
+  }
+
+  emit("submit", payload);
 }
 </script>
 
@@ -160,6 +222,7 @@ function handleSubmit() {
       <ImageUploader
         shape="wide"
         label="Subir imagen"
+        :model-value="initial?.main_image"
         @select="(file) => (mainImage = file)"
       />
     </div>
@@ -213,7 +276,7 @@ function handleSubmit() {
           class="field"
         >
           <option
-            :value="0"
+            value=""
             disabled
           >
             Selecciona una categoría
@@ -328,7 +391,7 @@ function handleSubmit() {
         Publicación
       </p>
 
-      <div class="grid gap-4 sm:grid-cols-3">
+      <div v-if="isAdmin" class="mb-4 grid gap-4 sm:grid-cols-2">
         <!-- Estado -->
         <div>
           <label class="mb-1 block text-sm font-medium text-ink">
@@ -349,6 +412,21 @@ function handleSubmit() {
           </select>
         </div>
 
+        <!-- Autor -->
+        <div>
+          <label class="mb-1 block text-sm font-medium text-ink">
+            Autor
+          </label>
+
+          <SearchableSelect
+            v-model="form.author"
+            :options="authorOptions"
+            placeholder="Buscar autor por nombre o correo..."
+          />
+        </div>
+      </div>
+
+      <div class="grid gap-4 sm:grid-cols-3">
         <!-- Fecha -->
         <div>
           <label class="mb-1 block text-sm font-medium text-ink">

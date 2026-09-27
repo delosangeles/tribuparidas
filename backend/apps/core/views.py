@@ -1,16 +1,21 @@
 from collections import Counter
 from datetime import timedelta
 
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.db.models.functions import ExtractHour, TruncDate
 from django.utils import timezone
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ActivityLog, PageView
+from .models import ActivityLog, FeatureFlag, PageView, log_activity
 from .permissions import IsSuperAdmin
-from .serializers import ActivityLogSerializer, PageViewCreateSerializer
+from .serializers import ActivityLogSerializer, FeatureFlagSerializer, PageViewCreateSerializer
+
+# Rutas de login/registro y el panel admin no son "contenido" que interese en
+# la analítica de visitantes: solo agregan ruido (el propio equipo admin
+# entrando a su panel, intentos de login, etc.).
+ANALYTICS_EXCLUDED_PATHS = Q(path__startswith="/login") | Q(path__startswith="/registro") | Q(path__startswith="/admin")
 
 
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -45,10 +50,14 @@ class AnalyticsSummaryView(APIView):
 
     def get(self, request):
         since = timezone.now() - timedelta(days=14)
-        qs = PageView.objects.filter(created_at__gte=since)
+        qs = PageView.objects.filter(created_at__gte=since).exclude(ANALYTICS_EXCLUDED_PATHS)
 
+        # "Vistas por día" se filtra en el frontend (semana/mes), así que
+        # necesita más historial que el resto de las métricas de 14 días.
+        since_by_day = timezone.now() - timedelta(days=31)
+        qs_by_day = PageView.objects.filter(created_at__gte=since_by_day).exclude(ANALYTICS_EXCLUDED_PATHS)
         by_day = list(
-            qs.annotate(day=TruncDate("created_at")).values("day").annotate(count=Count("id")).order_by("day")
+            qs_by_day.annotate(day=TruncDate("created_at")).values("day").annotate(count=Count("id")).order_by("day")
         )
         by_hour = list(
             qs.annotate(hour=ExtractHour("created_at")).values("hour").annotate(count=Count("id")).order_by("hour")
@@ -72,4 +81,31 @@ class AnalyticsSummaryView(APIView):
                 "top_pages": top_pages,
                 "last_pages": last_pages,
             }
+        )
+
+
+class FeatureFlagViewSet(viewsets.ModelViewSet):
+    """/api/feature-flags/ — cualquier autenticado puede leer (para saber si
+    un módulo ya está activo); solo un Super Admin puede editar la fecha de
+    activación. Sin create/delete: los flags se precargan por migración."""
+
+    queryset = FeatureFlag.objects.all()
+    serializer_class = FeatureFlagSerializer
+    lookup_field = "key"
+    http_method_names = ["get", "patch", "head", "options"]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsSuperAdmin()]
+
+    def perform_update(self, serializer):
+        flag = serializer.save()
+        log_activity(
+            self.request.user,
+            "feature_flag_updated",
+            f"{self.request.user.email} programó «{flag.label}» para "
+            f"{flag.activate_at.isoformat() if flag.activate_at else 'sin fecha'}"
+            f"{' (forzado activo)' if flag.is_forced_active else ''}.",
+            target=flag,
         )

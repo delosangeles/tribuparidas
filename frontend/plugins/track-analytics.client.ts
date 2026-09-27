@@ -15,7 +15,16 @@ export default defineNuxtPlugin(() => {
 
   const sessionId = getSessionId();
 
+  // Login, registro y el panel admin no son "contenido" de interés para la
+  // analítica de visitantes (solo agregarían ruido: el equipo admin
+  // navegando su propio panel, intentos de login, etc.).
+  const EXCLUDED_PREFIXES = ["/login", "/registro", "/admin"];
+
   function track(path: string) {
+    if (EXCLUDED_PREFIXES.some((prefix) => path.startsWith(prefix))) {
+      return;
+    }
+
     try {
       // Falla silenciosa: nunca debe interrumpir la navegación de la usuaria.
       analyticsService.track(path, sessionId).catch(() => {});

@@ -1,9 +1,37 @@
 <script setup lang="ts">
 const authStore = useAuthStore();
+const featureFlagStore = useFeatureFlagStore();
+const route = useRoute();
 const menuOpen = ref(false);
 const mobileNavOpen = ref(false);
+const blogMenuOpen = ref(false);
+const blogMenuRef = ref<HTMLElement | null>(null);
 
-const COMING_SOON_LINKS = ["Sueño", "Alimentación Complementaria", "Embarazo", "Blogs"];
+// Sub-items del menú "Blog": cada uno filtra el listado por una categoría o
+// etapa ya existente (ver apps/blog/migrations/0002_seed_blog_data.py).
+const BLOG_SUBMENU = [
+  { label: "Sueño", to: "/blog?category=sueno" },
+  { label: "Alimentación Complementaria", to: "/blog?category=alimentacion" },
+  { label: "Embarazo", to: "/blog?stage=embarazo" },
+];
+
+// El blog puede tener activación programada (ver /admin/lanzamiento): se
+// oculta del menú hasta esa fecha, salvo para el equipo admin que necesita
+// entrar a prepararlo antes de que se revele.
+const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
+
+// Cerrar al hacer click fuera. Antes usaba @mouseleave en el contenedor,
+// pero el gap (mt-2) entre el botón y el desplegable hacía que el mouse
+// "saliera" del contenedor al bajar y el menú se cerraba antes de poder
+// hacer click en un sub-item.
+function handleClickOutsideBlogMenu(event: MouseEvent) {
+  if (blogMenuOpen.value && blogMenuRef.value && !blogMenuRef.value.contains(event.target as Node)) {
+    blogMenuOpen.value = false;
+  }
+}
+
+onMounted(() => document.addEventListener("click", handleClickOutsideBlogMenu));
+onBeforeUnmount(() => document.removeEventListener("click", handleClickOutsideBlogMenu));
 
 async function handleLogout() {
   await authStore.logout();
@@ -24,11 +52,38 @@ async function handleLogout() {
         <NuxtLink to="/" class="transition hover:text-gold" active-class="text-gold">Inicio</NuxtLink>
         <NuxtLink to="/emprendimientos" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
         <NuxtLink to="/noticias" class="transition hover:text-gold" active-class="text-gold">Noticias</NuxtLink>
-        <NuxtLink to="/blog" class="transition hover:text-gold" active-class="text-gold">Blog</NuxtLink>
-        <span v-for="label in COMING_SOON_LINKS" :key="label" class="flex cursor-default flex-col items-center gap-1 text-center text-muted/60">
-          {{ label }}
-          <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none text-white">¡Próximamente!</span>
-        </span>
+
+        <div v-if="canSeeBlog" ref="blogMenuRef" class="relative">
+          <button
+            type="button"
+            class="flex items-center gap-1 transition hover:text-gold"
+            :class="route.path.startsWith('/blog') ? 'text-gold' : ''"
+            @click="blogMenuOpen = !blogMenuOpen"
+          >
+            Blog
+            <AppIcon name="chevron" :size="12" class="rotate-90" />
+          </button>
+
+          <div
+            v-if="blogMenuOpen"
+            class="absolute left-0 top-full z-10 mt-2 w-60 rounded-xl2 border border-line bg-white p-2 text-left shadow-soft"
+            @click="blogMenuOpen = false"
+          >
+            <NuxtLink to="/blog" class="block rounded-xl2 px-3 py-2 text-ink transition hover:bg-gold-light hover:text-gold">
+              Todos los blogs
+            </NuxtLink>
+            <div class="my-1 border-t border-line" />
+            <p class="px-3 py-1 text-xs font-semibold uppercase tracking-wide text-muted">Por categoría</p>
+            <NuxtLink
+              v-for="item in BLOG_SUBMENU"
+              :key="item.label"
+              :to="item.to"
+              class="block rounded-xl2 px-3 py-2 text-ink transition hover:bg-gold-light hover:text-gold"
+            >
+              {{ item.label }}
+            </NuxtLink>
+          </div>
+        </div>
       </nav>
 
       <div class="flex items-center gap-2">
@@ -94,10 +149,34 @@ async function handleLogout() {
       >
         Emprendimientos
       </NuxtLink>
-      <span v-for="label in COMING_SOON_LINKS" :key="label" class="flex items-center justify-between rounded-xl2 px-3 py-2.5 text-muted/60">
-        {{ label }}
-        <span class="rounded-full bg-rose-500 px-1.5 py-0.5 text-[9px] font-semibold uppercase leading-none text-white">¡Próximamente!</span>
-      </span>
+      <NuxtLink
+        to="/noticias"
+        class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
+        active-class="!bg-gold-light !text-gold"
+        @click="mobileNavOpen = false"
+      >
+        Noticias
+      </NuxtLink>
+      <template v-if="canSeeBlog">
+        <NuxtLink
+          to="/blog"
+          class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
+          active-class="!bg-gold-light !text-gold"
+          @click="mobileNavOpen = false"
+        >
+          Blog
+        </NuxtLink>
+        <p class="mt-1 px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted/60">Blog por categoría</p>
+        <NuxtLink
+          v-for="item in BLOG_SUBMENU"
+          :key="item.label"
+          :to="item.to"
+          class="rounded-xl2 py-2.5 pl-6 pr-3 transition hover:bg-gold-light hover:text-gold"
+          @click="mobileNavOpen = false"
+        >
+          {{ item.label }}
+        </NuxtLink>
+      </template>
     </nav>
   </header>
 </template>

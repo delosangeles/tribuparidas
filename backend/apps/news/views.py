@@ -1,7 +1,10 @@
 from django.utils import timezone
 from rest_framework.decorators import action
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.viewsets import ModelViewSet
+
+from apps.core.permissions import IsAdminOrReadOnly
 
 from .models import News
 from .serializers import NewsSerializer
@@ -11,6 +14,7 @@ from rest_framework.filters import SearchFilter, OrderingFilter
 class NewsViewSet(ModelViewSet):
     queryset = News.objects.all()
     serializer_class = NewsSerializer
+    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
 
     filter_backends = [
         SearchFilter,

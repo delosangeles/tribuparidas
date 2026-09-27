@@ -1,9 +1,11 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
     BlogCategoryViewSet,
     BlogStageViewSet,
     BlogPostViewSet,
+    BlogPostCommentsView,
 )
 
 router = DefaultRouter()
@@ -26,4 +28,11 @@ router.register(
     basename="blog"
 )
 
-urlpatterns = router.urls
+urlpatterns = [
+    path(
+        "blog/<slug:slug>/comments/",
+        BlogPostCommentsView.as_view(),
+        name="blog-post-comments",
+    ),
+    *router.urls,
+]

@@ -3,8 +3,11 @@ import io
 from django.core.files.base import ContentFile
 from django.core.management.base import BaseCommand
 from django.db import transaction
+from django.utils import timezone
+from django.utils.text import slugify
 from PIL import Image, ImageDraw, ImageFont
 
+from apps.blog.models import BlogCategory, BlogPost, BlogStage
 from apps.businesses.models import Business, BusinessImage
 from apps.categories.models import Category
 from apps.questions.models import Answer, Question
@@ -129,6 +132,39 @@ BUSINESSES = [
     },
 ]
 
+BLOG_POSTS = [
+    {
+        "title": "Cómo armar la maleta para el parto sin dejar nada por fuera",
+        "summary": "La lista completa para ti y para el bebé, pensada para el clima de Colombia.",
+        "content": (
+            "Preparar la maleta del parto con tiempo evita carreras de último minuto. "
+            "Aquí va una guía práctica: documentos, ropa cómoda, artículos de aseo, "
+            "y todo lo que necesita el bebé para sus primeros días.\n\n"
+            "Documentos: cédula, carné del EPS, carné de control prenatal.\n"
+            "Para ti: bata, pijama, toallas higiénicas post-parto, ropa cómoda para la salida.\n"
+            "Para el bebé: body, cobija, pañales talla recién nacido, gorro."
+        ),
+        "category_slug": "maternidad-y-bienestar",
+        "stage_slug": "embarazo",
+        "content_type": BlogPost.ContentType.CHECKLIST,
+        "reading_time": 4,
+    },
+    {
+        "title": "Primeras semanas de postparto: qué es normal y cuándo consultar",
+        "summary": "Una guía honesta sobre el cuerpo y las emociones después de dar a luz.",
+        "content": (
+            "El postparto trae cambios físicos y emocionales que casi nadie cuenta con "
+            "detalle. Aquí compartimos qué es esperable en las primeras semanas —desde "
+            "el sangrado y el cansancio hasta la montaña rusa de emociones— y qué señales "
+            "ameritan llamar a tu médica sin esperar el control de rutina."
+        ),
+        "category_slug": "salud-mental",
+        "stage_slug": "0-3-meses",
+        "content_type": BlogPost.ContentType.GUIDE,
+        "reading_time": 6,
+    },
+]
+
 
 def make_placeholder_image(text, size, bg_hex):
     image = Image.new("RGB", size, bg_hex)
@@ -154,13 +190,14 @@ def initials(name):
 
 
 class Command(BaseCommand):
-    help = "Carga categorías, emprendimientos, preguntas y opiniones de ejemplo (idempotente)."
+    help = "Carga categorías, emprendimientos, preguntas, opiniones y blogs de ejemplo (idempotente)."
 
     @transaction.atomic
     def handle(self, *args, **options):
         categories = self._seed_categories()
         visitors = self._seed_visitors()
         self._seed_businesses(categories, visitors)
+        self._seed_blog()
         self.stdout.write(self.style.SUCCESS("Datos de ejemplo cargados correctamente."))
 
     def _seed_categories(self):
@@ -252,3 +289,45 @@ class Command(BaseCommand):
                     user=visitor,
                     defaults={"rating": 4 + (offset % 2), "comment": "¡Excelente atención y calidad!"},
                 )
+
+    def _seed_blog(self):
+        author = User.objects.filter(is_staff=True).order_by("id").first()
+
+        if author is None:
+            author = User.objects.create_user(
+                email="equipo@tribuparidas.com",
+                first_name="Equipo",
+                last_name="Tribu Paridas",
+                is_staff=True,
+                password="ClaveSegura123",
+            )
+            self.stdout.write("Autor de blog creado: equipo@tribuparidas.com")
+
+        for data in BLOG_POSTS:
+            category = BlogCategory.objects.filter(slug=data["category_slug"]).first()
+            stage = BlogStage.objects.filter(slug=data["stage_slug"]).first()
+
+            if category is None or stage is None:
+                self.stdout.write(self.style.WARNING(f"Se omitió el blog «{data['title']}»: falta la categoría o etapa."))
+                continue
+
+            post, created = BlogPost.objects.get_or_create(
+                title=data["title"],
+                defaults={
+                    "slug": slugify(data["title"]),
+                    "summary": data["summary"],
+                    "content": data["content"],
+                    "category": category,
+                    "author": author,
+                    "content_type": data["content_type"],
+                    "status": BlogPost.Status.PUBLISHED,
+                    "publication_date": timezone.now(),
+                    "reading_time": data["reading_time"],
+                },
+            )
+
+            if not created:
+                continue
+
+            post.stages.add(stage)
+            self.stdout.write(f"Blog creado: {post.title}")

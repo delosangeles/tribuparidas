@@ -1,43 +1,30 @@
 <script setup lang="ts">
 import { businessService } from "~/services/business.service";
-import type { Business } from "~/types";
+import { blogService } from "~/services/blog.service";
+import type { Business, BlogPost } from "~/types";
 
 const authStore = useAuthStore();
+const featureFlagStore = useFeatureFlagStore();
 
-// const form = reactive({ first_name: "", last_name: "", email: "", whatsapp: "", password: "" });
-// const loading = ref(false);
-// const error = ref("");
-// const submitted = ref(false);
-// const registerMessage = ref("");
-
-// async function handleSubmit() {
-//   loading.value = true;
-//   error.value = "";
-//   try {
-//     const data = await authStore.register({ ...form });
-//     registerMessage.value = data.detail;
-//     submitted.value = true;
-//   } catch (err) {
-//     error.value = useErrorMessage(err);
-//   } finally {
-//     loading.value = false;
-//   }
-// }
+// El blog puede tener activación programada (ver /admin/lanzamiento): no se
+// promociona en el home hasta esa fecha, salvo para el equipo admin.
+const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
 
 const featured = ref<Business[]>([]);
+const latestPosts = ref<BlogPost[]>([]);
 
 if (!authStore.isAuthenticated) {
   await navigateTo("/login");
 }
 
 if (authStore.isAuthenticated) {
-  const { data } = await businessService.list({ ordering: "name", page_size: 8 });
+  const { data } = await businessService.list({ ordering: "-created_at", page_size: 4 });
   featured.value = data.results;
-}
 
-const searchQuery = ref("");
-function submitSearch() {
-  navigateTo({ path: "/emprendimientos", query: searchQuery.value ? { search: searchQuery.value } : {} });
+  if (canSeeBlog.value) {
+    const { data: blogData } = await blogService.list({ page_size: 4 });
+    latestPosts.value = blogData.results;
+  }
 }
 
 import { newsService } from "~/services/news.service";
@@ -234,24 +221,48 @@ onBeforeUnmount(() => {
       <CountdownTimer target="2026-09-01T19:00:00-05:00" label="¡Falta poco!" />
     </section> -->
 
-    <section class="mx-auto max-w-7xl px-4 pt-8 sm:px-6">
-      <form class="mx-auto flex max-w-lg items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 shadow-soft" @submit.prevent="submitSearch">
-        <AppIcon name="search" :size="16" class="text-muted" />
-        <input
-          v-model="searchQuery"
-          type="text"
-          placeholder="Buscar emprendimiento, categoría o ciudad..."
-          class="w-full border-none bg-transparent text-sm outline-none"
-        />
-        <button type="submit" class="btn-primary shrink-0">Buscar</button>
-      </form>
+    <!-- Del blog -->
+    <section v-if="canSeeBlog && latestPosts.length" class="mx-auto max-w-7xl px-4 pt-10 sm:px-6">
+      <div class="mb-6 flex items-center justify-between">
+        <h2 class="flex items-center gap-2 text-xl font-bold text-ink">
+          <AppIcon name="file-text" :size="18" class="text-gold" />
+          Del blog
+        </h2>
+        <NuxtLink to="/blog" class="text-sm font-semibold text-gold hover:underline">Ver todos</NuxtLink>
+      </div>
+
+      <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <article
+          v-for="post in latestPosts"
+          :key="post.id"
+          class="card group cursor-pointer overflow-hidden transition hover:-translate-y-1 hover:shadow-md"
+          @click="navigateTo(`/blog/${post.slug}`)"
+        >
+          <div class="aspect-[4/3] overflow-hidden bg-gold-light">
+            <img
+              v-if="post.main_image"
+              :src="post.main_image"
+              :alt="post.title"
+              class="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+            />
+            <div v-else class="flex h-full w-full items-center justify-center text-gold">
+              <AppIcon name="file-text" :size="28" />
+            </div>
+          </div>
+
+          <div class="p-3">
+            <span class="badge bg-gold-light text-gold">{{ post.category_name }}</span>
+            <h3 class="mt-2 line-clamp-2 text-sm font-semibold text-ink">{{ post.title }}</h3>
+          </div>
+        </article>
+      </div>
     </section>
 
     <section class="mx-auto max-w-7xl px-4 py-10 sm:px-6">
       <div class="mb-6 flex items-center justify-between">
         <h2 class="flex items-center gap-2 text-xl font-bold text-ink">
           <AppIcon name="heart" :size="18" class="text-gold" />
-          Emprendimientos destacados
+          Últimos emprendimientos
         </h2>
         <NuxtLink to="/emprendimientos" class="text-sm font-semibold text-gold hover:underline">Ver todos</NuxtLink>
       </div>

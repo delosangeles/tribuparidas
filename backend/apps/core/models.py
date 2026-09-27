@@ -2,6 +2,7 @@ from django.conf import settings
 from django.contrib.contenttypes.fields import GenericForeignKey
 from django.contrib.contenttypes.models import ContentType
 from django.db import models
+from django.utils import timezone
 
 
 class TimeStampedModel(models.Model):
@@ -52,6 +53,56 @@ class PageView(models.Model):
     class Meta:
         ordering = ["-created_at"]
         indexes = [models.Index(fields=["session_id", "created_at"])]
+
+
+class FeatureFlag(models.Model):
+    """Interruptor con activación programada: el código de una funcionalidad
+    ya puede estar desplegado en producción, oculto hasta una fecha/hora que
+    el Super Admin define desde `/admin/lanzamiento` — el mismo espíritu del
+    portón de lanzamiento del sitio (`frontend/app.vue`), pero reutilizable
+    para cualquier módulo futuro sin tocar código ni volver a desplegar."""
+
+    key = models.SlugField(
+        unique=True,
+        verbose_name="Clave"
+    )
+
+    label = models.CharField(
+        max_length=100,
+        verbose_name="Nombre"
+    )
+
+    activate_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Fecha y hora de activación"
+    )
+
+    is_forced_active = models.BooleanField(
+        default=False,
+        verbose_name="Forzar activación inmediata"
+    )
+
+    updated_at = models.DateTimeField(
+        auto_now=True,
+        verbose_name="Última actualización"
+    )
+
+    class Meta:
+        ordering = ["key"]
+        verbose_name = "Interruptor de funcionalidad"
+        verbose_name_plural = "Interruptores de funcionalidad"
+
+    def __str__(self):
+        return self.label
+
+    @property
+    def is_active(self):
+        if self.is_forced_active:
+            return True
+        if self.activate_at is None:
+            return False
+        return timezone.now() >= self.activate_at
 
 
 def log_activity(actor, action, description, target=None):

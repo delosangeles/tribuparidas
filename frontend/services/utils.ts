@@ -4,15 +4,26 @@
  * la imagen ya guardada). Un string vacío "" sí se envía tal cual, porque en
  * un PATCH representa "vaciar este campo" (ej. quitarle el padre a una
  * categoría) — DRF interpreta "" como null en campos con allow_null=True. */
-export function toFormData(payload: Record<string, unknown>): FormData {
+export function toFormData<T extends object>(payload: T): FormData {
   const formData = new FormData();
+
   Object.entries(payload).forEach(([key, value]) => {
     if (value === null || value === undefined) return;
+
     if (value instanceof File) {
       formData.append(key, value);
-    } else {
-      formData.append(key, String(value));
+      return;
     }
+
+    if (Array.isArray(value)) {
+      value.forEach((item) => {
+        formData.append(key, String(item));
+      });
+      return;
+    }
+
+    formData.append(key, String(value));
   });
+
   return formData;
 }

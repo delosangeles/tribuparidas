@@ -83,11 +83,29 @@ watch([search, category, stage], () => {
   page.value = 1;
 });
 
+// Si la URL cambia por fuera (ej. un link del menú a /blog?category=sueno
+// mientras ya se está en /blog), sincroniza los filtros locales con ella.
+watch(
+  () => route.query,
+  (query) => {
+    search.value = (query.search as string) || "";
+    category.value = (query.category as string) || "";
+    stage.value = (query.stage as string) || "";
+    page.value = Number(query.page) || 1;
+  }
+);
+
 function openPost(slug: string) {
   navigateTo(`/blog/${slug}`);
 }
 
 const authStore = useAuthStore();
+const featureFlagStore = useFeatureFlagStore();
+
+// El blog puede tener activación programada (ver /admin/lanzamiento); el
+// backend ya oculta el contenido para quien no sea admin, esto solo evita
+// mostrar el "no encontramos artículos" genérico antes de la fecha.
+const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
 
 const showCreate = ref(false);
 const createLoading = ref(false);
@@ -138,6 +156,7 @@ function closeCreate() {
             </p>
         </div>
         <button
+            v-if="canSeeBlog"
             type="button"
             class="btn-primary inline-flex items-center justify-center gap-2"
             @click="openCreate"
@@ -148,7 +167,7 @@ function closeCreate() {
     </div>
 
     <!-- Filtros -->
-    <div class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
+    <div v-if="canSeeBlog" class="mt-6 flex flex-col gap-3 lg:flex-row lg:items-center">
 
       <!-- Buscar -->
       <div
@@ -290,10 +309,18 @@ function closeCreate() {
 
       <!-- Vacío -->
       <EmptyState
-        v-else
+        v-else-if="canSeeBlog"
         icon="search"
         title="No encontramos artículos"
         description="Prueba con otra búsqueda o cambia los filtros."
+        class="mt-8"
+      />
+
+      <EmptyState
+        v-else
+        icon="clock"
+        title="Muy pronto"
+        description="El blog todavía no está disponible. Vuelve más adelante."
         class="mt-8"
       />
 
@@ -326,11 +353,15 @@ function closeCreate() {
                 />
 
                 <h2 class="mt-4 text-xl font-semibold text-ink">
-                    ¡Blog creado correctamente!
+                    {{ authStore.isAdmin ? "¡Blog creado correctamente!" : "¡Gracias por tu aporte!" }}
                 </h2>
 
                 <p class="mt-2 text-sm text-muted">
-                    El artículo fue guardado correctamente.
+                    {{
+                      authStore.isAdmin
+                        ? "El artículo fue guardado correctamente."
+                        : "Tu artículo quedó en revisión. El equipo de Tribu Paridas lo publicará en cuanto lo apruebe."
+                    }}
                 </p>
 
                 <button

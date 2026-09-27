@@ -45,17 +45,19 @@ tribuparidas/
 │       ├── categories/
 │       ├── businesses/        # Business + BusinessImage
 │       ├── questions/         # Question + Answer
-│       └── reviews/           # Review + Favorite
+│       ├── reviews/           # Review + Favorite
+│       ├── blog/              # BlogPost + BlogCategory + BlogStage (escritura solo admin)
+│       └── news/               # News (banner de novedades, escritura solo admin)
 │
 ├── frontend/
 │   ├── package.json
 │   ├── Dockerfile
 │   ├── .env.example
 │   ├── nuxt.config.ts
-│   ├── pages/                 # rutas (Inicio, Emprendimientos, Dashboard, Admin, ...)
-│   ├── components/            # ui/, business/, question/, review/, layout/
+│   ├── pages/                 # rutas (Inicio, Emprendimientos, Blog, Noticias, Dashboard, Admin, ...)
+│   ├── components/            # ui/, business/, question/, review/, blog/, news/, layout/
 │   ├── composables/
-│   ├── stores/                 # Pinia: auth, business, categories, questions
+│   ├── stores/                 # Pinia: auth, business, categories, questions, news
 │   ├── services/                # una capa por recurso, toda la comunicación HTTP vive aquí
 │   ├── middleware/              # auth.ts, admin.ts
 │   └── tests/
@@ -133,6 +135,7 @@ Crea (de forma idempotente, se puede correr varias veces sin duplicar):
 - 5 emprendimientos aprobados con logo, portada y galería (imágenes generadas con Pillow): Dulces de Stephania, Luna & Sol, Vela Viva, Verde Hogar, Manos que crean.
 - Una pregunta respondida y varias opiniones por emprendimiento.
 - 3 usuarios "visitantes" y un usuario "emprendedor" dueño por cada negocio (contraseña `ClaveSegura123`).
+- 2 blogs de ejemplo, publicados y con autor administrador (las categorías y etapas del blog ya vienen cargadas por una migración de datos, no por este comando).
 
 Después de cargar los datos, `http://localhost:3000` muestra contenido real de inmediato.
 
@@ -208,3 +211,5 @@ Flujo típico: hacer cambios en local → `git push` → correr `deploy-backend.
 - **Imágenes**: se manejan con Pillow en el backend (`MEDIA_ROOT`/`MEDIA_URL`, servidas por Django en desarrollo dentro de un volumen Docker persistente). La arquitectura queda preparada para migrar a S3/Cloudinary vía `django-storages` sin reescribir el resto del código (ver comentario en `backend/config/settings/base.py`).
 - **Estadísticas del dashboard**: solo se muestran métricas reales que existen en el modelo de datos (preguntas, galería, opiniones, calificación promedio). No se simula un contador de "visitas" porque no hay un modelo de tracking de visitas en el alcance del proyecto — agregarlo sería una extensión futura razonable, no un dato inventado en el frontend.
 - **Categorías**: las borra o edita únicamente un administrador (`IsAdminOrReadOnly`); si una categoría tiene emprendimientos asociados, el borrado falla a propósito (`on_delete=PROTECT`) para no dejar negocios huérfanos — el panel admin explica esto y sugiere desactivarla en su lugar.
+- **Blog**: cualquier persona autenticada puede enviar un artículo desde `/blog`, pero queda en estado `IN_REVIEW` con ella misma como autora hasta que un admin lo aprueba (o lo edita/rechaza) desde `/admin/blog` (`IsAdminOrCreateOnly`). Un admin, en cambio, puede crear un post ya publicado y elegir a cualquier usuario como autor. Cada envío, aprobación, edición o borrado queda registrado en el Historial (`ActivityLog`, `/admin/activity`).
+- **Lanzamiento programado de funcionalidades** (`FeatureFlag`, `/admin/lanzamiento`): una funcionalidad puede desplegarse a producción ya escrita pero oculta hasta una fecha/hora exacta, sin volver a tocar código ni redeployar. Solo el Super Admin ve y edita esa fecha; el equipo admin siempre puede entrar a preparar el contenido de antemano (el gate se aplica solo a quien no es staff). A diferencia del portón de lanzamiento del sitio completo (`frontend/app.vue`, fecha fija en el código, para el lanzamiento único de todo el sitio), este es por módulo y editable desde el panel — pensado para reutilizarse la próxima vez que haya un lote de cambios pre-cargados que revelar en una fecha específica. El único flag que existe hoy es `blog_module`.
