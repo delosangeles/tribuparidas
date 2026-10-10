@@ -300,6 +300,13 @@ async function handleSubmit(payload: NewsFormPayload) {
               >
                 Inactiva
               </span>
+
+              <span
+                class="ml-1 inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
+                :class="item.visibility === 'public' ? 'bg-sky-50 text-sky-600' : 'bg-amber-50 text-amber-700'"
+              >
+                {{ item.visibility === "public" ? "Pública" : "Privada" }}
+              </span>
             </td>
 
             <!-- Acciones -->

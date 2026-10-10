@@ -19,6 +19,7 @@ class NewsSerializer(serializers.ModelSerializer):
             "expires_at",
             "order",
             "is_active",
+            "visibility",
             "created_by",
             "created_by_name",
             "created_at",

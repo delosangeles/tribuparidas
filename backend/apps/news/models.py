@@ -6,6 +6,10 @@ from apps.core.validators import validate_image_file
 
 
 class News(TimeStampedModel):
+    class Visibility(models.TextChoices):
+        PUBLIC = "public", "Pública"
+        PRIVATE = "private", "Privada"
+
     title = models.CharField(
         "Título",
         max_length=200,
@@ -39,6 +43,15 @@ class News(TimeStampedModel):
 
     expires_at = models.DateTimeField(
         "Fecha de vencimiento",
+    )
+
+    # Obligatorio y sin valor por defecto: quien crea la noticia debe elegir.
+    # Pública: la ve cualquier visitante, incluso sin iniciar sesión.
+    # Privada: solo usuarias con sesión iniciada.
+    visibility = models.CharField(
+        "Visibilidad",
+        max_length=10,
+        choices=Visibility.choices,
     )
 
     created_by = models.ForeignKey(

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { News, NewsFormPayload } from "~/types";
+import type { News, NewsFormPayload, NewsVisibility } from "~/types";
 
 const props = withDefaults(
   defineProps<{
@@ -29,6 +29,8 @@ const form = reactive({
     : "",
   order: props.initial?.order ?? 0,
   is_active: props.initial?.is_active ?? true,
+  // Obligatorio: sin valor por defecto para que quien crea la noticia elija.
+  visibility: (props.initial?.visibility || "") as NewsVisibility | "",
 });
 
 const desktopFile = ref<File | null>(null);
@@ -77,6 +79,7 @@ function handleSubmit() {
     expires_at: form.expires_at,
     order: Number(form.order),
     is_active: form.is_active,
+    visibility: form.visibility as NewsVisibility,
     image_desktop: desktopFile.value,
     image_mobile: mobileFile.value,
   });
@@ -177,6 +180,18 @@ function handleSubmit() {
         <select v-model="form.is_active" class="field">
           <option :value="true">Activa</option>
           <option :value="false">Inactiva</option>
+        </select>
+      </div>
+
+      <div>
+        <label class="mb-1 block text-sm font-medium text-ink">
+          Visibilidad
+        </label>
+
+        <select v-model="form.visibility" required class="field">
+          <option value="" disabled>Selecciona…</option>
+          <option value="public">Pública (visible sin iniciar sesión)</option>
+          <option value="private">Privada (solo con sesión iniciada)</option>
         </select>
       </div>
 
