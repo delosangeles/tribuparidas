@@ -1,21 +1,18 @@
 from collections import Counter
 from datetime import timedelta
 
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.db.models.functions import ExtractHour, TruncDate
 from django.utils import timezone
 from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ActivityLog, FeatureFlag, PageView, log_activity
+from .models import ActivityLog, FeatureFlag, MonthlyReport, PageView, log_activity
 from .permissions import IsSuperAdmin
-from .serializers import ActivityLogSerializer, FeatureFlagSerializer, PageViewCreateSerializer
+from .reports import ANALYTICS_EXCLUDED_PATHS, ensure_previous_month_report
+from .serializers import ActivityLogSerializer, FeatureFlagSerializer, MonthlyReportSerializer, PageViewCreateSerializer
 
-# Rutas de login/registro y el panel admin no son "contenido" que interese en
-# la analítica de visitantes: solo agregan ruido (el propio equipo admin
-# entrando a su panel, intentos de login, etc.).
-ANALYTICS_EXCLUDED_PATHS = Q(path__startswith="/login") | Q(path__startswith="/registro") | Q(path__startswith="/admin")
 
 
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):
@@ -109,3 +106,18 @@ class FeatureFlagViewSet(viewsets.ModelViewSet):
             f"{' (forzado activo)' if flag.is_forced_active else ''}.",
             target=flag,
         )
+
+
+class MonthlyReportViewSet(viewsets.ReadOnlyModelViewSet):
+    """/api/admin/reports/monthly/ — solo Super Admin. Reportes ya generados
+    (uno por mes, inmutables). Al listar se asegura que exista el del mes
+    anterior, así no depende de que corra un cron el día 1."""
+
+    queryset = MonthlyReport.objects.all()
+    serializer_class = MonthlyReportSerializer
+    permission_classes = [IsSuperAdmin]
+    pagination_class = None
+
+    def list(self, request, *args, **kwargs):
+        ensure_previous_month_report()
+        return super().list(request, *args, **kwargs)

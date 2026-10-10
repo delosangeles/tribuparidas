@@ -16,6 +16,7 @@ const BASE_LINKS = [
 
 const SUPERADMIN_LINKS = [
   { to: "/admin/analytics", label: "Analítica", icon: "chart" },
+  { to: "/admin/reportes", label: "Reportes mensuales", icon: "file-text" },
   { to: "/admin/launch", label: "Lanzamiento", icon: "star" },
 ];
 

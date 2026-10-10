@@ -115,3 +115,21 @@ def log_activity(actor, action, description, target=None):
         content_type=ContentType.objects.get_for_model(target) if target is not None else None,
         object_id=target.pk if target is not None else None,
     )
+
+
+class MonthlyReport(models.Model):
+    """Reporte mensual de la plataforma. Se genera UNA sola vez, el primer día
+    de cada mes, para el mes anterior, y queda guardado tal cual: no se
+    recalcula ni se sobrescribe (los números quedan "congelados")."""
+
+    year = models.PositiveSmallIntegerField()
+    month = models.PositiveSmallIntegerField()
+    data = models.JSONField()
+    generated_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-year", "-month"]
+        constraints = [models.UniqueConstraint(fields=["year", "month"], name="reporte_mensual_unico")]
+
+    def __str__(self):
+        return f"Reporte {self.year}-{self.month:02d}"

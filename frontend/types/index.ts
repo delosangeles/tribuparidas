@@ -370,4 +370,36 @@ export interface BlogFormPayload {
   sources: string;
   seo_title: string;
   seo_description: string;
-}
+}
+export interface MonthlyTotals {
+  users: number;
+  users_active: number;
+  users_pending: number;
+  businesses: number;
+  businesses_approved: number;
+  businesses_pending: number;
+  pageviews: number;
+  sessions: number;
+}
+
+export interface MonthlyReportData {
+  year: number;
+  month: number;
+  totals: MonthlyTotals;
+  previous: MonthlyTotals;
+  best_day: { date: string; pageviews: number; sessions: number; users: number; businesses: number; top_path: string } | null;
+  best_hour: { hour: number; count: number } | null;
+  days: { date: string; pageviews: number; users: number; businesses: number }[];
+  by_hour: { hour: number; count: number }[];
+  top_pages: { path: string; count: number }[];
+  sections: { title: string; text: string }[];
+}
+
+/** Reporte mensual ya generado (uno por mes, no se recalcula). */
+export interface MonthlyReport {
+  id: number;
+  year: number;
+  month: number;
+  generated_at: string;
+  data: MonthlyReportData;
+}

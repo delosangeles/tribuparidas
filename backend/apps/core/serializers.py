@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import ActivityLog, FeatureFlag, PageView
+from .models import ActivityLog, FeatureFlag, PageView, MonthlyReport
 
 
 class ActivityLogSerializer(serializers.ModelSerializer):
@@ -42,3 +42,10 @@ class FeatureFlagSerializer(serializers.ModelSerializer):
             "updated_at",
         ]
         read_only_fields = ["key", "label", "is_active", "updated_at"]
+
+
+class MonthlyReportSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = MonthlyReport
+        fields = ["id", "year", "month", "generated_at", "data"]
+        read_only_fields = fields
