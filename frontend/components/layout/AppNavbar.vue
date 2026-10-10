@@ -52,6 +52,7 @@ async function handleLogout() {
         <NuxtLink to="/" class="transition hover:text-gold" active-class="text-gold">Inicio</NuxtLink>
         <NuxtLink to="/emprendimientos" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
         <NuxtLink to="/noticias" class="transition hover:text-gold" active-class="text-gold">Noticias</NuxtLink>
+        <NuxtLink to="/festejos" class="transition hover:text-gold" active-class="text-gold">Festejos</NuxtLink>
 
         <div v-if="canSeeBlog" ref="blogMenuRef" class="relative">
           <button
@@ -156,6 +157,14 @@ async function handleLogout() {
         @click="mobileNavOpen = false"
       >
         Noticias
+      </NuxtLink>
+      <NuxtLink
+        to="/festejos"
+        class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
+        active-class="!bg-gold-light !text-gold"
+        @click="mobileNavOpen = false"
+      >
+        Festejos
       </NuxtLink>
       <template v-if="canSeeBlog">
         <NuxtLink

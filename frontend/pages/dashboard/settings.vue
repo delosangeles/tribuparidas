@@ -9,6 +9,7 @@ const form = reactive({
   first_name: authStore.user?.first_name || "",
   last_name: authStore.user?.last_name || "",
 });
+const festejosForm = ref(festejosFormFromUser(authStore.user));
 const loading = ref(false);
 const success = ref(false);
 const error = ref("");
@@ -18,7 +19,8 @@ async function handleSubmit() {
   error.value = "";
   success.value = false;
   try {
-    await authStore.updateProfile({ ...form });
+    await authStore.updateProfile({ ...form, ...festejosPayload(festejosForm.value) });
+    festejosForm.value = festejosFormFromUser(authStore.user);
     success.value = true;
   } catch (err) {
     error.value = useErrorMessage(err);
@@ -89,6 +91,7 @@ async function handlePasswordSubmit() {
           <input :value="authStore.user?.whatsapp" type="text" disabled class="field bg-line/40 text-muted" />
           <p class="mt-1 text-xs text-muted">Para cambiar tu WhatsApp, contacta al equipo admin.</p>
         </div>
+        <FestejosDataForm v-model="festejosForm" />
         <p v-if="success" class="text-sm text-emerald-600">Perfil actualizado.</p>
         <p v-if="error" class="text-sm text-rose-500">{{ error }}</p>
         <button type="submit" class="btn-primary" :disabled="loading">Guardar cambios</button>

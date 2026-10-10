@@ -7,12 +7,23 @@ export function useErrorMessage(error: unknown): string {
   if (typeof data === "string") return data;
   if (typeof data.detail === "string") return data.detail;
 
-  const firstKey = Object.keys(data)[0];
-  if (firstKey) {
-    const value = data[firstKey];
-    if (Array.isArray(value)) return String(value[0]);
+  const firstString = (value: unknown): string | null => {
     if (typeof value === "string") return value;
-  }
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = firstString(item);
+        if (found) return found;
+      }
+    } else if (value && typeof value === "object") {
+      for (const item of Object.values(value)) {
+        const found = firstString(item);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+  const message = firstString(data);
+  if (message) return message;
 
   return "Ocurrió un error inesperado. Intenta de nuevo.";
 }

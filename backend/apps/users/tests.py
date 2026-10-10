@@ -8,7 +8,9 @@ from rest_framework.test import APIClient
 
 from apps.core.models import ActivityLog
 
-from .models import Notification
+from django.utils import timezone
+
+from .models import Child, Notification
 from .serializers import OPEN_REGISTRATION_END, OPEN_REGISTRATION_START
 
 User = get_user_model()
@@ -34,6 +36,7 @@ def test_register_creates_inactive_user_without_tokens(api):
                 "first_name": "Nueva",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "birth_date": "1992-05-10",
             },
             format="json",
         )
@@ -54,6 +57,7 @@ def test_register_during_launch_window_is_active_immediately(api):
                 "first_name": "Lanzamiento",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "birth_date": "1992-05-10",
             },
             format="json",
         )
@@ -77,6 +81,7 @@ def test_register_after_launch_window_ends_is_pending_again(api):
                 "first_name": "Tarde",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "birth_date": "1992-05-10",
             },
             format="json",
         )
@@ -106,6 +111,7 @@ def test_pending_user_cannot_login(api):
                 "first_name": "Pendiente",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "birth_date": "1992-05-10",
             },
             format="json",
         )
@@ -124,6 +130,7 @@ def test_user_can_login_after_admin_activates_account(api):
             "first_name": "Aprobada",
             "last_name": "Usuaria",
             "whatsapp": "+57 300 000 0000",
+            "birth_date": "1992-05-10",
         },
         format="json",
     )
@@ -172,6 +179,7 @@ def test_register_creates_admin_notification(api):
             "first_name": "Aviso",
             "last_name": "Prueba",
             "whatsapp": "+57 300 000 0000",
+            "birth_date": "1992-05-10",
         },
         format="json",
     )
@@ -408,7 +416,142 @@ def test_register_accepts_phone_with_country_code(api):
             "first_name": "Con",
             "last_name": "Codigo",
             "whatsapp": "+57 300 000 0000",
+            "birth_date": "1992-05-10",
         },
         format="json",
     )
     assert response.status_code == status.HTTP_201_CREATED
+
+
+# ---------- Datos de festejos (cumpleaños, hijos, embarazo) ----------
+
+REGISTER_BASE = {
+    "password": "ClaveSegura123",
+    "first_name": "Madre",
+    "last_name": "Prueba",
+    "whatsapp": "+57 300 000 0000",
+}
+
+
+def test_register_requires_birth_date(api):
+    response = api.post("/api/auth/register/", {**REGISTER_BASE, "email": "sinfecha@example.com"}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "birth_date" in response.data
+
+
+def test_register_saves_children_and_pregnancy(api):
+    response = api.post(
+        "/api/auth/register/",
+        {
+            **REGISTER_BASE,
+            "email": "hijos@example.com",
+            "birth_date": "1990-03-04",
+            "children": [{"name": "Sol", "birth_date": "2025-01-10"}, {"name": "Leo", "birth_date": "2019-06-01"}],
+            "pregnancy": {"due_date": (timezone.localdate() + timedelta(days=100)).isoformat()},
+        },
+        format="json",
+    )
+    assert response.status_code == status.HTTP_201_CREATED
+    user = User.objects.get(email="hijos@example.com")
+    assert user.children.count() == 2
+    assert user.pregnancy is not None
+
+
+def test_register_rejects_child_without_name_or_date(api):
+    response = api.post(
+        "/api/auth/register/",
+        {**REGISTER_BASE, "email": "mal@example.com", "birth_date": "1990-03-04", "children": [{"name": "", "birth_date": "2025-01-10"}]},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    response = api.post(
+        "/api/auth/register/",
+        {**REGISTER_BASE, "email": "mal@example.com", "birth_date": "1990-03-04", "children": [{"name": "Sol"}]},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_register_rejects_future_child_birth_date(api):
+    future = (timezone.localdate() + timedelta(days=5)).isoformat()
+    response = api.post(
+        "/api/auth/register/",
+        {**REGISTER_BASE, "email": "futuro@example.com", "birth_date": "1990-03-04", "children": [{"name": "Sol", "birth_date": future}]},
+        format="json",
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_pending_registration_account_is_claimed_on_register(api):
+    pending = User(email="excel@example.com", first_name="Excel", birth_date="1991-01-01", registration_status="pending_registration", is_active=False)
+    pending.set_unusable_password()
+    pending.save()
+    Child.objects.create(user=pending, name="Bebé", birth_date="2026-01-01")
+
+    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
+        response = api.post(
+            "/api/auth/register/",
+            {**REGISTER_BASE, "email": "excel@example.com", "birth_date": "1991-01-01"},
+            format="json",
+        )
+    assert response.status_code == status.HTTP_201_CREATED
+    assert User.objects.filter(email="excel@example.com").count() == 1
+    pending.refresh_from_db()
+    assert pending.registration_status == "registered"
+    assert pending.is_active is False  # espera aprobación del admin
+    assert pending.check_password("ClaveSegura123")
+    assert pending.children.count() == 1  # los hijos precargados se conservan
+
+
+def test_pending_registration_account_cannot_log_in(api):
+    pending = User(email="pend@example.com", registration_status="pending_registration", is_active=False)
+    pending.set_unusable_password()
+    pending.save()
+    response = api.post("/api/auth/login/", {"email": "pend@example.com", "password": "loquesea"}, format="json")
+    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_registered_email_cannot_be_registered_again(api):
+    User.objects.create_user(email="ya@example.com", password="x")
+    response = api.post(
+        "/api/auth/register/", {**REGISTER_BASE, "email": "ya@example.com", "birth_date": "1990-03-04"}, format="json"
+    )
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_me_update_replaces_children_and_reports_missing_data(api):
+    user = User.objects.create_user(email="perfil@example.com", password="x", is_active=True)
+    api.force_authenticate(user)
+    assert api.get("/api/me/").data["missing_festejos_data"] == ["fecha de cumpleaños"]
+
+    response = api.patch(
+        "/api/me/",
+        {"birth_date": "1990-05-05", "children": [{"name": "Sol", "birth_date": "2025-01-10"}]},
+        format="json",
+    )
+    assert response.status_code == 200
+    assert response.data["missing_festejos_data"] == []
+    child_id = response.data["children"][0]["id"]
+
+    response = api.patch(
+        "/api/me/",
+        {"children": [{"id": child_id, "name": "Soledad", "birth_date": "2025-01-10"}, {"name": "Leo", "birth_date": "2020-02-02"}]},
+        format="json",
+    )
+    assert [c["name"] for c in response.data["children"]] == ["Leo", "Soledad"] or len(response.data["children"]) == 2
+    assert user.children.get(pk=child_id).name == "Soledad"
+
+    response = api.patch("/api/me/", {"children": []}, format="json")
+    assert user.children.count() == 0
+
+
+def test_children_of_other_users_are_not_exposed_or_editable(api):
+    owner = User.objects.create_user(email="due@example.com", password="x", is_active=True)
+    child = Child.objects.create(user=owner, name="Privado", birth_date="2024-01-01")
+    attacker = User.objects.create_user(email="otra@example.com", password="x", is_active=True)
+    api.force_authenticate(attacker)
+    assert api.get("/api/me/").data["children"] == []
+    # Intentar "actualizar" el hijo ajeno por id crea uno nuevo propio, nunca toca el ajeno.
+    api.patch("/api/me/", {"children": [{"id": child.id, "name": "Hack", "birth_date": "2024-01-01"}]}, format="json")
+    child.refresh_from_db()
+    assert child.name == "Privado"

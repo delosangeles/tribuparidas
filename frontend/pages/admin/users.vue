@@ -13,7 +13,7 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const search = ref("");
-const statusFilter = ref<"" | "pending" | "active">("");
+const statusFilter = ref<"" | "pending" | "active" | "unregistered">("");
 const page = ref(1);
 const loading = ref(false);
 const users = ref<User[]>([]);
@@ -24,7 +24,10 @@ async function load() {
   try {
     const { data } = await userService.adminList({
       search: search.value || undefined,
-      is_active: statusFilter.value === "" ? undefined : statusFilter.value === "active",
+      // "Pendientes" = se registraron y esperan aprobación; "Sin registrarse" = precargadas desde el Excel.
+      is_active: statusFilter.value === "pending" ? false : statusFilter.value === "active" ? true : undefined,
+      registration_status:
+        statusFilter.value === "unregistered" ? "pending_registration" : statusFilter.value === "pending" ? "registered" : undefined,
       page: page.value,
     });
     users.value = data.results;
@@ -38,6 +41,41 @@ await load();
 watch([search, statusFilter], () => {
   page.value = 1;
   load();
+});
+
+function formatDay(iso: string) {
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(new Date(y, m - 1, d));
+}
+
+const PROFILE_LABELS: Record<string, string> = {
+  preferred_name: "¿Cómo prefiere que la llamemos?",
+  location: "Ciudad, barrio y país",
+  occupation: "¿A qué se dedica?",
+  situation: "¿Cómo está?",
+  children_text: "Nombre y edad de sus hijos (texto original)",
+  companions: "Quién la acompaña a maternar",
+  how_met: "¿Cómo conoció Tribu Paridas?",
+  invited_by: "Quién la invitó",
+  interests: "Temas que le interesan",
+  has_business: "¿Tiene emprendimiento?",
+  business_description: "Su emprendimiento o servicio",
+  business_social: "Redes del emprendimiento",
+  offers_benefits: "¿Ofrece descuentos o beneficios?",
+  looking_for: "Qué quiere encontrar en la tribu",
+  desired_professional: "Profesional que le gustaría en la comunidad",
+  meaning_phrase: "Para mí, Tribu Paridas significa...",
+  spaces: "Espacios en los que quiere participar",
+  main_need: "Lo que más necesita como mamá",
+  suggestions: "Sugerencias",
+};
+
+const editProfileEntries = computed(() => {
+  const profile = editTarget.value?.member_profile as Record<string, unknown> | null | undefined;
+  if (!profile) return [];
+  return Object.entries(PROFILE_LABELS)
+    .filter(([key]) => profile[key])
+    .map(([key, label]) => ({ label, value: String(profile[key]) }));
 });
 
 function waLink(whatsapp: string) {
@@ -138,6 +176,7 @@ function closeCreate() {
 
 const editTarget = ref<User | null>(null);
 const editForm = reactive({ first_name: "", last_name: "", whatsapp: "" });
+const editFestejos = ref(emptyFestejosForm());
 const editLoading = ref(false);
 const editError = ref("");
 
@@ -146,6 +185,7 @@ function openEdit(user: User) {
   editForm.first_name = user.first_name;
   editForm.last_name = user.last_name;
   editForm.whatsapp = user.whatsapp;
+  editFestejos.value = festejosFormFromUser(user);
   editError.value = "";
 }
 
@@ -154,7 +194,11 @@ async function submitEdit() {
   editLoading.value = true;
   editError.value = "";
   try {
-    const { data } = await userService.adminUpdate(editTarget.value.id, { ...editForm });
+    const { data } = await userService.adminUpdate(editTarget.value.id, {
+      ...editForm,
+      ...festejosPayload(editFestejos.value),
+      birth_date: editFestejos.value.birth_date || null,
+    });
     Object.assign(editTarget.value, data);
     editTarget.value = null;
   } catch (err) {
@@ -189,6 +233,7 @@ function closeEdit() {
       <div class="flex gap-2">
         <button class="btn-outline" :class="statusFilter === '' && '!border-gold !text-gold'" @click="statusFilter = ''">Todos</button>
         <button class="btn-outline" :class="statusFilter === 'pending' && '!border-gold !text-gold'" @click="statusFilter = 'pending'">Pendientes</button>
+        <button class="btn-outline" :class="statusFilter === 'unregistered' && '!border-gold !text-gold'" @click="statusFilter = 'unregistered'">Sin registrarse</button>
         <button class="btn-outline" :class="statusFilter === 'active' && '!border-gold !text-gold'" @click="statusFilter = 'active'">Activos</button>
       </div>
     </div>
@@ -200,6 +245,7 @@ function closeEdit() {
           <tr>
             <th class="px-4 py-3">Usuario</th>
             <th class="px-4 py-3">WhatsApp</th>
+            <th class="px-4 py-3">Festejos</th>
             <th class="px-4 py-3">Rol</th>
             <th class="px-4 py-3">Emprendimientos</th>
             <th class="px-4 py-3">Estado</th>
@@ -211,12 +257,21 @@ function closeEdit() {
             <td class="px-4 py-3">
               <p class="font-medium text-ink">{{ user.first_name }} {{ user.last_name }}</p>
               <p class="text-xs text-muted">{{ user.email }}</p>
+              <span v-if="user.registration_status === 'pending_registration'" class="badge-pending mt-1">Pendiente de registrarse</span>
             </td>
             <td class="px-4 py-3">
               <a v-if="user.whatsapp" :href="waLink(user.whatsapp)" target="_blank" class="inline-flex items-center gap-1 text-emerald-600 hover:underline">
                 <AppIcon name="whatsapp" :size="14" />{{ user.whatsapp }}
               </a>
               <span v-else class="text-muted">—</span>
+            </td>
+            <td class="px-4 py-3 text-xs text-muted">
+              <p>Cumple: {{ user.birth_date ? formatDay(user.birth_date) : "—" }}</p>
+              <p>
+                {{ user.children?.length ?? 0 }} hijo{{ user.children?.length === 1 ? "" : "s" }}<template v-if="user.pregnancy">
+                  · embarazo ({{ formatDay(user.pregnancy.due_date) }})</template>
+              </p>
+              <p v-if="user.missing_festejos_data?.length" class="text-amber-600">Falta: {{ user.missing_festejos_data.join(", ") }}</p>
             </td>
             <td class="px-4 py-3">
               <span class="text-muted">{{ ROLE_LABELS[user.role] }}</span>
@@ -229,10 +284,18 @@ function closeEdit() {
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
                 <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Editar</button>
-                <button v-if="!user.is_staff" class="btn-outline !px-2 !py-1 text-xs" @click="toggleActive(user)">
+                <button
+                  v-if="!user.is_staff && user.registration_status !== 'pending_registration'"
+                  class="btn-outline !px-2 !py-1 text-xs"
+                  @click="toggleActive(user)"
+                >
                   {{ user.is_active ? "Desactivar" : "Activar" }}
                 </button>
-                <button v-if="!user.is_staff" class="btn-outline !px-2 !py-1 text-xs" @click="resetTarget = user">
+                <button
+                  v-if="!user.is_staff && user.registration_status !== 'pending_registration'"
+                  class="btn-outline !px-2 !py-1 text-xs"
+                  @click="resetTarget = user"
+                >
                   Resetear contraseña
                 </button>
                 <button
@@ -358,8 +421,8 @@ function closeEdit() {
     </Teleport>
 
     <Teleport to="body">
-      <div v-if="editTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
-        <div class="card w-full max-w-sm p-6">
+      <div v-if="editTarget" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/40 px-4 py-8">
+        <div class="card max-h-[90vh] w-full max-w-xl overflow-y-auto p-6">
           <p class="text-lg font-semibold text-ink">Editar usuario</p>
           <form class="mt-4 space-y-3" @submit.prevent="submitEdit">
             <div class="grid grid-cols-2 gap-3">
@@ -383,6 +446,16 @@ function closeEdit() {
                 placeholder="+57 300 000 0000"
               />
             </div>
+            <FestejosDataForm v-model="editFestejos" optional-birth-date />
+            <details v-if="editProfileEntries.length" class="rounded-xl2 border border-line p-3 text-sm">
+              <summary class="cursor-pointer font-medium text-ink">Respuestas del formulario de inscripción</summary>
+              <dl class="mt-3 space-y-2">
+                <div v-for="entry in editProfileEntries" :key="entry.label">
+                  <dt class="text-xs font-semibold text-muted">{{ entry.label }}</dt>
+                  <dd class="whitespace-pre-line text-ink">{{ entry.value }}</dd>
+                </div>
+              </dl>
+            </details>
             <p v-if="editError" class="text-sm text-rose-500">{{ editError }}</p>
             <div class="flex justify-end gap-2 pt-2">
               <button type="button" class="btn-ghost" @click="closeEdit">Cancelar</button>

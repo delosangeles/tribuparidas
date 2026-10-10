@@ -77,6 +77,7 @@ const form = reactive({
   password: "",
 });
 
+const festejosForm = ref(emptyFestejosForm());
 const registerLoading = ref(false);
 const registerError = ref("");
 const submitted = ref(false);
@@ -89,6 +90,7 @@ async function handleRegister() {
   try {
     const data = await authStore.register({
       ...form,
+      ...festejosPayload(festejosForm.value),
     });
 
     registerMessage.value = data.detail;
@@ -113,7 +115,8 @@ function showRegister() {
 
 <template>
   <div
-    class="mx-auto flex min-h-[80vh] max-w-md flex-col items-center px-4 py-16"
+    class="mx-auto flex min-h-[80vh] flex-col items-center px-4 py-16"
+    :class="mode === 'register' ? 'max-w-xl' : 'max-w-md'"
   >
     <!-- LOGO -->
     <NuxtLink to="/">
@@ -333,6 +336,9 @@ function showRegister() {
               Con este número confirmamos que estás en el grupo de la tribu.
             </p>
           </div>
+
+          <!-- DATOS PARA FESTEJOS -->
+          <FestejosDataForm v-model="festejosForm" />
 
           <!-- PASSWORD -->
           <div>

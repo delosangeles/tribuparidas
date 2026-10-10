@@ -12,7 +12,69 @@ export interface User {
   is_entrepreneur: boolean;
   is_active?: boolean;
   businesses_count?: number;
+  registration_status?: RegistrationStatus;
+  birth_date?: string | null;
+  children?: Child[];
+  pregnancy?: { due_date: string } | null;
+  missing_festejos_data?: string[];
+  member_profile?: MemberProfile | null;
   created_at: string;
+}
+
+export type RegistrationStatus = "registered" | "pending_registration";
+
+export interface Child {
+  id?: number;
+  name: string;
+  birth_date: string;
+}
+
+export interface MemberProfile {
+  preferred_name: string;
+  location: string;
+  occupation: string;
+  situation: string;
+  children_text: string;
+  companions: string;
+  how_met: string;
+  invited_by: string;
+  interests: string;
+  has_business: string;
+  business_description: string;
+  business_social: string;
+  offers_benefits: string;
+  looking_for: string;
+  desired_professional: string;
+  meaning_phrase: string;
+  spaces: string;
+  main_need: string;
+  suggestions: string;
+  form_submitted_at: string | null;
+}
+
+export type FestejoKind = "monthiversary" | "child_birthday" | "mother_birthday" | "manual";
+
+export interface Festejo {
+  id: number;
+  kind: FestejoKind;
+  kind_label: string;
+  event_date: string;
+  user: number;
+  child: number | null;
+  number: number | null;
+  title: string;
+  note: string;
+  status: "pending" | "approved";
+  is_manual: boolean;
+  mother_name: string;
+  child_name: string | null;
+  headline: string;
+}
+
+export interface FestejosResponse {
+  start: string;
+  end: string;
+  results: Festejo[];
 }
 
 export interface FeatureFlag {
@@ -308,4 +370,4 @@ export interface BlogFormPayload {
   sources: string;
   seo_title: string;
   seo_description: string;
-}
+}

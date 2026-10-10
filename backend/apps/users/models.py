@@ -17,6 +17,16 @@ class User(AbstractBaseUser, PermissionsMixin):
     # al grupo de WhatsApp de la tribu (ver RegisterSerializer).
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+    # Fecha de cumpleaños de la madre (festejos). Opcional a nivel de base de
+    # datos para no romper usuarias existentes; la API la exige al registrarse.
+    birth_date = models.DateField(null=True, blank=True)
+    # "pending_registration": cuenta precargada desde el Excel de inscripción
+    # cuya dueña aún no se ha registrado (sin contraseña, inactiva).
+    registration_status = models.CharField(
+        max_length=25,
+        choices=[("registered", "Registrada"), ("pending_registration", "Pendiente de registrarse")],
+        default="registered",
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -65,3 +75,62 @@ class Notification(models.Model):
 
     def __str__(self):
         return self.message
+
+
+class Child(models.Model):
+    """Hijo/a de una usuaria (datos de menores: solo los ve la propia usuaria
+    y el equipo admin). Nombre y fecha son obligatorios en la API; en base de
+    datos quedan opcionales por si la importación trae datos incompletos."""
+
+    user = models.ForeignKey("users.User", on_delete=models.CASCADE, related_name="children")
+    name = models.CharField(max_length=150, blank=True)
+    birth_date = models.DateField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["birth_date", "id"]
+        verbose_name_plural = "children"
+
+    def __str__(self):
+        return f"{self.name} ({self.user.email})"
+
+
+class Pregnancy(models.Model):
+    """Embarazo en curso: fecha probable de parto. No genera mesversarios."""
+
+    user = models.OneToOneField("users.User", on_delete=models.CASCADE, related_name="pregnancy")
+    due_date = models.DateField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Embarazo de {self.user.email} ({self.due_date})"
+
+
+class MemberProfile(models.Model):
+    """Respuestas del formulario de inscripción "TRIBU PARIDAS Conociéndonos".
+    Todo opcional: lo llena la importación del Excel o la propia usuaria."""
+
+    user = models.OneToOneField("users.User", on_delete=models.CASCADE, related_name="member_profile")
+    preferred_name = models.CharField(max_length=150, blank=True)
+    location = models.CharField(max_length=255, blank=True)
+    occupation = models.CharField(max_length=255, blank=True)
+    situation = models.CharField(max_length=255, blank=True)  # ¿Estás?
+    children_text = models.TextField(blank=True)  # nombre y edad de los hijos (texto libre original)
+    companions = models.CharField(max_length=255, blank=True)
+    how_met = models.CharField(max_length=255, blank=True)
+    invited_by = models.CharField(max_length=255, blank=True)
+    interests = models.TextField(blank=True)
+    has_business = models.CharField(max_length=100, blank=True)
+    business_description = models.TextField(blank=True)
+    business_social = models.CharField(max_length=500, blank=True)
+    offers_benefits = models.CharField(max_length=255, blank=True)
+    looking_for = models.TextField(blank=True)
+    desired_professional = models.TextField(blank=True)
+    meaning_phrase = models.TextField(blank=True)
+    spaces = models.TextField(blank=True)
+    main_need = models.TextField(blank=True)
+    suggestions = models.TextField(blank=True)
+    form_submitted_at = models.DateTimeField(null=True, blank=True)
+
+    def __str__(self):
+        return f"Perfil de {self.user.email}"

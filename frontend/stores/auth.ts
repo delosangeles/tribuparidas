@@ -37,7 +37,7 @@ export const useAuthStore = defineStore("auth", () => {
   // No hay auto-login: la cuenta queda en revisión hasta que un admin la
   // aprueba (ver RegisterView en el backend). Devuelve el mensaje para que
   // la página de registro lo muestre.
-  async function register(payload: { email: string; password: string; first_name: string; last_name: string; whatsapp: string }) {
+  async function register(payload: Parameters<typeof authService.register>[0]) {
     loading.value = true;
     try {
       const { data } = await authService.register(payload);
@@ -79,7 +79,7 @@ export const useAuthStore = defineStore("auth", () => {
     }
   }
 
-  async function updateProfile(payload: { first_name: string; last_name: string }) {
+  async function updateProfile(payload: Parameters<typeof authService.updateMe>[0]) {
     const { data } = await authService.updateMe(payload);
     user.value = data;
   }

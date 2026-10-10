@@ -1,4 +1,4 @@
-import type { Paginated, User } from "~/types";
+import type { Child, Paginated, User } from "~/types";
 
 export const userService = {
   adminList(params: Record<string, unknown> = {}) {
@@ -16,7 +16,17 @@ export const userService = {
   adminCreate(payload: { email: string; first_name: string; last_name: string; whatsapp?: string; is_staff: boolean }) {
     return useApi().post<User & { new_password: string }>("/admin/users/", payload);
   },
-  adminUpdate(userId: number, payload: { first_name: string; last_name: string; whatsapp: string }) {
+  adminUpdate(
+    userId: number,
+    payload: {
+      first_name: string;
+      last_name: string;
+      whatsapp: string;
+      birth_date?: string | null;
+      children?: Child[];
+      pregnancy?: { due_date: string } | null;
+    }
+  ) {
     return useApi().patch<User>(`/admin/users/${userId}/`, payload);
   },
 };

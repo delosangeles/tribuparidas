@@ -128,7 +128,7 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = AdminUserSerializer
     permission_classes = [permissions.IsAdminUser]
-    filterset_fields = ["is_active", "is_staff"]
+    filterset_fields = ["is_active", "is_staff", "registration_status"]
     search_fields = ["email", "first_name", "last_name"]
     ordering_fields = ["created_at", "email"]
     http_method_names = ["get", "patch", "post", "head", "options"]
