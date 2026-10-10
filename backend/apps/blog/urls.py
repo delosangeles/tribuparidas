@@ -6,6 +6,8 @@ from .views import (
     BlogStageViewSet,
     BlogPostViewSet,
     BlogPostCommentsView,
+    BlogCommentDetailView,
+    BlogCommentLikeView,
 )
 
 router = DefaultRouter()
@@ -33,6 +35,16 @@ urlpatterns = [
         "blog/<slug:slug>/comments/",
         BlogPostCommentsView.as_view(),
         name="blog-post-comments",
+    ),
+    path(
+        "blog/<slug:slug>/comments/<int:pk>/",
+        BlogCommentDetailView.as_view(),
+        name="blog-comment-detail",
+    ),
+    path(
+        "blog/<slug:slug>/comments/<int:pk>/like/",
+        BlogCommentLikeView.as_view(),
+        name="blog-comment-like",
     ),
     *router.urls,
 ]

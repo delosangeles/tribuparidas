@@ -82,7 +82,39 @@ export const blogService = {
     );
   },
 
-  addComment(slug: string, content: string) {
-    return useApi().post<BlogComment>(`/blog/${slug}/comments/`, { content });
+  // Comentar o responder (con foto opcional). Con foto viaja como formulario.
+  addComment(slug: string, payload: { content: string; image?: File | null; parent?: number | null }) {
+    const url = `/blog/${slug}/comments/`;
+    if (payload.image) {
+      const form = new FormData();
+      form.append("content", payload.content);
+      form.append("image", payload.image);
+      if (payload.parent) form.append("parent", String(payload.parent));
+      return useApi().post<BlogComment>(url, form, { headers: { "Content-Type": "multipart/form-data" } });
+    }
+    return useApi().post<BlogComment>(url, { content: payload.content, ...(payload.parent ? { parent: payload.parent } : {}) });
+  },
+
+  // Editar el propio comentario: texto, y foto (cambiarla o quitarla).
+  updateComment(slug: string, id: number, payload: { content: string; image?: File | null; removeImage?: boolean }) {
+    const url = `/blog/${slug}/comments/${id}/`;
+    if (payload.image) {
+      const form = new FormData();
+      form.append("content", payload.content);
+      form.append("image", payload.image);
+      return useApi().patch<BlogComment>(url, form, { headers: { "Content-Type": "multipart/form-data" } });
+    }
+    return useApi().patch<BlogComment>(url, {
+      content: payload.content,
+      ...(payload.removeImage ? { remove_image: true } : {}),
+    });
+  },
+
+  deleteComment(slug: string, id: number) {
+    return useApi().delete(`/blog/${slug}/comments/${id}/`);
+  },
+
+  toggleLike(slug: string, id: number) {
+    return useApi().post<{ liked: boolean; like_count: number }>(`/blog/${slug}/comments/${id}/like/`);
   },
 };

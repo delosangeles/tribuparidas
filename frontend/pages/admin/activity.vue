@@ -19,6 +19,8 @@ const ACTION_LABELS: Record<string, string> = {
   category_created: "Categoría creada",
   category_updated: "Categoría editada",
   category_deleted: "Categoría eliminada",
+  blog_comment_deleted: "Comentario eliminado (admin)",
+  blog_post_published_open: "Desahogo publicado",
 };
 
 const search = ref("");

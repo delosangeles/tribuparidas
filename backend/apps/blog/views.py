@@ -5,13 +5,15 @@ from django.utils import timezone
 
 from rest_framework import generics, permissions, status, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from apps.core.models import FeatureFlag, log_activity
 from apps.core.permissions import IsAdminOrCreateOnly, IsAdminOrReadOnly
 
-from .models import BlogCategory, BlogStage, BlogPost, BlogComment
+from .models import BlogCategory, BlogStage, BlogPost, BlogComment, BlogCommentLike
 from .serializers import (
     BlogCategorySerializer,
     BlogStageSerializer,
@@ -20,6 +22,7 @@ from .serializers import (
     BlogPostWriteSerializer,
     BlogCommentSerializer,
     BlogCommentCreateSerializer,
+    BlogCommentUpdateSerializer,
 )
 
 
@@ -37,7 +40,7 @@ def is_blog_module_live():
 class BlogCategoryViewSet(viewsets.ModelViewSet):
     queryset = BlogCategory.objects.all()
     serializer_class = BlogCategorySerializer
-    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = BlogCategory.objects.all()
@@ -53,7 +56,7 @@ class BlogCategoryViewSet(viewsets.ModelViewSet):
 class BlogStageViewSet(viewsets.ModelViewSet):
     queryset = BlogStage.objects.all()
     serializer_class = BlogStageSerializer
-    permission_classes = [IsAuthenticated, IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
 
     def get_queryset(self):
         queryset = BlogStage.objects.all()
@@ -67,12 +70,13 @@ class BlogStageViewSet(viewsets.ModelViewSet):
 
 
 class BlogPostViewSet(viewsets.ModelViewSet):
-    """Cualquier persona autenticada puede crear un post — queda en revisión
-    (`IN_REVIEW`) salvo que lo cree un admin — pero solo un admin puede
-    editarlo, aprobarlo o borrarlo."""
+    """Leer es abierto (sin sesión solo se ven los publicados). Cualquier
+    persona registrada puede crear un post — queda en revisión (`IN_REVIEW`)
+    salvo que lo cree un admin — pero solo un admin puede editarlo,
+    aprobarlo o borrarlo."""
 
     queryset = BlogPost.objects.all()
-    permission_classes = [IsAuthenticated, IsAdminOrCreateOnly]
+    permission_classes = [IsAdminOrCreateOnly]
     lookup_field = "slug"
 
     def get_serializer_class(self):
@@ -95,6 +99,10 @@ class BlogPostViewSet(viewsets.ModelViewSet):
                 status=BlogPost.Status.PUBLISHED,
                 publication_date__lte=timezone.now()
             )
+
+            # Los blogs privados solo los ve quien tiene sesión.
+            if not self.request.user.is_authenticated:
+                queryset = queryset.filter(visibility=BlogPost.Visibility.PUBLIC)
 
         status_param = self.request.query_params.get("status")
 
@@ -156,6 +164,13 @@ class BlogPostViewSet(viewsets.ModelViewSet):
                 self.request.user,
                 "blog_post_submitted",
                 f"{self.request.user.email} envió a revisión el blog «{post.title}».",
+                target=post,
+            )
+        elif not self.request.user.is_staff:
+            log_activity(
+                self.request.user,
+                "blog_post_published_open",
+                f"{self.request.user.email} publicó en «{post.category.name}» sin aprobación previa: «{post.title}».",
                 target=post,
             )
         else:
@@ -243,12 +258,31 @@ class BlogPostViewSet(viewsets.ModelViewSet):
         return Response(serializer.data)
 
 
-class BlogPostCommentsView(generics.ListCreateAPIView):
-    """GET/POST /api/blog/{slug}/comments/ — cualquier autenticado puede
-    comentar; no se modera (a diferencia del blog, no es contenido editorial
-    que necesite revisión previa)."""
+def blog_post_for(request, slug):
+    """Artículo al que se comenta; antes del lanzamiento solo lo ve el equipo admin."""
+    post = get_object_or_404(BlogPost, slug=slug)
+    if not request.user.is_staff and not is_blog_module_live():
+        raise Http404
+    if post.visibility == BlogPost.Visibility.PRIVATE and not request.user.is_authenticated:
+        raise Http404
+    return post
 
-    permission_classes = [IsAuthenticated]
+
+def comments_queryset():
+    return BlogComment.objects.select_related("author").prefetch_related(
+        "likes", "replies__author", "replies__likes"
+    )
+
+
+class BlogPostCommentsView(generics.ListCreateAPIView):
+    """GET/POST /api/blog/{slug}/comments/ — leer es abierto; comentar o
+    responder requiere sesión (texto y/o una foto). Devuelve los comentarios
+    principales (más nuevos primero), cada uno con sus respuestas, reacciones
+    y foto. No se modera antes de publicar (a diferencia del blog, no es
+    contenido editorial que necesite revisión previa)."""
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
     ordering_fields = ["created_at"]
 
     def get_serializer_class(self):
@@ -257,18 +291,85 @@ class BlogPostCommentsView(generics.ListCreateAPIView):
         return BlogCommentSerializer
 
     def get_post(self):
-        post = get_object_or_404(BlogPost, slug=self.kwargs["slug"])
+        return blog_post_for(self.request, self.kwargs["slug"])
 
-        if not self.request.user.is_staff and not is_blog_module_live():
-            raise Http404
-
-        return post
+    def get_serializer_context(self):
+        context = super().get_serializer_context()
+        if self.request.method == "POST":
+            context["post"] = self.get_post()
+        return context
 
     def get_queryset(self):
-        return BlogComment.objects.filter(post=self.get_post()).select_related("author")
+        return comments_queryset().filter(post=self.get_post(), parent__isnull=True)
 
     def create(self, request, *args, **kwargs):
+        post = self.get_post()
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        comment = serializer.save(post=self.get_post(), author=request.user)
-        return Response(BlogCommentSerializer(comment).data, status=status.HTTP_201_CREATED)
+        comment = serializer.save(post=post, author=request.user)
+        comment = comments_queryset().get(pk=comment.pk)
+        return Response(
+            BlogCommentSerializer(comment, context={"request": request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class BlogCommentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    """/api/blog/{slug}/comments/{id}/ — solo la autora edita su comentario
+    (texto y foto); la autora o un admin pueden eliminarlo (con sus respuestas).
+    Un admin NO puede editar comentarios ajenos."""
+
+    permission_classes = [IsAuthenticatedOrReadOnly]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+    http_method_names = ["get", "patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        post = blog_post_for(self.request, self.kwargs["slug"])
+        return comments_queryset().filter(post=post)
+
+    def get_serializer_class(self):
+        if self.request.method == "PATCH":
+            return BlogCommentUpdateSerializer
+        return BlogCommentSerializer
+
+    def update(self, request, *args, **kwargs):
+        comment = self.get_object()
+        if comment.author_id != request.user.id:
+            return Response({"detail": "Solo puedes editar tus propios comentarios."}, status=status.HTTP_403_FORBIDDEN)
+        serializer = self.get_serializer(comment, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        comment = self.get_queryset().get(pk=comment.pk)
+        return Response(BlogCommentSerializer(comment, context={"request": request}).data)
+
+    def destroy(self, request, *args, **kwargs):
+        comment = self.get_object()
+        is_author = comment.author_id == request.user.id
+        if not (is_author or request.user.is_staff):
+            return Response({"detail": "No puedes eliminar este comentario."}, status=status.HTTP_403_FORBIDDEN)
+        if not is_author:
+            log_activity(
+                request.user,
+                "blog_comment_deleted",
+                f"{request.user.email} eliminó un comentario de {comment.author.email} en «{comment.post.title}».",
+                target=comment.post,
+            )
+        if comment.image:
+            comment.image.delete(save=False)
+        comment.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class BlogCommentLikeView(APIView):
+    """POST /api/blog/{slug}/comments/{id}/like/ — pone o quita el "me gusta"
+    de quien tiene sesión. Devuelve el estado final."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug, pk):
+        post = blog_post_for(request, slug)
+        comment = get_object_or_404(BlogComment, pk=pk, post=post)
+        like, created = BlogCommentLike.objects.get_or_create(comment=comment, user=request.user)
+        if not created:
+            like.delete()
+        return Response({"liked": created, "like_count": comment.likes.count()})

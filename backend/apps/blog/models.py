@@ -2,6 +2,13 @@ from django.conf import settings
 from django.db import models
 from django.utils.text import slugify
 
+from apps.core.validators import validate_image_file
+
+
+# Única categoría donde cualquier persona registrada publica sin aprobación
+# previa del equipo admin. En las demás, el blog queda "en revisión".
+OPEN_CATEGORY_SLUG = "desahogos"
+
 
 class BlogCategory(models.Model):
     name = models.CharField(
@@ -70,6 +77,10 @@ class BlogPost(models.Model):
         IN_REVIEW = "IN_REVIEW", "En revisión"
         PUBLISHED = "PUBLISHED", "Publicado"
 
+    class Visibility(models.TextChoices):
+        PUBLIC = "public", "Público"
+        PRIVATE = "private", "Privado"
+
     class ContentType(models.TextChoices):
         ARTICLE = "ARTICLE", "Artículo"
         GUIDE = "GUIDE", "Guía"
@@ -132,6 +143,16 @@ class BlogPost(models.Model):
         verbose_name="Tipo de contenido"
     )
 
+    # Público: lo ve cualquiera, incluso sin iniciar sesión. Privado: solo
+    # quien tiene sesión. Los blogs que ya existían quedan públicos; al crear
+    # uno por la API es obligatorio elegir (ver BlogPostWriteSerializer).
+    visibility = models.CharField(
+        max_length=10,
+        choices=Visibility.choices,
+        default=Visibility.PUBLIC,
+        verbose_name="Visibilidad"
+    )
+
     publication_date = models.DateTimeField(
         blank=True,
         null=True,
@@ -191,6 +212,14 @@ class BlogPost(models.Model):
         return self.title
 
 
+def comment_image_path(instance, filename):
+    # Nombre aleatorio: no se puede adivinar la URL de la foto de otra persona.
+    import os
+    import uuid
+
+    return f"blog/comments/{uuid.uuid4().hex}{os.path.splitext(filename)[1].lower()}"
+
+
 class BlogComment(models.Model):
     post = models.ForeignKey(
         BlogPost,
@@ -206,8 +235,35 @@ class BlogComment(models.Model):
         verbose_name="Autor"
     )
 
+    # Puede ir vacío cuando el comentario es solo una foto.
     content = models.TextField(
+        blank=True,
         verbose_name="Comentario"
+    )
+
+    # Respuestas: un solo nivel. Responder a una respuesta se guarda como
+    # respuesta del comentario principal (ver BlogCommentCreateSerializer).
+    parent = models.ForeignKey(
+        "self",
+        null=True,
+        blank=True,
+        on_delete=models.CASCADE,
+        related_name="replies",
+        verbose_name="Responde a"
+    )
+
+    image = models.ImageField(
+        upload_to=comment_image_path,
+        null=True,
+        blank=True,
+        validators=[validate_image_file],
+        verbose_name="Foto"
+    )
+
+    edited_at = models.DateTimeField(
+        null=True,
+        blank=True,
+        verbose_name="Editado"
     )
 
     created_at = models.DateTimeField(
@@ -222,3 +278,27 @@ class BlogComment(models.Model):
 
     def __str__(self):
         return f"{self.author} -> {self.post}: {self.content[:30]}"
+
+
+class BlogCommentLike(models.Model):
+    """Reacción "me gusta" a un comentario (una por persona)."""
+
+    comment = models.ForeignKey(
+        BlogComment,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="blog_comment_likes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["comment", "user"], name="blog_comment_like_unico"),
+        ]
+
+    def __str__(self):
+        return f"{self.user} ♥ {self.comment_id}"

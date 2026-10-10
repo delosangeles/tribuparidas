@@ -2,7 +2,11 @@ from django.contrib.auth import get_user_model
 
 from rest_framework import serializers
 
-from .models import BlogCategory, BlogStage, BlogPost, BlogComment
+from django.utils import timezone
+
+from apps.core.validators import validate_image_file
+
+from .models import OPEN_CATEGORY_SLUG, BlogCategory, BlogStage, BlogPost, BlogComment
 
 
 class BlogCategorySerializer(serializers.ModelSerializer):
@@ -59,6 +63,7 @@ class BlogPostListSerializer(serializers.ModelSerializer):
             "author_name",
             "content_type",
             "status",
+            "visibility",
             "publication_date",
             "featured",
             "reading_time",
@@ -116,6 +121,7 @@ class BlogPostDetailSerializer(serializers.ModelSerializer):
             "publication_date",
             "updated_at",
             "status",
+            "visibility",
             "featured",
             "reading_time",
             "sources",
@@ -138,6 +144,8 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
         queryset=get_user_model().objects.all(),
         required=False,
     )
+    # Obligatorio al crear: quien escribe debe elegir público o privado.
+    visibility = serializers.ChoiceField(choices=BlogPost.Visibility.choices)
 
     class Meta:
         model = BlogPost
@@ -153,6 +161,7 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
             "content_type",
             "publication_date",
             "status",
+            "visibility",
             "featured",
             "reading_time",
             "sources",
@@ -167,13 +176,35 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
             validated_data.setdefault("author", request.user)
         else:
             validated_data["author"] = request.user
-            validated_data["status"] = BlogPost.Status.IN_REVIEW
+            validated_data["featured"] = False
+            if validated_data["category"].slug == OPEN_CATEGORY_SLUG:
+                # "Desahogos": se publica al instante, sin aprobación.
+                validated_data["status"] = BlogPost.Status.PUBLISHED
+                validated_data["publication_date"] = timezone.now()
+            else:
+                validated_data["status"] = BlogPost.Status.IN_REVIEW
 
         return super().create(validated_data)
 
 
+def _absolute(request, image):
+    if not image:
+        return None
+    return request.build_absolute_uri(image.url) if request else image.url
+
+
 class BlogCommentSerializer(serializers.ModelSerializer):
+    """Comentario con su foto, reacciones y respuestas (un solo nivel).
+
+    Las vistas deben precargar `likes` y `replies__author/likes` para evitar
+    consultas repetidas (ver BlogPostCommentsView.get_queryset)."""
+
     author_name = serializers.SerializerMethodField()
+    author_photo = serializers.SerializerMethodField()
+    image = serializers.SerializerMethodField()
+    like_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
+    replies = serializers.SerializerMethodField()
 
     class Meta:
         model = BlogComment
@@ -182,10 +213,17 @@ class BlogCommentSerializer(serializers.ModelSerializer):
             "post",
             "author",
             "author_name",
+            "author_photo",
+            "parent",
             "content",
+            "image",
+            "like_count",
+            "liked_by_me",
+            "replies",
+            "edited_at",
             "created_at",
         ]
-        read_only_fields = ["id", "post", "author", "author_name", "created_at"]
+        read_only_fields = fields
 
     def get_author_name(self, obj):
         return (
@@ -193,8 +231,83 @@ class BlogCommentSerializer(serializers.ModelSerializer):
             or obj.author.email
         )
 
+    def get_author_photo(self, obj):
+        # La foto de la madre es pública (se ve junto a sus comentarios).
+        return _absolute(self.context.get("request"), obj.author.photo)
+
+    def get_image(self, obj):
+        return _absolute(self.context.get("request"), obj.image)
+
+    def get_like_count(self, obj):
+        return len(obj.likes.all())
+
+    def get_liked_by_me(self, obj):
+        request = self.context.get("request")
+        user = getattr(request, "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        return any(like.user_id == user.id for like in obj.likes.all())
+
+    def get_replies(self, obj):
+        if obj.parent_id:
+            return []
+        replies = sorted(obj.replies.all(), key=lambda reply: reply.created_at)
+        return BlogCommentSerializer(replies, many=True, context=self.context).data
+
 
 class BlogCommentCreateSerializer(serializers.ModelSerializer):
+    """Crear un comentario o una respuesta, con foto opcional. Debe traer texto
+    o foto. Responder a una respuesta cuelga del comentario principal."""
+
+    content = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    image = serializers.ImageField(required=False, allow_null=True, validators=[validate_image_file])
+    parent = serializers.PrimaryKeyRelatedField(queryset=BlogComment.objects.all(), required=False, allow_null=True)
+
     class Meta:
         model = BlogComment
-        fields = ["content"]
+        fields = ["content", "image", "parent"]
+
+    def validate_parent(self, parent):
+        if parent is None:
+            return None
+        if parent.post_id != self.context["post"].id:
+            raise serializers.ValidationError("Ese comentario no pertenece a este artículo.")
+        return parent.parent if parent.parent_id else parent
+
+    def validate(self, attrs):
+        if not (attrs.get("content") or "").strip() and not attrs.get("image"):
+            raise serializers.ValidationError({"content": "Escribe algo o agrega una foto."})
+        attrs["content"] = (attrs.get("content") or "").strip()
+        return attrs
+
+
+class BlogCommentUpdateSerializer(serializers.ModelSerializer):
+    """Editar el propio comentario: texto y foto (cambiarla o quitarla)."""
+
+    content = serializers.CharField(required=False, allow_blank=True, max_length=2000)
+    image = serializers.ImageField(required=False, allow_null=True, validators=[validate_image_file])
+    remove_image = serializers.BooleanField(write_only=True, required=False)
+
+    class Meta:
+        model = BlogComment
+        fields = ["content", "image", "remove_image"]
+
+    def validate(self, attrs):
+        content = (attrs.get("content", self.instance.content) or "").strip()
+        has_image = bool(attrs.get("image")) or (bool(self.instance.image) and not attrs.get("remove_image"))
+        if not content and not has_image:
+            raise serializers.ValidationError({"content": "Escribe algo o deja la foto."})
+        attrs["content"] = content
+        return attrs
+
+    def update(self, instance, validated_data):
+        remove = validated_data.pop("remove_image", False)
+        if (remove or validated_data.get("image")) and instance.image:
+            instance.image.delete(save=False)
+        if remove and "image" not in validated_data:
+            instance.image = None
+        for field, value in validated_data.items():
+            setattr(instance, field, value)
+        instance.edited_at = timezone.now()
+        instance.save()
+        return instance

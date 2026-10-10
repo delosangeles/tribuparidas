@@ -111,6 +111,8 @@ const showCreate = ref(false);
 const createLoading = ref(false);
 const createError = ref("");
 const createSuccess = ref(false);
+// true cuando el blog quedó publicado al instante (categoría "Desahogos").
+const createdPublished = ref(false);
 
 function openCreate() {
   if (!authStore.isAuthenticated) {
@@ -127,8 +129,9 @@ async function handleCreateSubmit(payload: BlogFormPayload) {
   createError.value = "";
 
   try {
-    await blogService.create(payload);
+    const { data } = await blogService.create(payload);
 
+    createdPublished.value = data.status === "PUBLISHED";
     createSuccess.value = true;
 
     await refresh();
@@ -270,6 +273,8 @@ function closeCreate() {
                 {{ post.category_name }}
               </span>
 
+              <span v-if="post.visibility === 'private'" class="badge bg-amber-50 text-amber-700">🔒 Solo tribu</span>
+
               <span
                 v-if="post.featured"
                 class="badge bg-gold-light text-gold"
@@ -353,14 +358,16 @@ function closeCreate() {
                 />
 
                 <h2 class="mt-4 text-xl font-semibold text-ink">
-                    {{ authStore.isAdmin ? "¡Blog creado correctamente!" : "¡Gracias por tu aporte!" }}
+                    {{ authStore.isAdmin ? "¡Blog creado correctamente!" : createdPublished ? "¡Tu desahogo ya está publicado!" : "¡Gracias por tu aporte!" }}
                 </h2>
 
                 <p class="mt-2 text-sm text-muted">
                     {{
                       authStore.isAdmin
                         ? "El artículo fue guardado correctamente."
-                        : "Tu artículo quedó en revisión. El equipo de Tribu Paridas lo publicará en cuanto lo apruebe."
+                        : createdPublished
+                          ? "Gracias por confiar en la tribu. Ya puedes leerlo en el blog; lo vemos con mucho cariño. 💛"
+                          : "Tu artículo quedó en revisión. El equipo de Tribu Paridas lo publicará en cuanto lo apruebe."
                     }}
                 </p>
 

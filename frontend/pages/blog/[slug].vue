@@ -12,41 +12,48 @@ const { data: post, error } = await useAsyncData(`blog-post-${slug}`, async () =
 });
 
 if (error.value) {
-  throw createError({ statusCode: 404, statusMessage: "Artículo no encontrado" });
+  // Sin sesión un blog privado responde 404: se invita a iniciar sesión por si es privado.
+  if (!authStore.isAuthenticated) {
+    await navigateTo(`/login?redirect=/blog/${slug}`);
+  } else {
+    throw createError({ statusCode: 404, statusMessage: "Artículo no encontrado" });
+  }
 }
 
 const comments = ref<BlogComment[]>([]);
 const loadingComments = ref(false);
 
 async function loadComments() {
-  loadingComments.value = true;
+  if (!post.value) return; // redirigido al login (blog privado)
   try {
-    const { data } = await blogService.comments(slug);
+    const { data } = await blogService.comments(slug, { page_size: 100 });
     comments.value = data.results;
   } finally {
     loadingComments.value = false;
   }
 }
+loadingComments.value = true;
 await loadComments();
 
-const newComment = ref("");
+// Comentarios principales + respuestas.
+const totalComments = computed(() => comments.value.reduce((total, c) => total + 1 + (c.replies?.length ?? 0), 0));
+
+const composer = ref<{ reset: () => void } | null>(null);
 const submittingComment = ref(false);
 const commentError = ref("");
 
-async function submitComment() {
+async function submitComment(payload: { content: string; image: File | null }) {
   if (!authStore.isAuthenticated) {
     return navigateTo(`/login?redirect=/blog/${slug}`);
   }
-
-  if (!newComment.value.trim()) return;
 
   submittingComment.value = true;
   commentError.value = "";
 
   try {
-    const { data } = await blogService.addComment(slug, newComment.value.trim());
-    comments.value = [data, ...comments.value];
-    newComment.value = "";
+    await blogService.addComment(slug, payload);
+    composer.value?.reset();
+    await loadComments();
   } catch (err) {
     commentError.value = useErrorMessage(err);
   } finally {
@@ -73,6 +80,7 @@ function formatDate(value: string) {
 
     <div class="flex flex-wrap items-center gap-2">
       <span class="badge bg-gold-light text-gold">{{ post.category_name }}</span>
+      <span v-if="post.visibility === 'private'" class="badge bg-amber-50 text-amber-700">🔒 Solo tribu</span>
       <span v-for="stage in post.stages_detail" :key="stage.id" class="badge bg-gold-light text-gold">
         {{ stage.name }}
       </span>
@@ -109,23 +117,17 @@ function formatDate(value: string) {
 
     <!-- Comentarios -->
     <div class="mt-10 border-t border-line pt-8">
-      <h2 class="font-semibold text-ink">Comentarios ({{ comments.length }})</h2>
+      <h2 class="font-semibold text-ink">Comentarios ({{ totalComments }})</h2>
 
-      <div v-if="authStore.isAuthenticated" class="mt-4 card p-4">
-        <textarea
-          v-model="newComment"
-          rows="3"
-          class="field"
+      <div v-if="authStore.isAuthenticated" class="mt-4">
+        <CommentComposer
+          ref="composer"
           placeholder="Comparte lo que piensas sobre este artículo..."
+          submit-label="Comentar"
+          :busy="submittingComment"
+          :error="commentError"
+          @submit="submitComment"
         />
-        <p v-if="commentError" class="mt-1 text-xs text-rose-500">{{ commentError }}</p>
-        <button
-          class="btn-primary mt-2"
-          :disabled="submittingComment || !newComment.trim()"
-          @click="submitComment"
-        >
-          {{ submittingComment ? "Publicando..." : "Comentar" }}
-        </button>
       </div>
 
       <p v-else class="mt-4 text-sm text-muted">
@@ -135,7 +137,7 @@ function formatDate(value: string) {
 
       <LoadingSpinner v-if="loadingComments" />
       <div v-else class="mt-4">
-        <BlogCommentItem v-for="comment in comments" :key="comment.id" :comment="comment" />
+        <BlogCommentItem v-for="comment in comments" :key="comment.id" :comment="comment" :slug="slug" @changed="loadComments" />
         <p v-if="!comments.length" class="py-6 text-sm text-muted">Sé la primera persona en comentar.</p>
       </div>
     </div>

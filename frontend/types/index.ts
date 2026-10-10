@@ -6,6 +6,12 @@ export interface User {
   first_name: string;
   last_name: string;
   whatsapp: string;
+  document_id?: string | null;
+  address?: string;
+  department?: string;
+  city?: string;
+  photo?: string | null;
+  needs_data_confirmation?: boolean;
   is_staff: boolean;
   is_superuser: boolean;
   role: UserRole;
@@ -27,6 +33,7 @@ export interface Child {
   id?: number;
   name: string;
   birth_date: string;
+  photo?: string | null;
 }
 
 export interface MemberProfile {
@@ -69,6 +76,7 @@ export interface Festejo {
   mother_name: string;
   child_name: string | null;
   headline: string;
+  photo: string | null;
 }
 
 export interface FestejosResponse {
@@ -259,6 +267,9 @@ export interface AnalyticsSummary {
   last_pages: { path: string; count: number }[];
 }
 
+export type NewsVisibility = "public" | "private";
+export type BlogVisibility = NewsVisibility;
+
 export interface News {
   id: number;
   title: string;
@@ -270,6 +281,7 @@ export interface News {
   expires_at: string;
   order: number;
   is_active: boolean;
+  visibility: NewsVisibility;
   created_by: number;
   created_by_name: string;
   created_at: string;
@@ -284,6 +296,7 @@ export interface NewsFormPayload {
   expires_at: string;
   order: number;
   is_active: boolean;
+  visibility: NewsVisibility;
   image_desktop?: File | null;
   image_mobile?: File | null;
 }
@@ -327,6 +340,7 @@ export interface BlogPost {
   author_name: string;
   content_type: BlogContentType;
   status: BlogPostStatus;
+  visibility: BlogVisibility;
   publication_date: string | null;
   featured: boolean;
   reading_time: number;
@@ -349,7 +363,14 @@ export interface BlogComment {
   post: number;
   author: number;
   author_name: string;
+  author_photo?: string | null;
+  parent?: number | null;
   content: string;
+  image?: string | null;
+  like_count: number;
+  liked_by_me: boolean;
+  replies?: BlogComment[];
+  edited_at?: string | null;
   created_at: string;
 }
 
@@ -365,6 +386,7 @@ export interface BlogFormPayload {
   content_type: BlogContentType;
   publication_date: string | null;
   status: BlogPostStatus;
+  visibility: BlogVisibility;
   featured: boolean;
   reading_time: number;
   sources: string;

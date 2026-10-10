@@ -308,6 +308,9 @@ async function remove(item: BlogPost) {
             <!-- Categoría -->
             <td class="px-4 py-3 text-muted">
               {{ item.category_name }}
+              <span class="ml-1 text-xs" :class="item.visibility === 'private' ? 'text-amber-700' : 'text-sky-600'">
+                · {{ item.visibility === "private" ? "Privado" : "Público" }}
+              </span>
             </td>
 
             <!-- Autor -->

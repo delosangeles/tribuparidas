@@ -7,7 +7,11 @@ import type {
   BlogPostStatus,
   BlogStage,
   BlogContentType,
+  BlogVisibility,
 } from "~/types";
+
+// Única categoría que se publica sin aprobación (ver OPEN_CATEGORY_SLUG en el backend).
+const OPEN_CATEGORY_SLUG = "desahogos";
 
 const props = withDefaults(
   defineProps<{
@@ -151,6 +155,8 @@ const form = reactive({
     ? formatDateTimeLocal(props.initial.publication_date)
     : "",
   status: (props.initial?.status || "DRAFT") as BlogPostStatus,
+  // Obligatorio: sin valor por defecto para que quien escribe elija.
+  visibility: (props.initial?.visibility || "") as BlogVisibility | "",
   featured: props.initial?.featured ?? false,
   reading_time: props.initial?.reading_time ?? 5,
   sources: props.initial?.sources || "",
@@ -193,6 +199,7 @@ function handleSubmit() {
     content_type: form.content_type,
     publication_date: form.publication_date || null,
     status: form.status,
+    visibility: form.visibility as BlogVisibility,
     featured: form.featured,
     reading_time: Number(form.reading_time),
     sources: form.sources,
@@ -206,6 +213,10 @@ function handleSubmit() {
 
   emit("submit", payload);
 }
+
+const isOpenCategory = computed(
+  () => categories.value.find((category) => category.id === Number(form.category))?.slug === OPEN_CATEGORY_SLUG
+);
 </script>
 
 <template>
@@ -289,6 +300,26 @@ function handleSubmit() {
           >
             {{ category.name }}
           </option>
+        </select>
+
+        <p v-if="!isAdmin && isOpenCategory" class="mt-1 text-xs text-gold-dark">
+          💛 "Desahogos" se publica al instante, sin aprobación. Cuida el tono: es un espacio de respeto.
+        </p>
+        <p v-else-if="!isAdmin" class="mt-1 text-xs text-muted">
+          Los artículos de esta categoría pasan por revisión del equipo antes de publicarse. Solo "Desahogos" se publica al instante.
+        </p>
+      </div>
+
+      <!-- Visibilidad -->
+      <div>
+        <label class="mb-1 block text-sm font-medium text-ink">
+          Visibilidad
+        </label>
+
+        <select v-model="form.visibility" required class="field">
+          <option value="" disabled>Selecciona…</option>
+          <option value="public">Público (lo ve cualquiera)</option>
+          <option value="private">Privado (solo quienes tienen sesión)</option>
         </select>
       </div>
 
