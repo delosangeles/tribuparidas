@@ -4,7 +4,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from apps.core.models import log_activity
+from apps.core.models import FeatureFlag, log_activity
 
 from .generator import generate
 from .logic import month_bounds, week_bounds
@@ -19,6 +19,15 @@ def parse_date(value):
         return None
 
 
+def is_festejos_module_live():
+    """Los festejos pueden estar desplegados pero ocultos hasta la fecha que el
+    Super Admin programe en /admin/lanzamiento (FeatureFlag "festejos_module").
+    Si el flag no existe todavía (entorno sin migrar) se comporta como activo,
+    igual que el blog, para no romper nada por accidente."""
+    flag = FeatureFlag.objects.filter(key="festejos_module").first()
+    return flag.is_active if flag else True
+
+
 def range_for(scope, day):
     return month_bounds(day) if scope == "month" else week_bounds(day)
 
@@ -30,7 +39,10 @@ class FestejoViewSet(viewsets.ModelViewSet):
     GET ?scope=week|month&date=AAAA-MM-DD&kind=mothers|children|<tipo>
     - week: lunes a domingo de la semana que contiene `date` (hoy por defecto).
     - month: el mes completo de `date`.
-    Al consultar se generan (idempotente) los festejos del rango."""
+    Al consultar se generan (idempotente) los festejos del rango.
+
+    Antes de la fecha de lanzamiento (flag "festejos_module") solo el equipo
+    admin los ve; para el resto la lista llega vacía y no se genera nada."""
 
     serializer_class = FestejoSerializer
     permission_classes = [permissions.IsAuthenticated]
@@ -45,13 +57,16 @@ class FestejoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Festejo.objects.select_related("user", "user__member_profile", "child")
         if not self.request.user.is_staff:
+            if not is_festejos_module_live():
+                return qs.none()
             qs = qs.filter(status=Festejo.Status.APPROVED)
         return qs.filter(user__is_active=True)
 
     def list(self, request, *args, **kwargs):
         day = parse_date(request.query_params.get("date")) or date.today()
         start, end = range_for(request.query_params.get("scope", "week"), day)
-        generate(start, end)
+        if request.user.is_staff or is_festejos_module_live():
+            generate(start, end)
         qs = self.get_queryset().filter(event_date__range=(start, end))
         kind = request.query_params.get("kind")
         if kind == "mothers":

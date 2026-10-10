@@ -32,6 +32,19 @@ describe("feature flags store", () => {
     expect(store.loaded).toBe(true);
   });
 
+  it("exposes the festejos flag independently of the blog one", async () => {
+    vi.mocked(featureFlagService.list).mockResolvedValueOnce({
+      data: { results: [{ key: "festejos_module", label: "Festejos", activate_at: null, is_forced_active: true, is_active: true, updated_at: "" }] },
+    } as any);
+
+    const store = useFeatureFlagStore();
+    expect(store.isFestejosLive).toBe(false);
+    await store.load();
+
+    expect(store.isFestejosLive).toBe(true);
+    expect(store.isBlogLive).toBe(false);
+  });
+
   it("never throws when the request fails (must not block login)", async () => {
     vi.mocked(featureFlagService.list).mockRejectedValueOnce(new Error("network error"));
 

@@ -2,11 +2,17 @@
 // Aviso (no bloquea el acceso) para usuarias que aún no completan sus datos
 // de festejos: cumpleaños, o nombre/fecha de algún hijo.
 const authStore = useAuthStore();
+const featureFlagStore = useFeatureFlagStore();
 const route = useRoute();
 
 const missing = computed(() => authStore.user?.missing_festejos_data || []);
 const show = computed(
-  () => authStore.isAuthenticated && missing.value.length > 0 && !authStore.isAdmin && route.path !== "/dashboard/settings"
+  () =>
+    authStore.isAuthenticated &&
+    featureFlagStore.isFestejosLive &&
+    missing.value.length > 0 &&
+    !authStore.isAdmin &&
+    route.path !== "/dashboard/settings"
 );
 </script>
 

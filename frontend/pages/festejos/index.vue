@@ -4,7 +4,13 @@ import { userService } from "~/services/user.service";
 import type { Festejo, User } from "~/types";
 
 const authStore = useAuthStore();
+const featureFlagStore = useFeatureFlagStore();
 const isAdmin = computed(() => authStore.isAdmin);
+
+// Antes de la fecha de lanzamiento (/admin/lanzamiento) solo entra el equipo admin.
+if (!isAdmin.value && !featureFlagStore.isFestejosLive) {
+  await navigateTo("/");
+}
 
 type Tab = "children" | "mothers";
 const tab = ref<Tab>("children");
