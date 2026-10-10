@@ -121,6 +121,11 @@ class Command(BaseCommand):
                 setattr(profile, key, value)
         profile.save()
 
+        # Al entrar, la persona verá el aviso "tenemos información nueva para ti".
+        if not user.needs_data_confirmation and not user.data_confirmed_at:
+            user.needs_data_confirmation = True
+            user.save(update_fields=["needs_data_confirmation"])
+
     # ---- reporte ----
 
     def write_report(self, folder: Path, parsed: list[ParsedRow], today: date) -> Path:

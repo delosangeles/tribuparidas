@@ -26,7 +26,14 @@ const subtitle = computed(() =>
 <template>
   <article class="card flex flex-col overflow-hidden" :class="festejo.status === 'pending' && admin ? 'ring-1 ring-amber-300' : ''">
     <div class="flex items-center gap-4 p-4" :class="compact ? '' : 'sm:flex-col sm:py-6 sm:text-center'">
-      <span class="flex shrink-0 items-center justify-center rounded-full" :class="[theme.tint, compact ? 'h-10 w-10' : 'h-14 w-14']">
+      <img
+        v-if="festejo.photo"
+        :src="festejo.photo"
+        :alt="`Foto de ${festejo.child_name || festejo.mother_name}`"
+        class="shrink-0 rounded-full object-cover"
+        :class="compact ? 'h-10 w-10' : 'h-20 w-20'"
+      />
+      <span v-else class="flex shrink-0 items-center justify-center rounded-full" :class="[theme.tint, compact ? 'h-10 w-10' : 'h-14 w-14']">
         <AppIcon :name="theme.icon" :size="compact ? 20 : 28" />
       </span>
       <div class="min-w-0 flex-1">

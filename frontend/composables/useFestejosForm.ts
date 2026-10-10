@@ -24,7 +24,7 @@ export function festejosFormFromUser(user: User | null): FestejosFormState {
 /** Payload para la API; `pregnancy: null` quita el embarazo guardado. */
 export function festejosPayload(form: FestejosFormState) {
   return {
-    birth_date: form.birth_date,
+    birth_date: form.birth_date || null,
     children: form.children.map((c) => ({ ...(c.id ? { id: c.id } : {}), name: c.name.trim(), birth_date: c.birth_date })),
     pregnancy: form.pregnant && form.due_date ? { due_date: form.due_date } : null,
   };

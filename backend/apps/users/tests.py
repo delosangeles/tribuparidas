@@ -10,7 +10,7 @@ from apps.core.models import ActivityLog
 
 from django.utils import timezone
 
-from .models import Child, Notification
+from .models import Child, MemberProfile, Notification
 from .serializers import OPEN_REGISTRATION_END, OPEN_REGISTRATION_START
 
 User = get_user_model()
@@ -36,6 +36,7 @@ def test_register_creates_inactive_user_without_tokens(api):
                 "first_name": "Nueva",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "document_id": "1000000001",
                 "birth_date": "1992-05-10",
             },
             format="json",
@@ -57,6 +58,7 @@ def test_register_during_launch_window_is_active_immediately(api):
                 "first_name": "Lanzamiento",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "document_id": "1000000002",
                 "birth_date": "1992-05-10",
             },
             format="json",
@@ -81,6 +83,7 @@ def test_register_after_launch_window_ends_is_pending_again(api):
                 "first_name": "Tarde",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "document_id": "1000000003",
                 "birth_date": "1992-05-10",
             },
             format="json",
@@ -111,6 +114,7 @@ def test_pending_user_cannot_login(api):
                 "first_name": "Pendiente",
                 "last_name": "Usuaria",
                 "whatsapp": "+57 300 000 0000",
+                "document_id": "1000000004",
                 "birth_date": "1992-05-10",
             },
             format="json",
@@ -130,6 +134,7 @@ def test_user_can_login_after_admin_activates_account(api):
             "first_name": "Aprobada",
             "last_name": "Usuaria",
             "whatsapp": "+57 300 000 0000",
+            "document_id": "1000000005",
             "birth_date": "1992-05-10",
         },
         format="json",
@@ -179,6 +184,7 @@ def test_register_creates_admin_notification(api):
             "first_name": "Aviso",
             "last_name": "Prueba",
             "whatsapp": "+57 300 000 0000",
+            "document_id": "1000000006",
             "birth_date": "1992-05-10",
         },
         format="json",
@@ -400,6 +406,7 @@ def test_register_rejects_phone_without_country_code(api):
             "first_name": "Sin",
             "last_name": "Codigo",
             "whatsapp": "3000000000",
+            "document_id": "1000000007",
         },
         format="json",
     )
@@ -416,6 +423,7 @@ def test_register_accepts_phone_with_country_code(api):
             "first_name": "Con",
             "last_name": "Codigo",
             "whatsapp": "+57 300 000 0000",
+            "document_id": "1000000008",
             "birth_date": "1992-05-10",
         },
         format="json",
@@ -430,13 +438,14 @@ REGISTER_BASE = {
     "first_name": "Madre",
     "last_name": "Prueba",
     "whatsapp": "+57 300 000 0000",
+    "document_id": "1000000009",
 }
 
 
-def test_register_requires_birth_date(api):
+def test_register_birth_date_is_optional(api):
     response = api.post("/api/auth/register/", {**REGISTER_BASE, "email": "sinfecha@example.com"}, format="json")
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert "birth_date" in response.data
+    assert response.status_code == status.HTTP_201_CREATED
+    assert User.objects.get(email="sinfecha@example.com").birth_date is None
 
 
 def test_register_saves_children_and_pregnancy(api):
@@ -555,3 +564,275 @@ def test_children_of_other_users_are_not_exposed_or_editable(api):
     api.patch("/api/me/", {"children": [{"id": child.id, "name": "Hack", "birth_date": "2024-01-01"}]}, format="json")
     child.refresh_from_db()
     assert child.name == "Privado"
+
+
+# ---------- Datos de contacto, cédula, "Cuéntanos de ti" y fotos ----------
+
+import io  # noqa: E402
+
+from django.core.files.uploadedfile import SimpleUploadedFile  # noqa: E402
+from PIL import Image  # noqa: E402
+
+
+def make_png(name="foto.png"):
+    buffer = io.BytesIO()
+    Image.new("RGB", (6, 6), "pink").save(buffer, format="PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+
+
+@pytest.fixture
+def media(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    return tmp_path
+
+
+@pytest.fixture
+def member(db):
+    return User.objects.create_user(email="mama@example.com", password="ClaveSegura123", first_name="Ana", last_name="Pérez", is_active=True)
+
+
+@pytest.mark.parametrize("missing", ["first_name", "last_name", "whatsapp", "password"])
+def test_register_requires_the_main_fields(api, missing):
+    payload = {**REGISTER_BASE, "email": "obligatorios@example.com"}
+    payload.pop(missing)
+    response = api.post("/api/auth/register/", payload, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert missing in response.data
+
+
+@pytest.mark.parametrize("empty", [None, "", "   "])
+def test_document_id_is_optional_when_registering(api, empty):
+    payload = {**REGISTER_BASE, "email": "sincedula@example.com"}
+    payload.pop("document_id")
+    if empty is not None:
+        payload["document_id"] = empty
+    response = api.post("/api/auth/register/", payload, format="json")
+    assert response.status_code == status.HTTP_201_CREATED, response.data
+    assert User.objects.get(email="sincedula@example.com").document_id is None
+
+
+def test_two_accounts_can_register_without_document_id(api):
+    for email in ("uno@example.com", "dos@example.com"):
+        payload = {**REGISTER_BASE, "email": email}
+        payload.pop("document_id")
+        assert api.post("/api/auth/register/", payload, format="json").status_code == status.HTTP_201_CREATED
+
+
+def test_register_requires_email(api):
+    response = api.post("/api/auth/register/", dict(REGISTER_BASE), format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert "email" in response.data
+
+
+def test_register_saves_location_and_open_answers(api):
+    payload = {
+        **REGISTER_BASE,
+        "email": "completa@example.com",
+        "address": "Calle 1 # 2-3",
+        "department": "Valle del Cauca",
+        "city": "Cali",
+        "member_profile": {"occupation": "Diseñadora", "main_need": "Compañía", "looking_for": "Amigas"},
+    }
+    response = api.post("/api/auth/register/", payload, format="json")
+    assert response.status_code == status.HTTP_201_CREATED, response.data
+    user = User.objects.get(email="completa@example.com")
+    assert (user.address, user.department, user.city) == ("Calle 1 # 2-3", "Valle del Cauca", "Cali")
+    assert user.member_profile.occupation == "Diseñadora"
+    assert user.member_profile.main_need == "Compañía"
+
+
+def test_document_id_is_normalized_and_unique(api):
+    first = api.post("/api/auth/register/", {**REGISTER_BASE, "email": "a@example.com", "document_id": "1.234.567-8"}, format="json")
+    assert first.status_code == status.HTTP_201_CREATED
+    assert User.objects.get(email="a@example.com").document_id == "12345678"
+
+    repeated = api.post("/api/auth/register/", {**REGISTER_BASE, "email": "b@example.com", "document_id": "12345678"}, format="json")
+    assert repeated.status_code == status.HTTP_400_BAD_REQUEST
+    assert "document_id" in repeated.data
+
+
+def test_document_id_rejects_garbage(api):
+    response = api.post("/api/auth/register/", {**REGISTER_BASE, "email": "c@example.com", "document_id": "12"}, format="json")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_accounts_without_document_id_do_not_clash(db):
+    User.objects.create_user(email="x@example.com", password="x")
+    User.objects.create_user(email="y@example.com", password="x")  # ambos con document_id nulo
+
+
+def test_pending_account_can_be_claimed_keeping_its_document(api):
+    User.objects.create(email="excel@example.com", registration_status="pending_registration", is_active=False, document_id="99887766")
+    response = api.post(
+        "/api/auth/register/", {**REGISTER_BASE, "email": "excel@example.com", "document_id": "99887766"}, format="json"
+    )
+    assert response.status_code == status.HTTP_201_CREATED, response.data
+
+
+def test_me_can_set_document_once_but_not_change_it(api, member):
+    api.force_authenticate(user=member)
+    assert api.patch("/api/me/", {"document_id": "55555555"}, format="json").status_code == status.HTTP_200_OK
+    changed = api.patch("/api/me/", {"document_id": "66666666"}, format="json")
+    assert changed.status_code == status.HTTP_400_BAD_REQUEST
+    member.refresh_from_db()
+    assert member.document_id == "55555555"
+
+
+def test_me_updates_location_and_open_answers_partially(api, member):
+    api.force_authenticate(user=member)
+    api.patch("/api/me/", {"member_profile": {"occupation": "Docente"}}, format="json")
+    response = api.patch("/api/me/", {"city": "Cali", "member_profile": {"suggestions": "Más talleres"}}, format="json")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data["city"] == "Cali"
+    assert response.data["member_profile"]["occupation"] == "Docente"
+    assert response.data["member_profile"]["suggestions"] == "Más talleres"
+
+
+def test_user_can_upload_and_remove_profile_photo(api, member, media):
+    api.force_authenticate(user=member)
+    uploaded = api.post("/api/me/photo/", {"photo": make_png()}, format="multipart")
+    assert uploaded.status_code == status.HTTP_200_OK, uploaded.data
+    assert uploaded.data["photo"].startswith("http")
+    member.refresh_from_db()
+    assert member.photo.name.startswith("users/photos/") and "foto" not in member.photo.name
+
+    removed = api.delete("/api/me/photo/")
+    assert removed.data["photo"] is None
+    member.refresh_from_db()
+    assert not member.photo
+
+
+def test_profile_photo_rejects_non_images(api, member, media):
+    api.force_authenticate(user=member)
+    fake = SimpleUploadedFile("x.png", b"no soy una imagen", content_type="image/png")
+    assert api.post("/api/me/photo/", {"photo": fake}, format="multipart").status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_photo_upload_requires_login(api):
+    assert api.post("/api/me/photo/", {"photo": make_png()}, format="multipart").status_code == status.HTTP_401_UNAUTHORIZED
+
+
+def test_user_uploads_photo_for_own_child_only(api, member, media):
+    other = User.objects.create_user(email="otra@example.com", password="x", is_active=True)
+    mine = Child.objects.create(user=member, name="Sol", birth_date="2026-07-07")
+    theirs = Child.objects.create(user=other, name="Luna", birth_date="2026-07-07")
+    api.force_authenticate(user=member)
+
+    ok = api.post(f"/api/me/children/{mine.pk}/photo/", {"photo": make_png()}, format="multipart")
+    assert ok.status_code == status.HTTP_200_OK, ok.data
+    assert ok.data["photo"].startswith("http")
+    assert api.post(f"/api/me/children/{theirs.pk}/photo/", {"photo": make_png()}, format="multipart").status_code == status.HTTP_404_NOT_FOUND
+
+    me = api.get("/api/me/")
+    assert me.data["children"][0]["photo"] is not None
+
+
+def test_replacing_children_list_keeps_their_photos(api, member, media):
+    child = Child.objects.create(user=member, name="Sol", birth_date="2026-07-07")
+    api.force_authenticate(user=member)
+    api.post(f"/api/me/children/{child.pk}/photo/", {"photo": make_png()}, format="multipart")
+    api.patch("/api/me/", {"children": [{"id": child.pk, "name": "Sol María", "birth_date": "2026-07-07"}]}, format="json")
+    child.refresh_from_db()
+    assert child.name == "Sol María" and child.photo
+
+
+def test_admin_sees_document_location_and_open_answers(api, member):
+    admin = User.objects.create_user(email="admin@example.com", password="x", is_staff=True)
+    member.document_id = "123123123"
+    member.city = "Cali"
+    member.save()
+    MemberProfile.objects.create(user=member, main_need="Compañía")
+    api.force_authenticate(user=admin)
+    detail = api.get(f"/api/admin/users/{member.pk}/")
+    assert detail.status_code == status.HTTP_200_OK
+    assert detail.data["document_id"] == "123123123"
+    assert detail.data["city"] == "Cali"
+    assert detail.data["member_profile"]["main_need"] == "Compañía"
+
+
+def test_document_id_is_never_exposed_publicly(api, member):
+    member.document_id = "777888999"
+    member.save()
+    for url in ("/api/news/", "/api/businesses/", "/api/blog/"):
+        assert "777888999" not in api.get(url).content.decode()
+
+
+# ---------- Confirmar datos precargados del Excel ----------
+
+def test_regular_user_does_not_need_confirmation(api, member):
+    api.force_authenticate(user=member)
+    assert api.get("/api/me/").data["needs_data_confirmation"] is False
+
+
+def test_imported_user_is_asked_to_confirm_and_confirming_turns_it_off(api, member):
+    member.needs_data_confirmation = True
+    member.save()
+    api.force_authenticate(user=member)
+    assert api.get("/api/me/").data["needs_data_confirmation"] is True
+
+    response = api.patch("/api/me/", {"first_name": "Ana María", "confirm_data": True}, format="json")
+    assert response.status_code == status.HTTP_200_OK, response.data
+    assert response.data["needs_data_confirmation"] is False
+    assert response.data["first_name"] == "Ana María"
+    member.refresh_from_db()
+    assert member.data_confirmed_at is not None
+
+
+def test_saving_without_confirm_flag_keeps_the_notice(api, member):
+    member.needs_data_confirmation = True
+    member.save()
+    api.force_authenticate(user=member)
+    api.patch("/api/me/", {"city": "Cali"}, format="json")
+    member.refresh_from_db()
+    assert member.needs_data_confirmation is True
+
+
+def test_users_cannot_clear_the_flag_by_other_means(api, member):
+    member.needs_data_confirmation = True
+    member.save()
+    api.force_authenticate(user=member)
+    api.patch("/api/me/", {"needs_data_confirmation": False}, format="json")
+    member.refresh_from_db()
+    assert member.needs_data_confirmation is True
+
+
+def test_login_response_includes_the_confirmation_flag(api, member):
+    member.needs_data_confirmation = True
+    member.save()
+    response = api.post("/api/auth/login/", {"email": member.email, "password": "ClaveSegura123"}, format="json")
+    assert response.data["user"]["needs_data_confirmation"] is True
+
+
+def test_importer_flags_users_for_confirmation(db):
+    from datetime import date
+
+    from apps.users.importer import ParsedRow
+    from apps.users.management.commands.importar_excel import Command
+
+    row = ParsedRow(excel_row=2, email="nueva@example.com", first_name="Nueva", last_name="Mamá", birth_date=date(1990, 1, 1))
+    row.profile = {"occupation": "Docente"}
+    Command().apply_row(row)
+    created = User.objects.get(email="nueva@example.com")
+    assert created.needs_data_confirmation is True
+
+    # una cuenta que ya existía también queda marcada, si no había confirmado antes
+    existing = User.objects.create_user(email="vieja@example.com", password="x")
+    again = ParsedRow(excel_row=3, email="vieja@example.com")
+    again.profile = {"occupation": "Docente"}
+    Command().apply_row(again)
+    existing.refresh_from_db()
+    assert existing.needs_data_confirmation is True
+
+
+def test_importer_does_not_re_ask_those_who_already_confirmed(db):
+    from django.utils import timezone
+
+    from apps.users.importer import ParsedRow
+    from apps.users.management.commands.importar_excel import Command
+
+    user = User.objects.create_user(email="ya@example.com", password="x", data_confirmed_at=timezone.now())
+    row = ParsedRow(excel_row=2, email="ya@example.com")
+    row.profile = {"occupation": "Docente"}
+    Command().apply_row(row)
+    user.refresh_from_db()
+    assert user.needs_data_confirmation is False

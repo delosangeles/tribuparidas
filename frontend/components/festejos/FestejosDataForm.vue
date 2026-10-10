@@ -1,11 +1,49 @@
 <script setup lang="ts">
+import { authService } from "~/services/auth.service";
 import type { FestejosFormState } from "~/composables/useFestejosForm";
+import type { Child } from "~/types";
 
 // Sección "Para festejar contigo": cumpleaños de la mamá, hijos (con
 // agregar/quitar) y embarazo. Se usa en el registro y en la configuración.
 const form = defineModel<FestejosFormState>({ required: true });
 // En la edición por parte de admins el cumpleaños puede seguir vacío (por completar).
-const props = defineProps<{ optionalBirthDate?: boolean }>();
+// `photos`: permite subir la foto de cada hijo/a ya guardado (solo en el perfil
+// de la propia usuaria; el admin ve las fotos pero no las cambia).
+const props = defineProps<{ optionalBirthDate?: boolean; photos?: boolean }>();
+
+const photoBusy = ref<number | null>(null);
+const photoError = ref("");
+
+async function changeChildPhoto(child: Child, event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  input.value = "";
+  if (!file || !child.id) return;
+  photoBusy.value = child.id;
+  photoError.value = "";
+  try {
+    const { data } = await authService.uploadChildPhoto(child.id, file);
+    child.photo = data.photo;
+  } catch (err) {
+    photoError.value = useErrorMessage(err);
+  } finally {
+    photoBusy.value = null;
+  }
+}
+
+async function dropChildPhoto(child: Child) {
+  if (!child.id) return;
+  photoBusy.value = child.id;
+  photoError.value = "";
+  try {
+    await authService.removeChildPhoto(child.id);
+    child.photo = null;
+  } catch (err) {
+    photoError.value = useErrorMessage(err);
+  } finally {
+    photoBusy.value = null;
+  }
+}
 
 const today = new Date().toISOString().slice(0, 10);
 const inTenMonths = new Date(Date.now() + 300 * 86400000).toISOString().slice(0, 10);
@@ -28,7 +66,7 @@ function removeChild(index: number) {
 
     <div>
       <label class="mb-1 block text-sm font-medium text-ink">Tu fecha de cumpleaños</label>
-      <input v-model="form.birth_date" type="date" :required="!props.optionalBirthDate" :max="today" class="field" />
+      <input v-model="form.birth_date" type="date" :max="today" class="field" />
     </div>
 
     <div class="space-y-3">
@@ -59,8 +97,20 @@ function removeChild(index: number) {
           >
             <AppIcon name="trash" :size="16" />
           </button>
+          <div v-if="child.photo || (photos && child.id)" class="flex items-center gap-3 sm:col-span-2">
+            <UserAvatar :src="child.photo" :name="child.name" size="lg" />
+            <div v-if="photos && child.id" class="flex flex-wrap items-center gap-2">
+              <label class="btn-outline cursor-pointer !px-2 !py-1 text-xs" :class="photoBusy === child.id && 'pointer-events-none opacity-60'">
+                {{ child.photo ? "Cambiar foto" : "Subir foto" }}
+                <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="changeChildPhoto(child, $event)" />
+              </label>
+              <button v-if="child.photo" type="button" class="btn-ghost !px-2 !py-1 text-xs text-rose-500" @click="dropChildPhoto(child)">Quitar</button>
+              <span class="text-xs text-muted">Se verá en sus festejos.</span>
+            </div>
+          </div>
         </div>
       </div>
+      <p v-if="photoError" class="text-xs text-rose-500">{{ photoError }}</p>
       <p v-if="!form.children.length" class="text-xs text-muted">Aún no agregas hijos. Si estás embarazada, marca la casilla de abajo.</p>
     </div>
 

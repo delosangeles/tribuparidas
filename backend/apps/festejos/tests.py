@@ -4,6 +4,7 @@ import pytest
 from django.contrib.auth import get_user_model
 from rest_framework.test import APIClient
 
+from apps.core.models import FeatureFlag
 from apps.users.models import Child
 
 from .generator import generate
@@ -69,6 +70,13 @@ def test_birthday_across_year_boundary_week():
 
 
 # ---------- Generación y API ----------
+
+@pytest.fixture(autouse=True)
+def activate_festejos_module(db):
+    """Estos tests asumen el módulo ya lanzado; la activación programada tiene
+    sus propios tests al final, donde se desactiva explícitamente."""
+    FeatureFlag.objects.update_or_create(key="festejos_module", defaults={"is_forced_active": True})
+
 
 pytestmark_db = pytest.mark.django_db
 
@@ -153,3 +161,68 @@ def test_admin_can_add_manual_edit_and_delete(mother):
     fid = res.data["id"]
     assert client.patch(f"/api/festejos/{fid}/", {"title": "Baby shower de Ana"}, format="json").status_code == 200
     assert client.delete(f"/api/festejos/{fid}/").status_code == 204
+
+
+# ---------- Activación programada (FeatureFlag "festejos_module") ----------
+
+@pytest.fixture
+def festejos_module_not_live(db):
+    FeatureFlag.objects.update_or_create(key="festejos_module", defaults={"is_forced_active": False, "activate_at": None})
+
+
+@pytest.mark.django_db
+def test_regular_user_sees_nothing_before_the_scheduled_launch(mother, festejos_module_not_live):
+    admin = User.objects.create_user(email="a@example.com", password="x", is_staff=True)
+    Festejo.objects.create(kind=Festejo.Kind.MANUAL, event_date=date(2026, 10, 14), user=mother, status=Festejo.Status.APPROVED, is_manual=True)
+    api = APIClient()
+    api.force_authenticate(user=mother)
+    response = api.get("/api/festejos/", {"date": "2026-10-14"})
+    assert response.status_code == 200
+    assert response.data["results"] == []
+    # y no se generó nada en segundo plano
+    assert Festejo.objects.filter(is_manual=False).count() == 0
+
+    api.force_authenticate(user=admin)
+    assert len(api.get("/api/festejos/", {"date": "2026-10-14"}).data["results"]) >= 1
+
+
+@pytest.mark.django_db
+def test_regular_user_sees_it_once_the_scheduled_date_has_passed(mother, festejos_module_not_live):
+    from django.utils import timezone
+
+    Festejo.objects.create(kind=Festejo.Kind.MANUAL, event_date=date(2026, 10, 14), user=mother, status=Festejo.Status.APPROVED, is_manual=True)
+    FeatureFlag.objects.filter(key="festejos_module").update(activate_at=timezone.now() - timezone.timedelta(minutes=1))
+    api = APIClient()
+    api.force_authenticate(user=mother)
+    assert len(api.get("/api/festejos/", {"date": "2026-10-14"}).data["results"]) == 1
+
+
+
+# ---------- Fotos en los festejos ----------
+
+@pytest.mark.django_db
+def test_festejo_shows_child_photo_and_mother_photo(mother, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    mother.photo = "users/photos/mama.png"
+    mother.save()
+    child = Child.objects.create(user=mother, name="Sol", birth_date=date(2026, 7, 7), photo="users/children/sol.png")
+    generate(date(2026, 10, 5), date(2026, 10, 11))
+    Festejo.objects.update(status=Festejo.Status.APPROVED)
+
+    api = APIClient()
+    api.force_authenticate(user=mother)
+    results = api.get("/api/festejos/", {"date": "2026-10-07"}).data["results"]
+    by_kind = {r["kind"]: r for r in results}
+    assert by_kind["monthiversary"]["photo"].endswith("users/children/sol.png")
+    assert by_kind["mother_birthday"]["photo"].endswith("users/photos/mama.png")
+    assert child.photo
+
+
+@pytest.mark.django_db
+def test_festejo_photo_is_null_without_pictures(mother):
+    Child.objects.create(user=mother, name="Sol", birth_date=date(2026, 7, 7))
+    generate(date(2026, 10, 5), date(2026, 10, 11))
+    Festejo.objects.update(status=Festejo.Status.APPROVED)
+    api = APIClient()
+    api.force_authenticate(user=mother)
+    assert all(r["photo"] is None for r in api.get("/api/festejos/", {"date": "2026-10-07"}).data["results"])

@@ -1,9 +1,26 @@
+import os
+import uuid
+
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.db import models
 
-from apps.core.validators import validate_phone_with_country_code
+from apps.core.validators import validate_image_file, validate_phone_with_country_code
 
 from .managers import UserManager
+
+
+def _unguessable_name(folder, filename):
+    # Nombre aleatorio: las fotos se sirven desde /media/, así que la URL no
+    # debe poder adivinarse (las de los hijos son solo para la tribu).
+    return f"{folder}/{uuid.uuid4().hex}{os.path.splitext(filename)[1].lower()}"
+
+
+def user_photo_path(instance, filename):
+    return _unguessable_name("users/photos", filename)
+
+
+def child_photo_path(instance, filename):
+    return _unguessable_name("users/children", filename)
 
 
 class User(AbstractBaseUser, PermissionsMixin):
@@ -12,7 +29,17 @@ class User(AbstractBaseUser, PermissionsMixin):
     email = models.EmailField(unique=True)
     first_name = models.CharField(max_length=150, blank=True)
     last_name = models.CharField(max_length=150, blank=True)
+    # Teléfono de contacto: es el mismo WhatsApp con el que el equipo admin
+    # confirma que la persona está en el grupo de la tribu.
     whatsapp = models.CharField(max_length=30, blank=True, validators=[validate_phone_with_country_code])
+    # Cédula: única (sin duplicados entre cuentas) y solo visible para la propia
+    # usuaria y el equipo admin. Nula (no vacía) cuando falta, para que el
+    # índice único no choque entre cuentas que aún no la tienen.
+    document_id = models.CharField(max_length=30, unique=True, null=True, blank=True)
+    address = models.CharField(max_length=255, blank=True)
+    department = models.CharField(max_length=100, blank=True)
+    city = models.CharField(max_length=100, blank=True)
+    photo = models.ImageField(upload_to=user_photo_path, blank=True, null=True, validators=[validate_image_file])
     # Al registrarse queda inactiva hasta que un admin confirma que pertenece
     # al grupo de WhatsApp de la tribu (ver RegisterSerializer).
     is_active = models.BooleanField(default=True)
@@ -27,6 +54,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         choices=[("registered", "Registrada"), ("pending_registration", "Pendiente de registrarse")],
         default="registered",
     )
+    # Datos precargados desde el Excel de inscripción: al entrar, la persona ve
+    # un aviso para revisarlos, corregirlos y confirmarlos. Se apaga al confirmar.
+    needs_data_confirmation = models.BooleanField(default=False)
+    data_confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -85,6 +116,7 @@ class Child(models.Model):
     user = models.ForeignKey("users.User", on_delete=models.CASCADE, related_name="children")
     name = models.CharField(max_length=150, blank=True)
     birth_date = models.DateField(null=True, blank=True)
+    photo = models.ImageField(upload_to=child_photo_path, blank=True, null=True, validators=[validate_image_file])
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

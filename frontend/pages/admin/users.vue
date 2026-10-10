@@ -48,35 +48,30 @@ function formatDay(iso: string) {
   return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(new Date(y, m - 1, d));
 }
 
-const PROFILE_LABELS: Record<string, string> = {
-  preferred_name: "¿Cómo prefiere que la llamemos?",
-  location: "Ciudad, barrio y país",
-  occupation: "¿A qué se dedica?",
-  situation: "¿Cómo está?",
-  children_text: "Nombre y edad de sus hijos (texto original)",
-  companions: "Quién la acompaña a maternar",
-  how_met: "¿Cómo conoció Tribu Paridas?",
-  invited_by: "Quién la invitó",
-  interests: "Temas que le interesan",
-  has_business: "¿Tiene emprendimiento?",
-  business_description: "Su emprendimiento o servicio",
-  business_social: "Redes del emprendimiento",
-  offers_benefits: "¿Ofrece descuentos o beneficios?",
-  looking_for: "Qué quiere encontrar en la tribu",
-  desired_professional: "Profesional que le gustaría en la comunidad",
-  meaning_phrase: "Para mí, Tribu Paridas significa...",
-  spaces: "Espacios en los que quiere participar",
-  main_need: "Lo que más necesita como mamá",
-  suggestions: "Sugerencias",
-};
+// ---- Ficha de la usuaria (modal con pestañas) ----
+const FICHA_TABS = [
+  { key: "principal", label: "Datos principales" },
+  { key: "ubicacion", label: "Ubicación" },
+  { key: "festejos", label: "Festejos" },
+  { key: "conocernos", label: "Cuéntanos de ti" },
+];
+const fichaTab = ref("principal");
 
-const editProfileEntries = computed(() => {
-  const profile = editTarget.value?.member_profile as Record<string, unknown> | null | undefined;
-  if (!profile) return [];
-  return Object.entries(PROFILE_LABELS)
-    .filter(([key]) => profile[key])
-    .map(([key, label]) => ({ label, value: String(profile[key]) }));
+// Las respuestas abiertas se muestran en solo lectura, todas (también las
+// vacías, como "—", para que se vea qué falta).
+const fichaAnswers = computed(() => {
+  const profile = (editTarget.value?.member_profile || {}) as Record<string, unknown>;
+  return PROFILE_QUESTION_GROUPS.map((group) => ({
+    title: group.title,
+    items: group.questions.map((q) => ({ label: q.label, long: q.long, value: String(profile[q.key] || "") })),
+  }));
 });
+const answeredCount = computed(() => fichaAnswers.value.flatMap((g) => g.items).filter((item) => item.value).length);
+const totalQuestions = PROFILE_QUESTION_GROUPS.reduce((total, group) => total + group.questions.length, 0);
+
+function formatDateTime(iso: string) {
+  return new Intl.DateTimeFormat("es-CO", { day: "numeric", month: "short", year: "numeric" }).format(new Date(iso));
+}
 
 function waLink(whatsapp: string) {
   return `https://wa.me/${whatsapp.replace(/\D/g, "")}`;
@@ -175,7 +170,8 @@ function closeCreate() {
 }
 
 const editTarget = ref<User | null>(null);
-const editForm = reactive({ first_name: "", last_name: "", whatsapp: "" });
+const editForm = reactive({ first_name: "", last_name: "", whatsapp: "", document_id: "" });
+const editLocation = ref({ department: "", city: "", address: "" });
 const editFestejos = ref(emptyFestejosForm());
 const editLoading = ref(false);
 const editError = ref("");
@@ -185,7 +181,10 @@ function openEdit(user: User) {
   editForm.first_name = user.first_name;
   editForm.last_name = user.last_name;
   editForm.whatsapp = user.whatsapp;
+  editForm.document_id = user.document_id || "";
+  editLocation.value = { department: user.department || "", city: user.city || "", address: user.address || "" };
   editFestejos.value = festejosFormFromUser(user);
+  fichaTab.value = "principal";
   editError.value = "";
 }
 
@@ -196,8 +195,9 @@ async function submitEdit() {
   try {
     const { data } = await userService.adminUpdate(editTarget.value.id, {
       ...editForm,
+      document_id: editForm.document_id.trim() || null,
+      ...editLocation.value,
       ...festejosPayload(editFestejos.value),
-      birth_date: editFestejos.value.birth_date || null,
     });
     Object.assign(editTarget.value, data);
     editTarget.value = null;
@@ -226,9 +226,9 @@ function closeEdit() {
     </div>
 
     <div class="mt-4 flex flex-wrap items-center gap-3">
-      <div class="flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 sm:max-w-sm">
+      <div class="flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2.5 sm:max-w-md sm:flex-1">
         <AppIcon name="search" :size="16" class="text-muted" />
-        <input v-model="search" type="text" placeholder="Buscar por email o nombre..." class="w-full border-none bg-transparent text-sm outline-none" />
+        <input v-model="search" type="text" placeholder="Buscar por nombre, correo, cédula, teléfono o ciudad..." class="w-full border-none bg-transparent text-sm outline-none" />
       </div>
       <div class="flex gap-2">
         <button class="btn-outline" :class="statusFilter === '' && '!border-gold !text-gold'" @click="statusFilter = ''">Todos</button>
@@ -244,7 +244,7 @@ function closeEdit() {
         <thead class="border-b border-line text-xs uppercase text-muted">
           <tr>
             <th class="px-4 py-3">Usuario</th>
-            <th class="px-4 py-3">WhatsApp</th>
+            <th class="px-4 py-3">Contacto</th>
             <th class="px-4 py-3">Festejos</th>
             <th class="px-4 py-3">Rol</th>
             <th class="px-4 py-3">Emprendimientos</th>
@@ -255,15 +255,22 @@ function closeEdit() {
         <tbody class="divide-y divide-line">
           <tr v-for="user in users" :key="user.id">
             <td class="px-4 py-3">
-              <p class="font-medium text-ink">{{ user.first_name }} {{ user.last_name }}</p>
-              <p class="text-xs text-muted">{{ user.email }}</p>
-              <span v-if="user.registration_status === 'pending_registration'" class="badge-pending mt-1">Pendiente de registrarse</span>
+              <div class="flex items-center gap-3">
+                <UserAvatar :src="user.photo" :name="user.first_name || user.email" />
+                <div class="min-w-0">
+                  <p class="font-medium text-ink">{{ user.first_name }} {{ user.last_name }}</p>
+                  <p class="text-xs text-muted">{{ user.email }}</p>
+                  <span v-if="user.registration_status === 'pending_registration'" class="badge-pending mt-1">Pendiente de registrarse</span>
+                </div>
+              </div>
             </td>
-            <td class="px-4 py-3">
-              <a v-if="user.whatsapp" :href="waLink(user.whatsapp)" target="_blank" class="inline-flex items-center gap-1 text-emerald-600 hover:underline">
+            <td class="px-4 py-3 text-xs">
+              <a v-if="user.whatsapp" :href="waLink(user.whatsapp)" target="_blank" class="inline-flex items-center gap-1 text-sm text-emerald-600 hover:underline">
                 <AppIcon name="whatsapp" :size="14" />{{ user.whatsapp }}
               </a>
-              <span v-else class="text-muted">—</span>
+              <span v-else class="text-sm text-muted">Sin teléfono</span>
+              <p class="mt-1 text-muted">CC: {{ user.document_id || "—" }}</p>
+              <p class="text-muted">{{ [user.city, user.department].filter(Boolean).join(", ") || "Sin ubicación" }}</p>
             </td>
             <td class="px-4 py-3 text-xs text-muted">
               <p>Cumple: {{ user.birth_date ? formatDay(user.birth_date) : "—" }}</p>
@@ -283,7 +290,7 @@ function closeEdit() {
             </td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
-                <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Editar</button>
+                <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Ver ficha</button>
                 <button
                   v-if="!user.is_staff && user.registration_status !== 'pending_registration'"
                   class="btn-outline !px-2 !py-1 text-xs"
@@ -422,10 +429,28 @@ function closeEdit() {
 
     <Teleport to="body">
       <div v-if="editTarget" class="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-ink/40 px-4 py-8">
-        <div class="card max-h-[90vh] w-full max-w-xl overflow-y-auto p-6">
-          <p class="text-lg font-semibold text-ink">Editar usuario</p>
-          <form class="mt-4 space-y-3" @submit.prevent="submitEdit">
-            <div class="grid grid-cols-2 gap-3">
+        <div class="card max-h-[92vh] w-full max-w-4xl overflow-y-auto p-0">
+          <header class="flex flex-wrap items-center gap-4 border-b border-line p-5">
+            <UserAvatar :src="editTarget.photo" :name="editTarget.first_name || editTarget.email" size="lg" />
+            <div class="min-w-0 flex-1">
+              <p class="text-lg font-semibold text-ink">{{ editTarget.first_name }} {{ editTarget.last_name }}</p>
+              <p class="text-sm text-muted">{{ editTarget.email }}</p>
+              <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
+                <span :class="editTarget.is_active ? 'badge-approved' : 'badge-rejected'">{{ editTarget.is_active ? "Activo" : "Inactivo" }}</span>
+                <span v-if="editTarget.registration_status === 'pending_registration'" class="badge-pending">Pendiente de registrarse</span>
+                <span>{{ ROLE_LABELS[editTarget.role] }}</span>
+                <span>Registro: {{ formatDateTime(editTarget.created_at) }}</span>
+              </div>
+            </div>
+            <button type="button" class="btn-ghost !px-2" aria-label="Cerrar" @click="closeEdit">
+              <AppIcon name="x" :size="18" />
+            </button>
+          </header>
+
+          <form class="space-y-5 p-5" @submit.prevent="submitEdit">
+            <ProfileTabs v-model="fichaTab" :tabs="FICHA_TABS" />
+
+            <div v-show="fichaTab === 'principal'" class="grid gap-3 sm:grid-cols-3">
               <div>
                 <label class="mb-1 block text-sm font-medium text-ink">Nombre</label>
                 <input v-model="editForm.first_name" type="text" required class="field" />
@@ -434,30 +459,56 @@ function closeEdit() {
                 <label class="mb-1 block text-sm font-medium text-ink">Apellido</label>
                 <input v-model="editForm.last_name" type="text" required class="field" />
               </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Cédula</label>
+                <input v-model="editForm.document_id" type="text" maxlength="30" class="field" placeholder="Sin cédula (sin acceso a descuentos)" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Teléfono (WhatsApp)</label>
+                <input
+                  v-model="editForm.whatsapp"
+                  type="text"
+                  :pattern="PHONE_PATTERN"
+                  :title="PHONE_ERROR_MESSAGE"
+                  class="field"
+                  placeholder="+57 300 000 0000"
+                />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Correo</label>
+                <input :value="editTarget.email" type="email" disabled class="field bg-line/40 text-muted" />
+              </div>
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Emprendimientos</label>
+                <input :value="editTarget.businesses_count ?? 0" type="text" disabled class="field bg-line/40 text-muted" />
+              </div>
             </div>
-            <div>
-              <label class="mb-1 block text-sm font-medium text-ink">WhatsApp</label>
-              <input
-                v-model="editForm.whatsapp"
-                type="text"
-                :pattern="PHONE_PATTERN"
-                :title="PHONE_ERROR_MESSAGE"
-                class="field"
-                placeholder="+57 300 000 0000"
-              />
+
+            <div v-show="fichaTab === 'ubicacion'">
+              <ProfileLocationFields v-model="editLocation" />
             </div>
-            <FestejosDataForm v-model="editFestejos" optional-birth-date />
-            <details v-if="editProfileEntries.length" class="rounded-xl2 border border-line p-3 text-sm">
-              <summary class="cursor-pointer font-medium text-ink">Respuestas del formulario de inscripción</summary>
-              <dl class="mt-3 space-y-2">
-                <div v-for="entry in editProfileEntries" :key="entry.label">
-                  <dt class="text-xs font-semibold text-muted">{{ entry.label }}</dt>
-                  <dd class="whitespace-pre-line text-ink">{{ entry.value }}</dd>
-                </div>
-              </dl>
-            </details>
+
+            <div v-show="fichaTab === 'festejos'">
+              <FestejosDataForm v-model="editFestejos" optional-birth-date />
+            </div>
+
+            <div v-show="fichaTab === 'conocernos'" class="space-y-5">
+              <p class="text-xs text-muted">
+                Solo lectura · {{ answeredCount }} de {{ totalQuestions }} respuestas completadas.
+              </p>
+              <section v-for="group in fichaAnswers" :key="group.title">
+                <h3 class="mb-2 text-sm font-semibold text-ink">{{ group.title }}</h3>
+                <dl class="grid gap-x-4 gap-y-3 sm:grid-cols-3">
+                  <div v-for="item in group.items" :key="item.label" :class="item.long ? 'sm:col-span-3' : ''">
+                    <dt class="text-xs font-semibold text-muted">{{ item.label }}</dt>
+                    <dd class="whitespace-pre-line text-sm" :class="item.value ? 'text-ink' : 'text-muted'">{{ item.value || "—" }}</dd>
+                  </div>
+                </dl>
+              </section>
+            </div>
+
             <p v-if="editError" class="text-sm text-rose-500">{{ editError }}</p>
-            <div class="flex justify-end gap-2 pt-2">
+            <div class="flex justify-end gap-2 border-t border-line pt-4">
               <button type="button" class="btn-ghost" @click="closeEdit">Cancelar</button>
               <button type="submit" class="btn-primary" :disabled="editLoading">
                 {{ editLoading ? "Guardando..." : "Guardar cambios" }}

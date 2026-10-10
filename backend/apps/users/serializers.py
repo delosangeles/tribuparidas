@@ -1,3 +1,4 @@
+import re
 import secrets
 from datetime import datetime, timedelta
 from datetime import timezone as dt_timezone
@@ -8,6 +9,8 @@ from django.db import transaction
 from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
+
+from apps.core.validators import validate_image_file
 
 from .models import Child, MemberProfile, Notification, Pregnancy
 
@@ -33,6 +36,26 @@ def validate_not_future(value):
     return value
 
 
+def normalize_document(value):
+    """Quita espacios, puntos, comas y guiones, y pasa a mayúsculas, para que
+    "1.234.567" y "1234567" cuenten como la misma cédula."""
+    return re.sub(r"[\s.,\-]", "", value or "").upper()
+
+
+def validate_document_format(value):
+    value = normalize_document(value)
+    if not value.isalnum() or not 5 <= len(value) <= 20:
+        raise serializers.ValidationError("La cédula debe tener entre 5 y 20 caracteres, solo letras y números.")
+    return value
+
+
+def photo_url(request, image):
+    """URL absoluta de una imagen (o None si no hay)."""
+    if not image:
+        return None
+    return request.build_absolute_uri(image.url) if request else image.url
+
+
 class ChildSerializer(serializers.ModelSerializer):
     """Nombre y fecha de nacimiento obligatorios (a diferencia de la base de
     datos, que los admite vacíos para datos importados incompletos)."""
@@ -40,10 +63,15 @@ class ChildSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(required=False)
     name = serializers.CharField(max_length=150)
     birth_date = serializers.DateField(validators=[validate_not_future])
+    # Solo lectura: la foto se sube por /api/me/children/<id>/photo/.
+    photo = serializers.SerializerMethodField()
 
     class Meta:
         model = Child
-        fields = ["id", "name", "birth_date"]
+        fields = ["id", "name", "birth_date", "photo"]
+
+    def get_photo(self, obj):
+        return photo_url(self.context.get("request"), obj.photo)
 
     def validate_name(self, value):
         value = value.strip()
@@ -70,6 +98,37 @@ class MemberProfileSerializer(serializers.ModelSerializer):
     class Meta:
         model = MemberProfile
         exclude = ["id", "user"]
+        read_only_fields = ["form_submitted_at"]
+
+
+def sync_member_profile(user, data):
+    """Guarda las respuestas abiertas ("Cuéntanos de ti"). Es parcial: solo
+    toca los campos que llegan."""
+    if not data:
+        return
+    profile, _ = MemberProfile.objects.get_or_create(user=user)
+    for field, value in data.items():
+        setattr(profile, field, value)
+    profile.save()
+    user.member_profile = profile  # evita servir una copia cacheada desactualizada
+
+
+class DocumentIdMixin:
+    """Valida la cédula: formato, y única entre cuentas (una cuenta precargada
+    desde el Excel con el mismo correo puede "reclamarla")."""
+
+    def validate_document_id(self, value):
+        if value in (None, ""):
+            return None
+        value = validate_document_format(value)
+        clash = User.objects.filter(document_id=value)
+        if self.instance is not None:
+            clash = clash.exclude(pk=self.instance.pk)
+        email = (self.initial_data.get("email") or "").lower().strip() if hasattr(self, "initial_data") else ""
+        clash = clash.exclude(registration_status="pending_registration", email=email) if email else clash
+        if clash.exists():
+            raise serializers.ValidationError("Ya existe una cuenta con esta cédula.")
+        return value
 
 
 def sync_festejos_data(user, data):
@@ -115,10 +174,14 @@ def missing_festejos_data(user):
 
 
 class UserSerializer(serializers.ModelSerializer):
+    """Los datos de la propia usuaria (login y /api/me/)."""
+
     is_entrepreneur = serializers.BooleanField(read_only=True)
     role = serializers.SerializerMethodField()
     children = ChildSerializer(many=True, read_only=True)
     pregnancy = PregnancySerializer(read_only=True)
+    member_profile = MemberProfileSerializer(read_only=True)
+    photo = serializers.SerializerMethodField()
     missing_festejos_data = serializers.SerializerMethodField()
 
     class Meta:
@@ -129,6 +192,11 @@ class UserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "whatsapp",
+            "document_id",
+            "address",
+            "department",
+            "city",
+            "photo",
             "is_staff",
             "is_superuser",
             "role",
@@ -136,35 +204,64 @@ class UserSerializer(serializers.ModelSerializer):
             "birth_date",
             "children",
             "pregnancy",
+            "member_profile",
             "missing_festejos_data",
+            "needs_data_confirmation",
             "created_at",
         ]
-        read_only_fields = ["id", "email", "is_staff", "is_superuser", "created_at"]
+        read_only_fields = ["id", "email", "is_staff", "is_superuser", "needs_data_confirmation", "created_at"]
 
     def get_role(self, obj):
         return user_role(obj)
+
+    def get_photo(self, obj):
+        return photo_url(self.context.get("request"), obj.photo)
 
     def get_missing_festejos_data(self, obj):
         return missing_festejos_data(obj)
 
 
-class MeUpdateSerializer(serializers.ModelSerializer):
+class MeUpdateSerializer(DocumentIdMixin, serializers.ModelSerializer):
     # El WhatsApp no se puede autoeditar: es lo que usa el equipo admin para
     # confirmar que la persona pertenece al grupo de la tribu.
-    birth_date = serializers.DateField(required=False, validators=[validate_not_future])
+    birth_date = serializers.DateField(required=False, allow_null=True, validators=[validate_not_future])
+    document_id = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30)
     children = ChildSerializer(many=True, required=False)
     pregnancy = PregnancySerializer(required=False, allow_null=True)
+    member_profile = MemberProfileSerializer(required=False)
+    # true = "revisé y confirmo mis datos precargados" (cierra el aviso de bienvenida).
+    confirm_data = serializers.BooleanField(write_only=True, required=False)
 
     class Meta:
         model = User
-        fields = ["first_name", "last_name", "birth_date", "children", "pregnancy"]
+        fields = [
+            "first_name", "last_name", "document_id", "address", "department", "city",
+            "birth_date", "children", "pregnancy", "member_profile", "confirm_data",
+        ]
+
+    def validate_document_id(self, value):
+        value = super().validate_document_id(value)
+        # Una vez guardada, la cédula solo la cambia el equipo admin.
+        if self.instance.document_id and value != self.instance.document_id:
+            raise serializers.ValidationError("La cédula no se puede cambiar; escribe al equipo admin.")
+        return value
 
     @transaction.atomic
     def update(self, instance, validated_data):
         extra = {k: validated_data.pop(k) for k in FESTEJOS_FIELDS if k in validated_data}
+        profile = validated_data.pop("member_profile", None)
+        confirm = validated_data.pop("confirm_data", False)
+        if confirm:
+            validated_data["needs_data_confirmation"] = False
+            validated_data["data_confirmed_at"] = timezone.now()
         instance = super().update(instance, validated_data)
         sync_festejos_data(instance, extra)
+        sync_member_profile(instance, profile)
         return instance
+
+
+class PhotoUploadSerializer(serializers.Serializer):
+    photo = serializers.ImageField(validators=[validate_image_file])
 
 
 class ChangePasswordSerializer(serializers.Serializer):
@@ -196,15 +293,27 @@ def is_open_registration_window():
     return OPEN_REGISTRATION_START <= timezone.now() <= OPEN_REGISTRATION_END
 
 
-class RegisterSerializer(serializers.ModelSerializer):
+class RegisterSerializer(DocumentIdMixin, serializers.ModelSerializer):
+    """Obligatorios: nombre, apellido, teléfono (WhatsApp), correo y
+    contraseña. La cédula es opcional, pero sin ella no se accede a los
+    descuentos y promociones exclusivas de la tribu. Todo lo demás (ubicación,
+    festejos, "Cuéntanos de ti") también es opcional."""
+
     password = serializers.CharField(write_only=True, validators=[validate_password])
-    birth_date = serializers.DateField(validators=[validate_not_future])
+    first_name = serializers.CharField(max_length=150)
+    last_name = serializers.CharField(max_length=150)
+    document_id = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30)
+    birth_date = serializers.DateField(required=False, allow_null=True, validators=[validate_not_future])
     children = ChildSerializer(many=True, required=False)
     pregnancy = PregnancySerializer(required=False, allow_null=True)
+    member_profile = MemberProfileSerializer(required=False)
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "first_name", "last_name", "whatsapp", "birth_date", "children", "pregnancy"]
+        fields = [
+            "id", "email", "password", "first_name", "last_name", "whatsapp", "document_id",
+            "address", "department", "city", "birth_date", "children", "pregnancy", "member_profile",
+        ]
         extra_kwargs = {"whatsapp": {"required": True}, "email": {"validators": []}}
 
     def validate_email(self, value):
@@ -220,6 +329,7 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         auto_active = is_open_registration_window()
         extra = {k: validated_data.pop(k) for k in FESTEJOS_FIELDS if k in validated_data}
+        profile = validated_data.pop("member_profile", None)
         password = validated_data.pop("password")
         pending = User.objects.filter(email=validated_data["email"], registration_status="pending_registration").first()
         if pending:
@@ -233,6 +343,7 @@ class RegisterSerializer(serializers.ModelSerializer):
         else:
             user = User.objects.create_user(**validated_data, password=password, is_active=auto_active)
         sync_festejos_data(user, extra)
+        sync_member_profile(user, profile)
         message = f"{user.get_full_name()} ({user.email}) se registró"
         message += " (activo automático por lanzamiento)." if auto_active else " y espera aprobación."
         Notification.objects.create(type=Notification.Type.NEW_REGISTRATION, related_user=user, message=message)
@@ -247,12 +358,14 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     def validate(self, attrs):
         data = super().validate(attrs)
-        data["user"] = UserSerializer(self.user).data
+        data["user"] = UserSerializer(self.user, context=self.context).data
         return data
 
 
-class AdminUserSerializer(serializers.ModelSerializer):
+class AdminUserSerializer(DocumentIdMixin, serializers.ModelSerializer):
     is_entrepreneur = serializers.BooleanField(read_only=True)
+    document_id = serializers.CharField(required=False, allow_blank=True, allow_null=True, max_length=30)
+    photo = serializers.SerializerMethodField()
     businesses_count = serializers.IntegerField(source="businesses.count", read_only=True)
     role = serializers.SerializerMethodField()
     birth_date = serializers.DateField(required=False, allow_null=True, validators=[validate_not_future])
@@ -269,6 +382,11 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "whatsapp",
+            "document_id",
+            "address",
+            "department",
+            "city",
+            "photo",
             "is_active",
             "is_staff",
             "is_superuser",
@@ -281,13 +399,21 @@ class AdminUserSerializer(serializers.ModelSerializer):
             "pregnancy",
             "member_profile",
             "missing_festejos_data",
+            "needs_data_confirmation",
+            "data_confirmed_at",
             "created_at",
         ]
         # is_staff se cambia solo vía la acción set_role (Super Admin); acá queda de solo lectura.
-        read_only_fields = ["id", "email", "is_staff", "is_superuser", "registration_status", "created_at"]
+        read_only_fields = [
+            "id", "email", "is_staff", "is_superuser", "registration_status",
+            "needs_data_confirmation", "data_confirmed_at", "created_at",
+        ]
 
     def get_role(self, obj):
         return user_role(obj)
+
+    def get_photo(self, obj):
+        return photo_url(self.context.get("request"), obj.photo)
 
     def get_missing_festejos_data(self, obj):
         return missing_festejos_data(obj)

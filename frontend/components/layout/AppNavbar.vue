@@ -19,6 +19,12 @@ const BLOG_SUBMENU = [
 // oculta del menú hasta esa fecha, salvo para el equipo admin que necesita
 // entrar a prepararlo antes de que se revele.
 const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
+// Igual que el blog: los festejos se revelan en la fecha de lanzamiento, pero
+// el equipo admin los ve siempre para ir aprobándolos antes.
+// Además son completamente privados: sin sesión no se muestran.
+const canSeeFestejos = computed(
+  () => authStore.isAuthenticated && (featureFlagStore.isFestejosLive || authStore.isAdmin)
+);
 
 // Cerrar al hacer click fuera. Antes usaba @mouseleave en el contenedor,
 // pero el gap (mt-2) entre el botón y el desplegable hacía que el mouse
@@ -48,11 +54,11 @@ async function handleLogout() {
         <BrandMark />
       </NuxtLink>
 
-      <nav v-if="authStore.isAuthenticated" class="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
+      <nav class="hidden items-center gap-6 text-sm font-medium text-muted md:flex">
         <NuxtLink to="/" class="transition hover:text-gold" active-class="text-gold">Inicio</NuxtLink>
         <NuxtLink to="/emprendimientos" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
         <NuxtLink to="/noticias" class="transition hover:text-gold" active-class="text-gold">Noticias</NuxtLink>
-        <NuxtLink to="/festejos" class="transition hover:text-gold" active-class="text-gold">Festejos</NuxtLink>
+        <NuxtLink v-if="canSeeFestejos" to="/festejos" class="transition hover:text-gold" active-class="text-gold">Festejos</NuxtLink>
 
         <div v-if="canSeeBlog" ref="blogMenuRef" class="relative">
           <button
@@ -89,7 +95,6 @@ async function handleLogout() {
 
       <div class="flex items-center gap-2">
         <button
-          v-if="authStore.isAuthenticated"
           class="flex h-9 w-9 items-center justify-center rounded-full border border-line text-ink md:hidden"
           @click="mobileNavOpen = !mobileNavOpen"
         >
@@ -105,9 +110,11 @@ async function handleLogout() {
             class="flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm font-medium text-ink hover:border-gold"
             @click="menuOpen = !menuOpen"
           >
-            <span class="flex h-7 w-7 items-center justify-center rounded-full bg-gold-light text-xs font-semibold text-gold">
-              {{ authStore.user?.first_name?.charAt(0) || authStore.user?.email.charAt(0) }}
-            </span>
+            <UserAvatar
+              :src="authStore.user?.photo"
+              :name="authStore.user?.first_name || authStore.user?.email"
+              size="sm"
+            />
             {{ authStore.user?.first_name || "Mi cuenta" }}
           </button>
 
@@ -131,7 +138,7 @@ async function handleLogout() {
     </div>
 
     <nav
-      v-if="authStore.isAuthenticated && mobileNavOpen"
+      v-if="mobileNavOpen"
       class="flex flex-col gap-1 border-t border-line px-4 py-3 text-sm font-medium text-muted md:hidden"
     >
       <NuxtLink
@@ -159,6 +166,7 @@ async function handleLogout() {
         Noticias
       </NuxtLink>
       <NuxtLink
+        v-if="canSeeFestejos"
         to="/festejos"
         class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
         active-class="!bg-gold-light !text-gold"

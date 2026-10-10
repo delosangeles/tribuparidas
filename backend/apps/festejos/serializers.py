@@ -13,15 +13,24 @@ class FestejoSerializer(serializers.ModelSerializer):
     mother_name = serializers.SerializerMethodField()
     child_name = serializers.CharField(source="child.name", read_only=True, default=None)
     headline = serializers.SerializerMethodField()
+    photo = serializers.SerializerMethodField()
 
     class Meta:
         model = Festejo
         fields = [
             "id", "kind", "kind_label", "event_date", "user", "child", "number",
-            "title", "note", "status", "is_manual", "mother_name", "child_name", "headline",
+            "title", "note", "status", "is_manual", "mother_name", "child_name", "headline", "photo",
         ]
-        read_only_fields = ["id", "is_manual", "kind_label", "mother_name", "child_name", "headline"]
+        read_only_fields = ["id", "is_manual", "kind_label", "mother_name", "child_name", "headline", "photo"]
         validators = []  # el duplicado se valida a mano (child puede ser nulo)
+
+    def get_photo(self, obj):
+        # Festejos de hijos: foto del hijo/a; los de la mamá: su foto de perfil.
+        image = obj.child.photo if obj.child_id else obj.user.photo
+        if not image:
+            return None
+        request = self.context.get("request")
+        return request.build_absolute_uri(image.url) if request else image.url
 
     def get_mother_name(self, obj):
         return mother_display_name(obj.user)

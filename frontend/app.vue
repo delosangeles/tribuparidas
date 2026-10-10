@@ -28,5 +28,7 @@ const isLive = computed(() => hasBypass.value || now.value >= new Date(LAUNCH_AT
   <LaunchGate v-if="!isLive" :target="LAUNCH_AT" />
   <NuxtLayout v-else>
     <NuxtPage />
+    <!-- "Tenemos información nueva para ti": solo aparece si hay datos precargados por confirmar -->
+    <ProfileConfirmModal />
   </NuxtLayout>
 </template>

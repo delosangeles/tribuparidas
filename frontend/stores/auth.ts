@@ -84,6 +84,10 @@ export const useAuthStore = defineStore("auth", () => {
     user.value = data;
   }
 
+  function setUser(next: User) {
+    user.value = next;
+  }
+
   return {
     user,
     accessToken,
@@ -99,5 +103,6 @@ export const useAuthStore = defineStore("auth", () => {
     refreshAccessToken,
     logout,
     updateProfile,
+    setUser,
   };
 });

@@ -1,7 +1,9 @@
 import secrets
 
+from django.shortcuts import get_object_or_404
 from rest_framework import generics, mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import TokenError
@@ -11,15 +13,17 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from apps.core.models import log_activity
 from apps.core.permissions import IsSuperAdmin
 
-from .models import Notification, User
+from .models import Child, Notification, User
 from .serializers import (
     AdminUserCreateSerializer,
     AdminUserSerializer,
     ChangePasswordSerializer,
+    ChildSerializer,
     CustomTokenObtainPairSerializer,
     MeUpdateSerializer,
     NotificationSerializer,
     PasswordResetRequestSerializer,
+    PhotoUploadSerializer,
     RegisterSerializer,
     UserSerializer,
     is_open_registration_window,
@@ -103,9 +107,68 @@ class MeView(generics.RetrieveUpdateAPIView):
             return MeUpdateSerializer
         return UserSerializer
 
+    def get_serializer_context(self):
+        return {**super().get_serializer_context(), "request": self.request}
+
     def update(self, request, *args, **kwargs):
         super().update(request, *args, **kwargs)
-        return Response(UserSerializer(request.user).data)
+        return Response(UserSerializer(request.user, context=self.get_serializer_context()).data)
+
+
+class MePhotoView(APIView):
+    """POST /api/me/photo/ (multipart, campo `photo`) sube o reemplaza la foto
+    de perfil; DELETE la quita. Se usa en el perfil, en los comentarios del
+    blog y en los festejos de cumpleaños de la madre."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request):
+        serializer = PhotoUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = request.user
+        if user.photo:
+            user.photo.delete(save=False)
+        user.photo = serializer.validated_data["photo"]
+        user.save(update_fields=["photo", "updated_at"])
+        return Response(UserSerializer(user, context={"request": request}).data)
+
+    def delete(self, request):
+        user = request.user
+        if user.photo:
+            user.photo.delete(save=False)
+            user.photo = None
+            user.save(update_fields=["photo", "updated_at"])
+        return Response(UserSerializer(user, context={"request": request}).data)
+
+
+class MeChildPhotoView(APIView):
+    """POST/DELETE /api/me/children/<id>/photo/ — la foto de un hijo/a propio.
+    Solo la ven usuarias con sesión (en festejos aprobados) y el equipo admin."""
+
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_child(self, request, pk):
+        return get_object_or_404(Child, pk=pk, user=request.user)
+
+    def post(self, request, pk):
+        child = self.get_child(request, pk)
+        serializer = PhotoUploadSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if child.photo:
+            child.photo.delete(save=False)
+        child.photo = serializer.validated_data["photo"]
+        child.save(update_fields=["photo"])
+        return Response(ChildSerializer(child, context={"request": request}).data)
+
+    def delete(self, request, pk):
+        child = self.get_child(request, pk)
+        if child.photo:
+            child.photo.delete(save=False)
+            child.photo = None
+            child.save(update_fields=["photo"])
+        return Response(ChildSerializer(child, context={"request": request}).data)
 
 
 class ChangePasswordView(APIView):
@@ -129,7 +192,7 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
     serializer_class = AdminUserSerializer
     permission_classes = [permissions.IsAdminUser]
     filterset_fields = ["is_active", "is_staff", "registration_status"]
-    search_fields = ["email", "first_name", "last_name"]
+    search_fields = ["email", "first_name", "last_name", "document_id", "whatsapp", "city"]
     ordering_fields = ["created_at", "email"]
     http_method_names = ["get", "patch", "post", "head", "options"]
 

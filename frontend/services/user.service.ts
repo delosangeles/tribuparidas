@@ -22,6 +22,10 @@ export const userService = {
       first_name: string;
       last_name: string;
       whatsapp: string;
+      document_id?: string | null;
+      address?: string;
+      department?: string;
+      city?: string;
       birth_date?: string | null;
       children?: Child[];
       pregnancy?: { due_date: string } | null;

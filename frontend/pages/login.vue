@@ -72,25 +72,78 @@ async function submitForgot() {
 const form = reactive({
   first_name: "",
   last_name: "",
+  document_id: "",
   email: "",
   whatsapp: "",
   password: "",
 });
 
+// Obligatorio: la pestaña "Datos principales". El resto es opcional.
+const REGISTER_TABS = [
+  { key: "principal", label: "Datos principales" },
+  { key: "ubicacion", label: "Ubicación", optional: true },
+  { key: "festejos", label: "Festejos", optional: true },
+  { key: "conocernos", label: "Cuéntanos de ti", optional: true },
+];
+const registerTab = ref("principal");
+
+const location = ref({ department: "", city: "", address: "" });
+const about = ref(emptyProfileAbout());
 const festejosForm = ref(emptyFestejosForm());
 const registerLoading = ref(false);
 const registerError = ref("");
 const submitted = ref(false);
 const registerMessage = ref("");
 
+// Se valida a mano (el formulario es `novalidate`) para poder llevar a la
+// persona a la pestaña donde está el problema, aunque esté oculta.
+function validateRegister(): string | null {
+  const required = [form.first_name, form.last_name, form.email, form.whatsapp, form.password];
+  if (required.some((value) => !value.trim())) {
+    registerTab.value = "principal";
+    return "Completa nombre, apellido, teléfono, correo y contraseña.";
+  }
+  if (!new RegExp(PHONE_PATTERN).test(form.whatsapp.trim())) {
+    registerTab.value = "principal";
+    return PHONE_ERROR_MESSAGE;
+  }
+  if (form.password.length < 8) {
+    registerTab.value = "principal";
+    return "La contraseña debe tener mínimo 8 caracteres.";
+  }
+  if (festejosForm.value.children.some((child) => !child.name.trim() || !child.birth_date)) {
+    registerTab.value = "festejos";
+    return "Completa el nombre y la fecha de cada hijo/a, o quítalo.";
+  }
+  if (festejosForm.value.pregnant && !festejosForm.value.due_date) {
+    registerTab.value = "festejos";
+    return "Indica la fecha probable de parto, o desmarca el embarazo.";
+  }
+  return null;
+}
+
 async function handleRegister() {
-  registerLoading.value = true;
   registerError.value = "";
+  const problem = validateRegister();
+  if (problem) {
+    registerError.value = problem;
+    return;
+  }
+
+  registerLoading.value = true;
 
   try {
+    const filledLocation = Object.fromEntries(Object.entries(location.value).filter(([, value]) => value));
     const data = await authStore.register({
       ...form,
+      first_name: form.first_name.trim(),
+      last_name: form.last_name.trim(),
+      ...(form.document_id.trim() ? { document_id: form.document_id.trim() } : {}),
+      email: form.email.trim(),
+      whatsapp: form.whatsapp.trim(),
+      ...filledLocation,
       ...festejosPayload(festejosForm.value),
+      member_profile: profileAboutPayload(about.value, true),
     });
 
     registerMessage.value = data.detail;
@@ -116,7 +169,7 @@ function showRegister() {
 <template>
   <div
     class="mx-auto flex min-h-[80vh] flex-col items-center px-4 py-16"
-    :class="mode === 'register' ? 'max-w-xl' : 'max-w-md'"
+    :class="mode === 'register' ? 'max-w-3xl' : 'max-w-md'"
   >
     <!-- LOGO -->
     <NuxtLink to="/">
@@ -269,91 +322,96 @@ function showRegister() {
         class="card mt-8 w-full p-6"
       >
         <form
-          class="space-y-4"
+          class="space-y-5"
+          novalidate
           @submit.prevent="handleRegister"
         >
-          <!-- NOMBRE / APELLIDO -->
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="mb-1 block text-sm font-medium text-ink">
-                Nombre
-              </label>
+          <ProfileTabs
+            v-model="registerTab"
+            :tabs="REGISTER_TABS"
+          />
 
-              <input
-                v-model="form.first_name"
-                type="text"
-                required
-                class="field"
-              />
+          <!-- DATOS PRINCIPALES (obligatorios) -->
+          <div
+            v-show="registerTab === 'principal'"
+            class="space-y-3"
+          >
+            <p class="text-xs text-muted">
+              Nombre, apellido, teléfono, correo y contraseña son obligatorios. Lo demás es opcional y puedes completarlo después.
+            </p>
+
+            <div class="grid gap-3 sm:grid-cols-3">
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Nombre</label>
+                <input v-model="form.first_name" type="text" class="field" autocomplete="given-name" />
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Apellido</label>
+                <input v-model="form.last_name" type="text" class="field" autocomplete="family-name" />
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Cédula <span class="font-normal text-muted">(opcional)</span></label>
+                <input v-model="form.document_id" type="text" inputmode="numeric" maxlength="30" class="field" placeholder="Sin puntos ni espacios" />
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Teléfono (WhatsApp)</label>
+                <input
+                  v-model="form.whatsapp"
+                  type="text"
+                  :pattern="PHONE_PATTERN"
+                  :title="PHONE_ERROR_MESSAGE"
+                  class="field"
+                  placeholder="+57 300 000 0000"
+                  autocomplete="tel"
+                />
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Correo</label>
+                <input v-model="form.email" type="email" class="field" placeholder="tu@email.com" autocomplete="email" />
+              </div>
+
+              <div>
+                <label class="mb-1 block text-sm font-medium text-ink">Contraseña</label>
+                <input v-model="form.password" type="password" minlength="8" class="field" placeholder="Mínimo 8 caracteres" autocomplete="new-password" />
+              </div>
             </div>
 
-            <div>
-              <label class="mb-1 block text-sm font-medium text-ink">
-                Apellido
-              </label>
-
-              <input
-                v-model="form.last_name"
-                type="text"
-                required
-                class="field"
-              />
-            </div>
-          </div>
-
-          <!-- EMAIL -->
-          <div>
-            <label class="mb-1 block text-sm font-medium text-ink">
-              Correo
-            </label>
-
-            <input
-              v-model="form.email"
-              type="email"
-              required
-              class="field"
-              placeholder="tu@email.com"
-            />
-          </div>
-
-          <!-- WHATSAPP -->
-          <div>
-            <label class="mb-1 block text-sm font-medium text-ink">
-              WhatsApp
-            </label>
-
-            <input
-              v-model="form.whatsapp"
-              type="text"
-              required
-              :pattern="PHONE_PATTERN"
-              :title="PHONE_ERROR_MESSAGE"
-              class="field"
-              placeholder="+57 300 000 0000"
-            />
-
-            <p class="mt-1 text-xs text-muted">
-              Con este número confirmamos que estás en el grupo de la tribu.
+            <p class="text-xs text-muted">
+              Con tu teléfono confirmamos que estás en el grupo de la tribu.
+            </p>
+            <p class="rounded-xl2 bg-gold-light px-3 py-2 text-xs text-gold-dark">
+              <strong>Sobre la cédula:</strong> no es obligatoria, pero si quieres acceder a descuentos y promociones
+              exclusivas para la tribu, debes registrarla. Solo la ve el equipo admin.
             </p>
           </div>
 
-          <!-- DATOS PARA FESTEJOS -->
-          <FestejosDataForm v-model="festejosForm" />
+          <!-- UBICACIÓN -->
+          <div
+            v-show="registerTab === 'ubicacion'"
+            class="space-y-3"
+          >
+            <p class="text-xs text-muted">Opcional. Nos ayuda a conectar a las mamás de una misma zona.</p>
+            <ProfileLocationFields v-model="location" />
+          </div>
 
-          <!-- PASSWORD -->
-          <div>
-            <label class="mb-1 block text-sm font-medium text-ink">
-              Contraseña
-            </label>
+          <!-- FESTEJOS -->
+          <div
+            v-show="registerTab === 'festejos'"
+            class="space-y-3"
+          >
+            <FestejosDataForm v-model="festejosForm" optional-birth-date />
+            <p class="text-xs text-muted">
+              Las fotos (la tuya y la de cada hijo/a) las puedes subir desde tu perfil cuando tu cuenta esté aprobada.
+            </p>
+          </div>
 
-            <input
-              v-model="form.password"
-              type="password"
-              required
-              minlength="8"
-              class="field"
-              placeholder="Mínimo 8 caracteres"
-            />
+          <!-- CUÉNTANOS DE TI -->
+          <div v-show="registerTab === 'conocernos'">
+            <ProfileAboutFields v-model="about" />
           </div>
 
           <!-- ERROR -->
