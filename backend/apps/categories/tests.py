@@ -20,9 +20,9 @@ def api():
     return APIClient()
 
 
-def test_anonymous_cannot_list_categories(api):
+def test_anonymous_can_list_categories(api):
     response = api.get("/api/categories/")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.status_code == status.HTTP_200_OK
 
 
 def test_logged_in_list_only_shows_top_level_categories(api):

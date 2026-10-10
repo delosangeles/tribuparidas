@@ -19,10 +19,10 @@ from .serializers import (
 
 
 class BusinessPublicViewSet(viewsets.ReadOnlyModelViewSet):
-    """GET /api/businesses/ y /api/businesses/{slug}/ — solo negocios aprobados,
-    y solo visibles para quien haya iniciado sesión (sitio privado de la tribu)."""
+    """GET /api/businesses/ y /api/businesses/{slug}/ — solo negocios aprobados.
+    Lectura abierta: cualquier visitante ve el detalle completo, contacto incluido."""
 
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.AllowAny]
     lookup_field = "slug"
     filterset_fields = ["category__slug", "city", "department"]
     search_fields = ["name", "description", "city"]

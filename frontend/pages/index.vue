@@ -13,17 +13,22 @@ const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdm
 const featured = ref<Business[]>([]);
 const latestPosts = ref<BlogPost[]>([]);
 
-if (!authStore.isAuthenticated) {
-  await navigateTo("/login");
-}
-
-if (authStore.isAuthenticated) {
+// La portada es pública: no exige sesión. Las noticias que se muestran
+// dependen de si hay sesión (públicas + privadas) o no (solo públicas); eso
+// lo decide la API.
+try {
   const { data } = await businessService.list({ ordering: "-created_at", page_size: 4 });
   featured.value = data.results;
+} catch {
+  featured.value = [];
+}
 
-  if (canSeeBlog.value) {
+if (canSeeBlog.value) {
+  try {
     const { data: blogData } = await blogService.list({ page_size: 4 });
     latestPosts.value = blogData.results;
+  } catch {
+    latestPosts.value = [];
   }
 }
 
@@ -107,7 +112,7 @@ onBeforeUnmount(() => {
 </style>
 
 <template>
-  <div v-if="authStore.isAuthenticated">
+  <div>
     <section
       v-if="activeNews.length"
       class="w-full flex justify-center overflow-hidden"

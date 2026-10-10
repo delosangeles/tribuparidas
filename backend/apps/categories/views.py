@@ -8,7 +8,7 @@ from .serializers import CategorySerializer
 
 
 class CategoryViewSet(viewsets.ModelViewSet):
-    """GET /api/categories/ requiere sesión (sitio privado); crear/editar/borrar requiere admin.
+    """GET /api/categories/ es de lectura abierta; crear/editar/borrar requiere admin.
 
     Por defecto solo devuelve categorías principales (sin padre), con sus
     subcategorías anidadas. Usa ?parent=<id> para listar las subcategorías
@@ -16,7 +16,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = CategorySerializer
-    permission_classes = [permissions.IsAuthenticated, IsAdminOrReadOnly]
+    permission_classes = [IsAdminOrReadOnly]
     lookup_field = "slug"
     filterset_fields = {"is_active": ["exact"], "parent": ["exact", "isnull"]}
     search_fields = ["name", "description"]

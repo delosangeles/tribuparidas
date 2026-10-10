@@ -7,6 +7,9 @@ import type { Question, Review } from "~/types";
 const route = useRoute();
 const slug = route.params.slug as string;
 const authStore = useAuthStore();
+// Leer es público; preguntar, opinar y guardar favoritos requiere sesión y
+// después del login se vuelve a esta misma página.
+const loginUrl = `/login?redirect=/emprendimientos/${slug}`;
 
 const { data: business, error } = await useAsyncData(`business-${slug}`, async () => {
   const { data } = await businessService.retrieve(slug);
@@ -59,7 +62,7 @@ const newQuestion = ref("");
 const askingQuestion = ref(false);
 const questionError = ref("");
 async function submitQuestion() {
-  if (!authStore.isAuthenticated) return navigateTo("/login");
+  if (!authStore.isAuthenticated) return navigateTo(loginUrl);
   if (!newQuestion.value.trim() || !business.value) return;
   askingQuestion.value = true;
   questionError.value = "";
@@ -80,7 +83,7 @@ const newComment = ref("");
 const submittingReview = ref(false);
 const reviewError = ref("");
 async function submitReview() {
-  if (!authStore.isAuthenticated) return navigateTo("/login");
+  if (!authStore.isAuthenticated) return navigateTo(loginUrl);
   if (!business.value) return;
   submittingReview.value = true;
   reviewError.value = "";
@@ -96,7 +99,8 @@ async function submitReview() {
 }
 
 async function toggleFavorite() {
-  if (!authStore.isAuthenticated || !business.value) return navigateTo("/login");
+  if (!authStore.isAuthenticated) return navigateTo(loginUrl);
+  if (!business.value) return;
   if (isFavorite.value) {
     await reviewService.removeFavorite(business.value.id);
     isFavorite.value = false;
@@ -224,6 +228,10 @@ function shareBusiness() {
             <p v-if="reviewError" class="mt-1 text-xs text-rose-500">{{ reviewError }}</p>
             <button class="btn-primary mt-2" :disabled="submittingReview" @click="submitReview">Publicar opinión</button>
           </div>
+          <p v-else class="mt-4 text-sm text-muted">
+            <NuxtLink :to="loginUrl" class="text-gold hover:underline">Inicia sesión</NuxtLink>
+            para dejar tu opinión.
+          </p>
 
           <div class="mt-4">
             <ReviewItem v-for="review in reviews" :key="review.id" :review="review" />
@@ -236,10 +244,14 @@ function shareBusiness() {
             <h2 class="font-semibold text-ink">Preguntas y respuestas</h2>
           </div>
 
-          <div class="mt-4 flex gap-2">
+          <div v-if="authStore.isAuthenticated" class="mt-4 flex gap-2">
             <input v-model="newQuestion" type="text" class="field" placeholder="Escribe tu pregunta..." />
             <button class="btn-primary shrink-0" :disabled="askingQuestion" @click="submitQuestion">Preguntar</button>
           </div>
+          <p v-else class="mt-4 text-sm text-muted">
+            <NuxtLink :to="loginUrl" class="text-gold hover:underline">Inicia sesión</NuxtLink>
+            para hacer una pregunta.
+          </p>
           <p v-if="questionError" class="mt-1 text-xs text-rose-500">{{ questionError }}</p>
 
           <div class="mt-4">

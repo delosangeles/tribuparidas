@@ -82,9 +82,10 @@ class AnalyticsSummaryView(APIView):
 
 
 class FeatureFlagViewSet(viewsets.ModelViewSet):
-    """/api/feature-flags/ — cualquier autenticado puede leer (para saber si
-    un módulo ya está activo); solo un Super Admin puede editar la fecha de
-    activación. Sin create/delete: los flags se precargan por migración."""
+    """/api/feature-flags/ — cualquiera puede leer (el sitio es abierto y los
+    visitantes también necesitan saber si un módulo ya está activo); solo un
+    Super Admin puede editar la fecha de activación. Sin create/delete: los
+    flags se precargan por migración."""
 
     queryset = FeatureFlag.objects.all()
     serializer_class = FeatureFlagSerializer
@@ -93,7 +94,7 @@ class FeatureFlagViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
-            return [permissions.IsAuthenticated()]
+            return [permissions.AllowAny()]
         return [IsSuperAdmin()]
 
     def perform_update(self, serializer):

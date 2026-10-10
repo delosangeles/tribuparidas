@@ -60,9 +60,9 @@ def test_only_owner_can_answer_question(api, owner, visitor, business):
     assert Answer.objects.filter(question=question, user=owner).exists()
 
 
-def test_anonymous_cannot_list_questions(api, business):
+def test_anonymous_can_read_questions(api, business):
     response = api.get(f"/api/businesses/{business.id}/questions/")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+    assert response.status_code == status.HTTP_200_OK
 
 
 def test_logged_in_user_can_list_questions_of_business(api, visitor, business):

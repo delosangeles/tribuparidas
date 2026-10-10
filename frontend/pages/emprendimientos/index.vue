@@ -15,6 +15,7 @@ const createError = ref("");
 const createSuccess = ref(false);
 
 function openCreate() {
+  // Ver el listado es público; crear un emprendimiento requiere sesión.
   if (!authStore.isAuthenticated) return navigateTo({ path: "/login", query: { redirect: "/emprendimientos" } });
   createError.value = "";
   createSuccess.value = false;

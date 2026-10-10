@@ -50,9 +50,14 @@ def test_create_business_defaults_to_pending(api, owner, category):
     assert business.owner == owner
 
 
-def test_anonymous_cannot_list_businesses(api):
-    response = api.get("/api/businesses/")
-    assert response.status_code == status.HTTP_401_UNAUTHORIZED
+def test_anonymous_can_list_and_open_approved_businesses(api, owner, category):
+    business = Business.objects.create(
+        owner=owner, category=category, name="Abierto", description="d", whatsapp="3001234567", status=Business.Status.APPROVED
+    )
+    assert api.get("/api/businesses/").status_code == status.HTTP_200_OK
+    detail = api.get(f"/api/businesses/{business.slug}/")
+    assert detail.status_code == status.HTTP_200_OK
+    assert detail.data["whatsapp"]  # el contacto es público
 
 
 def test_pending_business_not_visible_in_list(api, owner, category):

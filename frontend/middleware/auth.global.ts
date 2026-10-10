@@ -1,9 +1,16 @@
-// Sitio privado: por defecto TODA ruta requiere sesión. Las únicas
-// excepciones son la portada (registro) y el login.
-const PUBLIC_ROUTES = ["/login"];
+// Sitio abierto: la portada, emprendimientos, blog, noticias y el login son
+// públicos. Solo las rutas que empiezan con estos prefijos exigen sesión
+// (además, cada una puede tener su propio middleware de rol: admin,
+// entrepreneur, superadmin). Escribir (comentar, preguntar, opinar, crear)
+// se valida en cada página y en la API.
+const PRIVATE_PREFIXES = ["/dashboard", "/admin", "/festejos", "/registro"];
+
+function isPrivate(path: string) {
+  return PRIVATE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
+}
 
 export default defineNuxtRouteMiddleware(async (to) => {
-  if (PUBLIC_ROUTES.includes(to.path)) return;
+  if (!isPrivate(to.path)) return;
 
   const authStore = useAuthStore();
 

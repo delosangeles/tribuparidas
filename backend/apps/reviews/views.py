@@ -10,10 +10,10 @@ from .serializers import FavoriteSerializer, ReviewCreateSerializer, ReviewSeria
 
 
 class BusinessReviewsView(generics.ListCreateAPIView):
-    """/api/businesses/{business_id}/reviews/ — requiere sesión (sitio privado; 1 por usuario)."""
+    """/api/businesses/{business_id}/reviews/ — leer es abierto; opinar requiere sesión (1 por usuario)."""
 
     ordering_fields = ["created_at", "rating"]
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [permissions.IsAuthenticatedOrReadOnly]
 
     def get_serializer_class(self):
         if self.request.method == "POST":

@@ -26,14 +26,18 @@ class IsAdminOrReadOnly(permissions.BasePermission):
 
 
 class IsAdminOrCreateOnly(permissions.BasePermission):
-    """Cualquier persona autenticada puede leer y crear; solo un staff puede
-    editar o borrar. Pensado para contenido tipo blog: cualquiera envía un
-    borrador a revisión, solo un admin lo aprueba, edita o elimina."""
+    """Cualquiera puede leer (sitio abierto); crear requiere sesión iniciada;
+    solo un staff puede editar o borrar. Pensado para contenido tipo blog:
+    cualquier persona registrada envía un borrador a revisión, solo un admin
+    lo aprueba, edita o elimina."""
 
     def has_permission(self, request, view):
-        if request.method in permissions.SAFE_METHODS or request.method == "POST":
+        if request.method in permissions.SAFE_METHODS:
             return True
-        return bool(request.user and request.user.is_authenticated and request.user.is_staff)
+        authenticated = bool(request.user and request.user.is_authenticated)
+        if request.method == "POST":
+            return authenticated
+        return authenticated and request.user.is_staff
 
 
 class IsSuperAdmin(permissions.BasePermission):
