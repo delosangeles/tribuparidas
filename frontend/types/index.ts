@@ -24,8 +24,21 @@ export interface User {
   pregnancy?: { due_date: string } | null;
   missing_festejos_data?: string[];
   member_profile?: MemberProfile | null;
+  module_access?: Record<string, ModuleAccessInfo> | null;
   created_at: string;
 }
+
+/** Qué puede hacer una madrina en un módulo. `categories` null = todas (solo blog). */
+export interface ModuleAccessInfo {
+  add: boolean;
+  approve: boolean;
+  edit: boolean;
+  delete: boolean;
+  categories: string[] | null;
+}
+
+export type AdminModule = "usuarios" | "blog" | "festejos";
+export type AdminAction = "add" | "approve" | "edit" | "delete";
 
 export type RegistrationStatus = "registered" | "pending_registration";
 
@@ -76,6 +89,7 @@ export interface Festejo {
   mother_name: string;
   child_name: string | null;
   headline: string;
+  photo: string | null;
   photo: string | null;
 }
 
@@ -336,6 +350,7 @@ export interface BlogPost {
   main_image: string | null;
   category: number;
   category_name: string;
+  category_slug: string;
   stage_names: string[];
   author_name: string;
   content_type: BlogContentType;
@@ -369,6 +384,7 @@ export interface BlogComment {
   image?: string | null;
   like_count: number;
   liked_by_me: boolean;
+  can_delete?: boolean;
   replies?: BlogComment[];
   edited_at?: string | null;
   created_at: string;

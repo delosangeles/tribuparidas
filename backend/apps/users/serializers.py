@@ -10,6 +10,7 @@ from django.utils import timezone
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 
+from apps.access.services import module_access_payload
 from apps.core.validators import validate_image_file
 
 from .models import Child, MemberProfile, Notification, Pregnancy
@@ -183,6 +184,7 @@ class UserSerializer(serializers.ModelSerializer):
     member_profile = MemberProfileSerializer(read_only=True)
     photo = serializers.SerializerMethodField()
     missing_festejos_data = serializers.SerializerMethodField()
+    module_access = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -206,6 +208,7 @@ class UserSerializer(serializers.ModelSerializer):
             "pregnancy",
             "member_profile",
             "missing_festejos_data",
+            "module_access",
             "needs_data_confirmation",
             "created_at",
         ]
@@ -219,6 +222,10 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_missing_festejos_data(self, obj):
         return missing_festejos_data(obj)
+
+    def get_module_access(self, obj):
+        # Madrinas: qué módulos del panel pueden usar (el frontend arma el menú con esto).
+        return module_access_payload(obj)
 
 
 class MeUpdateSerializer(DocumentIdMixin, serializers.ModelSerializer):

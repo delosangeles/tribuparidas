@@ -226,3 +226,70 @@ def test_festejo_photo_is_null_without_pictures(mother):
     api = APIClient()
     api.force_authenticate(user=mother)
     assert all(r["photo"] is None for r in api.get("/api/festejos/", {"date": "2026-10-07"}).data["results"])
+
+
+# ---------- Imagen propia del festejo ----------
+
+def _png(name="foto.png"):
+    from io import BytesIO
+
+    from django.core.files.uploadedfile import SimpleUploadedFile
+    from PIL import Image
+
+    buffer = BytesIO()
+    Image.new("RGB", (8, 8), "pink").save(buffer, "PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+
+
+@pytest.mark.django_db
+def test_admin_creates_manual_festejo_with_image(mother, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    admin = User.objects.create_user(email="admin@example.com", password="x", is_active=True, is_staff=True)
+    client = APIClient()
+    client.force_authenticate(admin)
+    res = client.post(
+        "/api/festejos/",
+        {"kind": "manual", "event_date": "2026-10-10", "user": mother.id, "title": "Baby shower", "image": _png()},
+        format="multipart",
+    )
+    assert res.status_code == 201, res.data
+    assert res.data["photo"] and "/festejos/" in res.data["photo"]
+    assert "image" not in res.data  # solo escritura
+
+
+@pytest.mark.django_db
+def test_festejo_image_rejects_non_images(mother, settings, tmp_path):
+    from django.core.files.uploadedfile import SimpleUploadedFile
+
+    settings.MEDIA_ROOT = tmp_path
+    admin = User.objects.create_user(email="admin@example.com", password="x", is_active=True, is_staff=True)
+    client = APIClient()
+    client.force_authenticate(admin)
+    bad = SimpleUploadedFile("virus.txt", b"no soy una imagen", content_type="text/plain")
+    res = client.post(
+        "/api/festejos/",
+        {"kind": "manual", "event_date": "2026-10-10", "user": mother.id, "title": "x", "image": bad},
+        format="multipart",
+    )
+    assert res.status_code == 400
+
+
+@pytest.mark.django_db
+def test_festejo_own_image_wins_over_profile_photo(mother, settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    f = Festejo.objects.create(kind="manual", event_date=date(2026, 10, 10), user=mother, title="x", status="approved")
+    f.photo.save("a.png", _png(), save=True)
+    client = APIClient()
+    client.force_authenticate(mother)
+    res = client.get("/api/festejos/?scope=month&date=2026-10-10")
+    card = next(r for r in res.data["results"] if r["id"] == f.id)
+    assert "/festejos/" in card["photo"]
+
+
+@pytest.mark.django_db
+def test_approved_param_hides_pending_even_for_admin(mother):
+    admin = User.objects.create_user(email="admin@example.com", password="x", is_active=True, is_staff=True)
+    client = APIClient()
+    client.force_authenticate(admin)
+    assert len(client.get("/api/festejos/?scope=week&date=2026-10-06").data["results"]) == 1  # pendiente, el admin lo ve
+    assert client.get("/api/festejos/?scope=week&date=2026-10-06&approved=1").data["results"] == []

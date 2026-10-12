@@ -3,6 +3,7 @@ import secrets
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -10,9 +11,11 @@ from rest_framework_simplejwt.exceptions import TokenError
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 
+from apps.access.services import can, module_permission
 from apps.core.models import log_activity
 from apps.core.permissions import IsSuperAdmin
 
+from .filters import FROM_EXCEL, AdminUserFilter
 from .models import Child, Notification, User
 from .serializers import (
     AdminUserCreateSerializer,
@@ -184,22 +187,43 @@ class ChangePasswordView(APIView):
         return Response({"detail": "Contraseña actualizada."})
 
 
+UsersModulePermission = module_permission(
+    "usuarios",
+    {
+        "list": "view",
+        "retrieve": "view",
+        "summary": "view",
+        "update": ["edit", "approve"],
+        "partial_update": ["edit", "approve"],
+        "reset_password": "edit",
+    },
+)
+
+
 class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
     """/api/admin/users/ — el admin puede activar/desactivar cuentas y editar
     nombre/apellido/WhatsApp; el email y el rol no se tocan desde acá."""
 
     queryset = User.objects.all().order_by("-created_at")
     serializer_class = AdminUserSerializer
-    permission_classes = [permissions.IsAdminUser]
-    filterset_fields = ["is_active", "is_staff", "registration_status"]
+    permission_classes = [UsersModulePermission]
+    filterset_class = AdminUserFilter
     search_fields = ["email", "first_name", "last_name", "document_id", "whatsapp", "city"]
     ordering_fields = ["created_at", "email"]
     http_method_names = ["get", "patch", "post", "head", "options"]
 
     def get_permissions(self):
-        if self.action == "create":
+        # Crear cuentas y cambiar roles sigue siendo solo del Super Admin.
+        if self.action in ("create", "set_role"):
             return [IsSuperAdmin()]
         return super().get_permissions()
+
+    def get_object(self):
+        obj = super().get_object()
+        # Las madrinas no tocan cuentas de administradoras.
+        if not self.request.user.is_staff and (obj.is_staff or obj.is_superuser):
+            raise PermissionDenied("No puedes administrar cuentas de administradoras.")
+        return obj
 
     def create(self, request, *args, **kwargs):
         """POST /api/admin/users/ — solo Super Admin: crea la cuenta directo
@@ -220,6 +244,14 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         )
 
     def perform_update(self, serializer):
+        user_ = self.request.user
+        if not user_.is_staff:
+            # Activar/desactivar es "aprobar"; cambiar datos es "editar".
+            changed = set(serializer.validated_data) - {"is_active"}
+            if "is_active" in serializer.validated_data and not can(user_, "usuarios", "approve"):
+                raise PermissionDenied("No tienes permiso para aprobar usuarias.")
+            if changed and not can(user_, "usuarios", "edit"):
+                raise PermissionDenied("No tienes permiso para editar usuarias.")
         was_active = serializer.instance.is_active
         before = (serializer.instance.first_name, serializer.instance.last_name, serializer.instance.whatsapp)
         user = serializer.save()
@@ -233,6 +265,21 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
             log_activity(
                 self.request.user, "user_info_updated", f"{self.request.user.email} editó los datos de {user.email}.", target=user
             )
+
+    @action(detail=False, methods=["get"])
+    def summary(self, request):
+        """Conteos para los filtros rápidos del panel de usuarios."""
+        users = User.objects.all()
+        return Response(
+            {
+                "all": users.count(),
+                "active": users.filter(is_active=True).count(),
+                # Se registraron en la plataforma y esperan aprobación (o fueron desactivadas).
+                "pending_approval": users.filter(registration_status="registered", is_active=False).count(),
+                "unregistered": users.filter(registration_status="pending_registration").count(),
+                "from_excel": users.filter(FROM_EXCEL).count(),
+            }
+        )
 
     @action(detail=True, methods=["post"])
     def reset_password(self, request, pk=None):

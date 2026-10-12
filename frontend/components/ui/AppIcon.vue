@@ -40,6 +40,12 @@ const paths: Record<string, string> = {
   menu: "M4 7h16M4 12h16M4 17h16",
   mail: "M4 6h16v12H4z M4 7l8 6 8-6",
   arrow: "M5 12h14M13 6l6 6-6 6",
+  "file-text": "M7 3h7l5 5v13H7z M14 3v5h5 M10 13h6 M10 17h6",
+  newspaper: "M4 5h13v14H6a2 2 0 0 1-2-2V5z M17 9h3v8a2 2 0 0 1-2 2 M7.5 9h6 M7.5 13h6 M7.5 16h3",
+  gift: "M4 10h16v10H4z M3 7h18v3H3z M12 7v13 M12 7c-1-3-5-3.5-5-1.5S10 7 12 7z M12 7c1-3 5-3.5 5-1.5S14 7 12 7z",
+  calendar: "M4 6h16v14H4z M4 10h16 M8 3v4 M16 3v4",
+  shield: "M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z M9 12l2 2 4-4",
+  upload: "M12 16V4 M7 9l5-5 5 5 M5 20h14",
 };
 
 const path = computed(() => paths[props.name] || paths.circle || "M12 12h.01");

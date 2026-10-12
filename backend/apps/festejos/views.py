@@ -4,6 +4,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
+from apps.access.services import has_module, module_permission
 from apps.core.models import FeatureFlag, log_activity
 
 from .generator import generate
@@ -32,6 +33,19 @@ def range_for(scope, day):
     return month_bounds(day) if scope == "month" else week_bounds(day)
 
 
+FestejosModulePermission = module_permission(
+    "festejos",
+    {
+        "create": "add",
+        "update": "edit",
+        "partial_update": "edit",
+        "destroy": "delete",
+        "approve": "approve",
+        "approve_all": "approve",
+    },
+)
+
+
 class FestejoViewSet(viewsets.ModelViewSet):
     """/api/festejos/ — las usuarias activas ven los festejos aprobados;
     el equipo admin ve todos y puede aprobar, editar, eliminar y agregar.
@@ -52,11 +66,11 @@ class FestejoViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ("list", "retrieve"):
             return [permissions.IsAuthenticated()]
-        return [permissions.IsAdminUser()]
+        return [FestejosModulePermission()]
 
     def get_queryset(self):
         qs = Festejo.objects.select_related("user", "user__member_profile", "child")
-        if not self.request.user.is_staff:
+        if not has_module(self.request.user, "festejos"):
             if not is_festejos_module_live():
                 return qs.none()
             qs = qs.filter(status=Festejo.Status.APPROVED)
@@ -65,9 +79,12 @@ class FestejoViewSet(viewsets.ModelViewSet):
     def list(self, request, *args, **kwargs):
         day = parse_date(request.query_params.get("date")) or date.today()
         start, end = range_for(request.query_params.get("scope", "week"), day)
-        if request.user.is_staff or is_festejos_module_live():
+        if has_module(request.user, "festejos") or is_festejos_module_live():
             generate(start, end)
         qs = self.get_queryset().filter(event_date__range=(start, end))
+        if request.query_params.get("approved") == "1":
+            # Vista pública: incluso el equipo admin ve solo lo aprobado (lo mismo que las usuarias).
+            qs = qs.filter(status=Festejo.Status.APPROVED)
         kind = request.query_params.get("kind")
         if kind == "mothers":
             qs = qs.filter(kind=Festejo.Kind.MOTHER_BIRTHDAY)

@@ -7,17 +7,35 @@ const mobileNavOpen = ref(false);
 const blogMenuOpen = ref(false);
 const blogMenuRef = ref<HTMLElement | null>(null);
 
-// Sub-items del menú "Blog": cada uno filtra el listado por una categoría o
-// etapa ya existente (ver apps/blog/migrations/0002_seed_blog_data.py).
+// Sub-items del menú "Blog": cada uno filtra el listado por el slug de una
+// categoría (ver apps/blog/migrations/0002 y 0008). Al elegir una categoría
+// al publicar un blog, ese blog aparece automáticamente en su enlace.
+// "Alimentación Complementaria" y "Vacunas" usan las categorías ya existentes
+// "Alimentación" (alimentacion) y "Salud y vacunas" (salud-y-vacunas).
 const BLOG_SUBMENU = [
-  { label: "Sueño", to: "/blog?category=sueno" },
+  { label: "Emprendimiento", to: "/blog?category=emprendimiento" },
+  { label: "Encuentros", to: "/blog?category=encuentros" },
+  { label: "Fit", to: "/blog?category=fit" },
+  { label: "Lecturas", to: "/blog?category=lecturas" },
+  { label: "12-24+", to: "/blog?category=12-24" },
   { label: "Alimentación Complementaria", to: "/blog?category=alimentacion" },
-  { label: "Embarazo", to: "/blog?stage=embarazo" },
+  { label: "Vacunas", to: "/blog?category=salud-y-vacunas" },
+  { label: "Sueño", to: "/blog?category=sueno" },
+  { label: "Iniciativas Sociales", to: "/blog?category=iniciativas-sociales" },
+  { label: "Las Encendidas", to: "/blog?category=las-encendidas" },
+  { label: "Embarazo", to: "/blog?category=embarazo" },
 ];
 
 // El blog puede tener activación programada (ver /admin/lanzamiento): se
 // oculta del menú hasta esa fecha, salvo para el equipo admin que necesita
 // entrar a prepararlo antes de que se revele.
+// Primera página del panel a la que puede entrar una madrina.
+const adminHome = computed(() => {
+  if (authStore.hasModule("blog")) return "/admin/blog";
+  if (authStore.hasModule("usuarios")) return "/admin/users";
+  return "/admin/festejos";
+});
+
 const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
 // Igual que el blog: los festejos se revelan en la fecha de lanzamiento, pero
 // el equipo admin los ve siempre para ir aprobándolos antes.
@@ -73,7 +91,7 @@ async function handleLogout() {
 
           <div
             v-if="blogMenuOpen"
-            class="absolute left-0 top-full z-10 mt-2 w-60 rounded-xl2 border border-line bg-white p-2 text-left shadow-soft"
+            class="absolute left-0 top-full z-10 mt-2 max-h-[70vh] w-64 overflow-y-auto rounded-xl2 border border-line bg-white p-2 text-left shadow-soft"
             @click="blogMenuOpen = false"
           >
             <NuxtLink to="/blog" class="block rounded-xl2 px-3 py-2 text-ink transition hover:bg-gold-light hover:text-gold">
@@ -123,8 +141,8 @@ async function handleLogout() {
             class="absolute right-0 mt-2 w-52 rounded-xl2 border border-line bg-white p-2 shadow-soft"
             @click="menuOpen = false"
           >
-            <NuxtLink v-if="authStore.isAdmin" to="/admin" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
-              <AppIcon name="settings" :size="16" /> Panel admin
+            <NuxtLink v-if="authStore.canAccessAdmin" :to="authStore.isAdmin ? '/admin' : adminHome" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
+              <AppIcon name="settings" :size="16" /> {{ authStore.isAdmin ? "Panel admin" : "Mi panel" }}
             </NuxtLink>
             <NuxtLink to="/dashboard/settings" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
               <AppIcon name="users" :size="16" /> Mi perfil

@@ -1,12 +1,15 @@
 import type { Festejo, FestejosResponse } from "~/types";
+import { toFormData } from "./utils";
 
 export type FestejosScope = "week" | "month";
 export type FestejosKindFilter = "" | "mothers" | "children";
 
+const MULTIPART = { headers: { "Content-Type": "multipart/form-data" } };
+
 export const festejosService = {
-  list(params: { scope: FestejosScope; date?: string; kind?: FestejosKindFilter }) {
+  list(params: { scope: FestejosScope; date?: string; kind?: string; approved?: boolean }) {
     return useApi().get<FestejosResponse>("/festejos/", {
-      params: { scope: params.scope, date: params.date || undefined, kind: params.kind || undefined },
+      params: { scope: params.scope, date: params.date || undefined, kind: params.kind || undefined, approved: params.approved ? 1 : undefined },
     });
   },
   approve(id: number) {
@@ -15,11 +18,12 @@ export const festejosService = {
   approveAll(scope: FestejosScope, date?: string) {
     return useApi().post<{ approved: number }>("/festejos/approve_all/", { scope, date });
   },
-  create(payload: { user: number; child?: number | null; event_date: string; title: string; note?: string }) {
-    return useApi().post<Festejo>("/festejos/", { kind: "manual", status: "approved", ...payload });
+  // Solo administradores. La imagen es opcional y se envía como multipart.
+  create(payload: { user: number; child?: number | null; event_date: string; title: string; note?: string; image?: File | null }) {
+    return useApi().post<Festejo>("/festejos/", toFormData({ kind: "manual", status: "approved", ...payload }), MULTIPART);
   },
-  update(id: number, payload: Partial<Pick<Festejo, "event_date" | "title" | "note">>) {
-    return useApi().patch<Festejo>(`/festejos/${id}/`, payload);
+  update(id: number, payload: Partial<Pick<Festejo, "event_date" | "title" | "note">> & { image?: File | null }) {
+    return useApi().patch<Festejo>(`/festejos/${id}/`, toFormData(payload), MULTIPART);
   },
   remove(id: number) {
     return useApi().delete(`/festejos/${id}/`);

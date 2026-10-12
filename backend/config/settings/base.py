@@ -54,6 +54,7 @@ INSTALLED_APPS = [
     "apps.news",
     "apps.blog",
     "apps.festejos",
+    "apps.access",
 ]
 
 MIDDLEWARE = [

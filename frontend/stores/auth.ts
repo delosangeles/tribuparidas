@@ -1,6 +1,6 @@
 import { defineStore } from "pinia";
 import { authService } from "~/services/auth.service";
-import type { User } from "~/types";
+import type { AdminAction, AdminModule, User } from "~/types";
 
 const COOKIE_OPTS = { sameSite: "lax" as const, maxAge: 60 * 60 * 24 * 7, path: "/" };
 
@@ -14,6 +14,24 @@ export const useAuthStore = defineStore("auth", () => {
   const isAdmin = computed(() => Boolean(user.value?.is_staff));
   const isSuperAdmin = computed(() => Boolean(user.value?.is_superuser));
   const isEntrepreneur = computed(() => Boolean(user.value?.is_entrepreneur));
+
+  // Madrinas: usuarias (no administradoras) con acceso a módulos puntuales del panel.
+  const moduleAccess = computed(() => user.value?.module_access ?? null);
+  const isMadrina = computed(() => !isAdmin.value && Boolean(moduleAccess.value && Object.keys(moduleAccess.value).length));
+  const canAccessAdmin = computed(() => isAdmin.value || isMadrina.value);
+
+  function hasModule(module: AdminModule) {
+    return isAdmin.value || Boolean(moduleAccess.value?.[module]);
+  }
+
+  /** ¿Puede hacer `action` en el módulo? En el blog se puede indicar la categoría (slug). El servidor siempre lo vuelve a validar. */
+  function can(module: AdminModule, action: AdminAction, categorySlug?: string) {
+    if (isAdmin.value) return true;
+    const access = moduleAccess.value?.[module];
+    if (!access || !access[action]) return false;
+    if (module === "blog" && categorySlug && access.categories) return access.categories.includes(categorySlug);
+    return true;
+  }
 
   function setSession(tokens: { access: string; refresh: string; user: User }) {
     accessToken.value = tokens.access;
@@ -97,6 +115,11 @@ export const useAuthStore = defineStore("auth", () => {
     isAdmin,
     isSuperAdmin,
     isEntrepreneur,
+    moduleAccess,
+    isMadrina,
+    canAccessAdmin,
+    hasModule,
+    can,
     login,
     register,
     fetchMe,

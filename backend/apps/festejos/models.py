@@ -1,5 +1,15 @@
+import os
+import uuid
+
 from django.conf import settings
 from django.db import models
+
+from apps.core.validators import validate_image_file
+
+
+def festejo_photo_path(instance, filename):
+    # Nombre aleatorio: las fotos se sirven desde /media/ y no deben poder adivinarse.
+    return f"festejos/{uuid.uuid4().hex}{os.path.splitext(filename)[1].lower()}"
 
 
 class Festejo(models.Model):
@@ -26,6 +36,9 @@ class Festejo(models.Model):
     number = models.PositiveSmallIntegerField(null=True, blank=True)
     title = models.CharField(max_length=200, blank=True)
     note = models.TextField(blank=True)
+    # Imagen propia del festejo (se sube al crear uno manual). Si no tiene, la tarjeta
+    # usa la foto del hijo/a o de la mamá.
+    photo = models.ImageField(upload_to=festejo_photo_path, blank=True, null=True, validators=[validate_image_file])
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.PENDING)
     is_manual = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)

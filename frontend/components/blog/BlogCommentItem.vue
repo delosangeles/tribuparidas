@@ -10,7 +10,7 @@ const emit = defineEmits<{ (e: "changed"): void }>();
 
 const authStore = useAuthStore();
 const isAuthor = computed(() => authStore.user?.id === props.comment.author);
-const canDelete = computed(() => isAuthor.value || authStore.isAdmin);
+const canDelete = computed(() => props.comment.can_delete ?? (isAuthor.value || authStore.isAdmin));
 const loginUrl = computed(() => `/login?redirect=/blog/${props.slug}`);
 
 const mode = ref<"view" | "edit" | "reply">("view");

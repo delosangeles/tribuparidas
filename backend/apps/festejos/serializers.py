@@ -1,5 +1,7 @@
 from rest_framework import serializers
 
+from apps.core.validators import validate_image_file
+
 from .models import Festejo
 
 
@@ -14,19 +16,21 @@ class FestejoSerializer(serializers.ModelSerializer):
     child_name = serializers.CharField(source="child.name", read_only=True, default=None)
     headline = serializers.SerializerMethodField()
     photo = serializers.SerializerMethodField()
+    # Subida de imagen propia (multipart). La URL final se lee en `photo`.
+    image = serializers.ImageField(source="photo", write_only=True, required=False, allow_null=True, validators=[validate_image_file])
 
     class Meta:
         model = Festejo
         fields = [
             "id", "kind", "kind_label", "event_date", "user", "child", "number",
-            "title", "note", "status", "is_manual", "mother_name", "child_name", "headline", "photo",
+            "title", "note", "status", "is_manual", "mother_name", "child_name", "headline", "photo", "image",
         ]
         read_only_fields = ["id", "is_manual", "kind_label", "mother_name", "child_name", "headline", "photo"]
         validators = []  # el duplicado se valida a mano (child puede ser nulo)
 
     def get_photo(self, obj):
-        # Festejos de hijos: foto del hijo/a; los de la mamá: su foto de perfil.
-        image = obj.child.photo if obj.child_id else obj.user.photo
+        # Primero la imagen propia del festejo; si no, la del hijo/a o la foto de perfil de la mamá.
+        image = obj.photo or (obj.child.photo if obj.child_id else obj.user.photo)
         if not image:
             return None
         request = self.context.get("request")

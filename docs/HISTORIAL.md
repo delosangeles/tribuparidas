@@ -5,6 +5,38 @@ Bitácora de lo que se hace en el proyecto, de lo más reciente a lo más antigu
 
 ---
 
+## 2026-10-12
+
+### Categorías del blog en el menú principal
+- Migración `blog/0008_seed_menu_categories`: crea Encuentros, Fit, Lecturas, 12-24+, Iniciativas Sociales, Las Encendidas y Embarazo (no toca ni renombra las existentes).
+- `AppNavbar.vue`: `BLOG_SUBMENU` con las 11 categorías en orden (escritorio y móvil), cada una enlaza a `/blog?category=<slug>`. "Alimentación Complementaria" usa `alimentacion` y "Vacunas" usa `salud-y-vacunas`; "Embarazo" pasó de filtrar por **etapa** a filtrar por **categoría** (posts solo con la etapa Embarazo ya no salen en ese enlace).
+
+### Festejos: panel en el administrador
+- Nueva página `/admin/festejos` (aprobar, editar, eliminar, agregar, con filtros de semana/mes, estado y tipo). La página pública `/festejos` quedó **solo de lectura** y siempre pide `?approved=1` (incluso para admins).
+- `Festejo.photo` (migración `festejos/0002`): imagen opcional al crear/editar un festejo manual (campo de escritura `image`, multipart). La tarjeta usa esa imagen, luego la del hijo/a y luego la foto de la mamá.
+
+### Usuarios: filtros rápidos
+- `GET /api/admin/users/summary/` (conteos) y filtro `has_excel_data` (`users/filters.py`; la marca es `member_profile.form_submitted_at`, que solo llena la importación).
+- Chips en `/admin/users`: Todos, Inactivos / por aprobar, Activos, Sin registrarse, Datos del Excel.
+
+### Panel de la usuaria
+- `DashboardSidebar.vue` ahora tiene "Volver al inicio" (se quitó el enlace suelto de `dashboard/settings.vue`).
+- Iconos nuevos en `AppIcon.vue` (`file-text`, `newspaper`, `gift`, `calendar`, `shield`, `upload`); antes Blog y Noticias mostraban un punto porque sus iconos no existían.
+
+### Madrinas (accesos por módulo)
+- App `apps/access`: `ModuleAccess` (usuaria + módulo `blog|usuarios|festejos` + agregar/aprobar/editar/eliminar; en el blog, categorías). Las **administradoras (`is_staff`) conservan acceso total sin filas**; una madrina solo tiene lo asignado.
+- Gestión solo Super Admin: `/admin/madrinas` (frontend) y `GET /api/admin/madrinas/`, `PUT|DELETE /api/admin/madrinas/<user_id>/`. No se puede asignar a administradoras.
+- Aplicado en: **blog** (ver/aprobar/rechazar/editar/eliminar solo en sus categorías; con "agregar" publica sin revisión en ellas; elimina comentarios de sus categorías; `BlogComment.can_delete` lo calcula el servidor), **festejos** y **usuarios** (activar = aprobar, datos = editar; nunca cuentas de administradoras; crear cuentas y cambiar roles siguen siendo del Super Admin).
+- Frontend: `auth.ts` (`isMadrina`, `hasModule`, `can`), middleware `admin.ts` por `meta.module`, `AdminSidebar.vue` filtra enlaces, `AppNavbar.vue` muestra "Mi panel".
+- No se agregó interruptor de lanzamiento: es una herramienta del Super Admin, no un módulo visible para las usuarias (excepción a la regla de módulos nuevos).
+- Pendiente: conectar **emprendimientos** y **noticias** (aún solo `IsAdminUser`); el caché de acceso es por petición (cada request trae una usuaria nueva); notificaciones del admin siguen solo para administradoras.
+
+### Pruebas
+- Backend en Docker: **226 pasan** (17 nuevas en `apps/access/tests.py`, más las de festejos con imagen, filtros de usuarios y categorías del menú). Frontend: 15 pasan y `nuxt build` compila. No se recorrió en navegador.
+- Sin commit ni deploy. Para producción: `migrate` (blog 0008, festejos 0002, access 0001).
+
+---
+
 ## 2026-10-10 (madrugada)
 
 ### Aviso "tenemos información nueva para ti" (datos precargados del Excel)

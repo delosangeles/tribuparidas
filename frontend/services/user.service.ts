@@ -4,6 +4,11 @@ export const userService = {
   adminList(params: Record<string, unknown> = {}) {
     return useApi().get<Paginated<User>>("/admin/users/", { params });
   },
+  adminSummary() {
+    return useApi().get<{ all: number; active: number; pending_approval: number; unregistered: number; from_excel: number }>(
+      "/admin/users/summary/"
+    );
+  },
   setActive(userId: number, isActive: boolean) {
     return useApi().patch<User>(`/admin/users/${userId}/`, { is_active: isActive });
   },

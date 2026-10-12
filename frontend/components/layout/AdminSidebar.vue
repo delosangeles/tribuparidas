@@ -1,36 +1,55 @@
 <script setup lang="ts">
 import { blogService } from "~/services/blog.service";
 import { userService } from "~/services/user.service";
+import type { AdminModule } from "~/types";
 
 const authStore = useAuthStore();
 
-const BASE_LINKS = [
+// `module`: las madrinas solo ven los enlaces de los módulos que tienen asignados.
+const BASE_LINKS: { to: string; label: string; icon: string; module?: AdminModule }[] = [
   { to: "/admin", label: "Dashboard", icon: "chart" },
   { to: "/admin/businesses", label: "Emprendimientos", icon: "briefcase" },
-  { to: "/admin/blog", label: "Blog", icon: "file-text" },
+  { to: "/admin/blog", label: "Blog", icon: "file-text", module: "blog" },
   { to: "/admin/news", label: "Noticias", icon: "newspaper" },
-  { to: "/admin/users", label: "Usuarios", icon: "users" },
+  { to: "/admin/users", label: "Usuarios", icon: "users", module: "usuarios" },
+  { to: "/admin/festejos", label: "Festejos", icon: "gift", module: "festejos" },
   { to: "/admin/categories", label: "Categorías", icon: "box" },
   { to: "/admin/activity", label: "Historial", icon: "clock" },
 ];
 
 const SUPERADMIN_LINKS = [
   { to: "/admin/analytics", label: "Analítica", icon: "chart" },
+  { to: "/admin/madrinas", label: "Madrinas", icon: "shield" },
   { to: "/admin/reportes", label: "Reportes mensuales", icon: "file-text" },
   { to: "/admin/launch", label: "Lanzamiento", icon: "star" },
 ];
 
-const links = computed(() => (authStore.isSuperAdmin ? [...BASE_LINKS, ...SUPERADMIN_LINKS] : BASE_LINKS));
-
-const pendingUsers = ref(0);
-userService.adminList({ is_active: false, page_size: 1 }).then(({ data }) => {
-  pendingUsers.value = data.count;
+const links = computed(() => {
+  if (authStore.isSuperAdmin) return [...BASE_LINKS, ...SUPERADMIN_LINKS];
+  if (authStore.isAdmin) return BASE_LINKS;
+  return BASE_LINKS.filter((link) => link.module && authStore.hasModule(link.module));
 });
+
+// Contadores del menú; una madrina solo pide los de sus módulos.
+const pendingUsers = ref(0);
+if (authStore.hasModule("usuarios")) {
+  userService
+    .adminList({ is_active: false, page_size: 1 })
+    .then(({ data }) => {
+      pendingUsers.value = data.count;
+    })
+    .catch(() => {});
+}
 
 const pendingBlogPosts = ref(0);
-blogService.list({ status: "IN_REVIEW", page_size: 1 }).then(({ data }) => {
-  pendingBlogPosts.value = data.count;
-});
+if (authStore.hasModule("blog")) {
+  blogService
+    .list({ status: "IN_REVIEW", page_size: 1 })
+    .then(({ data }) => {
+      pendingBlogPosts.value = data.count;
+    })
+    .catch(() => {});
+}
 
 async function handleLogout() {
   await authStore.logout();

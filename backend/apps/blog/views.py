@@ -3,7 +3,8 @@ from django.http import Http404
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
-from rest_framework import generics, permissions, status, viewsets
+from rest_framework import generics, status, viewsets
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAuthenticatedOrReadOnly
 from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
@@ -11,9 +12,11 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import FeatureFlag, log_activity
-from apps.core.permissions import IsAdminOrCreateOnly, IsAdminOrReadOnly
+from apps.access.services import ALL, blog_scope, can, has_module
+from apps.core.permissions import IsAdminOrReadOnly
 
 from .models import BlogCategory, BlogStage, BlogPost, BlogComment, BlogCommentLike
+from .permissions import BlogApprovePermission, BlogPostPermission
 from .serializers import (
     BlogCategorySerializer,
     BlogStageSerializer,
@@ -76,7 +79,7 @@ class BlogPostViewSet(viewsets.ModelViewSet):
     aprobarlo o borrarlo."""
 
     queryset = BlogPost.objects.all()
-    permission_classes = [IsAdminOrCreateOnly]
+    permission_classes = [BlogPostPermission]
     lookup_field = "slug"
 
     def get_serializer_class(self):
@@ -91,18 +94,35 @@ class BlogPostViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         queryset = BlogPost.objects.all()
 
-        if not self.request.user.is_staff:
-            if not is_blog_module_live():
+        user = self.request.user
+        scope = blog_scope(user)  # ALL (administradora), ids de categorías (madrina) o None
+
+        if scope != ALL:
+            # Las madrinas, además de lo publicado, ven todo (borradores y en
+            # revisión) de las categorías que administran.
+            managed = scope if isinstance(scope, set) else set()
+            conditions = []
+
+            if is_blog_module_live():
+                public = Q(status=BlogPost.Status.PUBLISHED, publication_date__lte=timezone.now())
+
+                # Los blogs privados solo los ve quien tiene sesión.
+                if not user.is_authenticated:
+                    public &= Q(visibility=BlogPost.Visibility.PUBLIC)
+
+                conditions.append(public)
+
+            if managed:
+                conditions.append(Q(category_id__in=managed))
+
+            if not conditions:
                 return queryset.none()
 
-            queryset = queryset.filter(
-                status=BlogPost.Status.PUBLISHED,
-                publication_date__lte=timezone.now()
-            )
+            combined = conditions[0]
+            for condition in conditions[1:]:
+                combined |= condition
 
-            # Los blogs privados solo los ve quien tiene sesión.
-            if not self.request.user.is_authenticated:
-                queryset = queryset.filter(visibility=BlogPost.Visibility.PUBLIC)
+            queryset = queryset.filter(combined)
 
         status_param = self.request.query_params.get("status")
 
@@ -166,7 +186,7 @@ class BlogPostViewSet(viewsets.ModelViewSet):
                 f"{self.request.user.email} envió a revisión el blog «{post.title}».",
                 target=post,
             )
-        elif not self.request.user.is_staff:
+        elif not can(self.request.user, "blog", "add", category_id=post.category_id):
             log_activity(
                 self.request.user,
                 "blog_post_published_open",
@@ -182,7 +202,22 @@ class BlogPostViewSet(viewsets.ModelViewSet):
             )
 
     def perform_update(self, serializer):
-        was_published = serializer.instance.status == BlogPost.Status.PUBLISHED
+        user = self.request.user
+        instance = serializer.instance
+        was_published = instance.status == BlogPost.Status.PUBLISHED
+
+        if not user.is_staff:
+            # Una madrina no puede sacar un post de sus categorías ni publicar sin permiso de aprobar.
+            new_category = serializer.validated_data.get("category")
+            if new_category and not can(user, "blog", "edit", category_id=new_category.id):
+                raise PermissionDenied("No puedes mover el blog a una categoría que no administras.")
+            if (
+                serializer.validated_data.get("status") == BlogPost.Status.PUBLISHED
+                and not was_published
+                and not can(user, "blog", "approve", category_id=instance.category_id)
+            ):
+                raise PermissionDenied("No tienes permiso para aprobar blogs.")
+
         post = serializer.save()
 
         if not was_published and post.status == BlogPost.Status.PUBLISHED:
@@ -209,7 +244,7 @@ class BlogPostViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["post"],
-        permission_classes=[IsAuthenticated, permissions.IsAdminUser],
+        permission_classes=[IsAuthenticated, BlogApprovePermission],
     )
     def approve(self, request, slug=None):
         """POST /api/blog/{slug}/approve/ — publica un post en revisión."""
@@ -236,7 +271,7 @@ class BlogPostViewSet(viewsets.ModelViewSet):
     @action(
         detail=True,
         methods=["post"],
-        permission_classes=[IsAuthenticated, permissions.IsAdminUser],
+        permission_classes=[IsAuthenticated, BlogApprovePermission],
     )
     def reject(self, request, slug=None):
         """POST /api/blog/{slug}/reject/ — devuelve un post en revisión a
@@ -261,7 +296,7 @@ class BlogPostViewSet(viewsets.ModelViewSet):
 def blog_post_for(request, slug):
     """Artículo al que se comenta; antes del lanzamiento solo lo ve el equipo admin."""
     post = get_object_or_404(BlogPost, slug=slug)
-    if not request.user.is_staff and not is_blog_module_live():
+    if not has_module(request.user, "blog") and not is_blog_module_live():
         raise Http404
     if post.visibility == BlogPost.Visibility.PRIVATE and not request.user.is_authenticated:
         raise Http404
@@ -269,7 +304,7 @@ def blog_post_for(request, slug):
 
 
 def comments_queryset():
-    return BlogComment.objects.select_related("author").prefetch_related(
+    return BlogComment.objects.select_related("author", "post").prefetch_related(
         "likes", "replies__author", "replies__likes"
     )
 
@@ -345,7 +380,7 @@ class BlogCommentDetailView(generics.RetrieveUpdateDestroyAPIView):
     def destroy(self, request, *args, **kwargs):
         comment = self.get_object()
         is_author = comment.author_id == request.user.id
-        if not (is_author or request.user.is_staff):
+        if not (is_author or can(request.user, "blog", "delete", category_id=comment.post.category_id)):
             return Response({"detail": "No puedes eliminar este comentario."}, status=status.HTTP_403_FORBIDDEN)
         if not is_author:
             log_activity(

@@ -836,3 +836,39 @@ def test_importer_does_not_re_ask_those_who_already_confirmed(db):
     Command().apply_row(row)
     user.refresh_from_db()
     assert user.needs_data_confirmation is False
+
+
+# ---------- Filtros rápidos del panel de usuarios ----------
+
+def test_admin_user_filters_and_summary(api):
+    from datetime import datetime
+
+    from .models import MemberProfile
+
+    admin = User.objects.create_user(email="adm@example.com", password="x", is_staff=True, is_active=True)
+    active = User.objects.create_user(email="activa@example.com", password="x", is_active=True)
+    waiting = User.objects.create_user(email="espera@example.com", password="x", is_active=False)  # se registró, sin aprobar
+    excel_only = User(email="excel@example.com", registration_status="pending_registration", is_active=False)
+    excel_only.set_unusable_password()
+    excel_only.save()
+    MemberProfile.objects.create(user=excel_only, form_submitted_at=timezone.now())
+    MemberProfile.objects.create(user=active, form_submitted_at=timezone.now())  # registrada que también venía del Excel
+    MemberProfile.objects.create(user=waiting)  # perfil sin marca de Excel (la creó ella)
+
+    api.force_authenticate(admin)
+
+    def emails(query):
+        return {u["email"] for u in api.get(f"/api/admin/users/?{query}").data["results"]}
+
+    assert emails("is_active=false&registration_status=registered") == {"espera@example.com"}
+    assert emails("registration_status=pending_registration") == {"excel@example.com"}
+    assert emails("has_excel_data=true") == {"excel@example.com", "activa@example.com"}
+    assert "excel@example.com" not in emails("has_excel_data=false")
+
+    summary = api.get("/api/admin/users/summary/").data
+    assert summary == {"all": 4, "active": 2, "pending_approval": 1, "unregistered": 1, "from_excel": 2}
+
+
+def test_admin_user_summary_requires_admin(api):
+    api.force_authenticate(User.objects.create_user(email="normal@example.com", password="x", is_active=True))
+    assert api.get("/api/admin/users/summary/").status_code == 403

@@ -665,3 +665,48 @@ def test_admin_can_change_visibility_when_editing(api, admin, category):
     assert response.status_code == status.HTTP_200_OK, response.data
     post.refresh_from_db()
     assert post.visibility == BlogPost.Visibility.PRIVATE
+
+
+# ---------- Categorías del menú principal ----------
+
+MENU_CATEGORY_SLUGS = [
+    "emprendimiento", "encuentros", "fit", "lecturas", "12-24", "alimentacion",
+    "salud-y-vacunas", "sueno", "iniciativas-sociales", "las-encendidas", "embarazo",
+]
+
+
+@pytest.mark.django_db
+def test_every_main_menu_category_exists_and_is_active():
+    from .models import BlogCategory
+
+    existing = set(BlogCategory.objects.filter(is_active=True).values_list("slug", flat=True))
+    assert set(MENU_CATEGORY_SLUGS) <= existing
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("slug", MENU_CATEGORY_SLUGS)
+def test_blog_list_can_be_filtered_by_each_menu_category(slug):
+    from django.contrib.auth import get_user_model
+    from rest_framework.test import APIClient
+
+    user = get_user_model().objects.create_user(email=f"{slug}@example.com", password="x", is_active=True)
+    client = APIClient()
+    client.force_authenticate(user)
+    assert client.get(f"/api/blog/?category={slug}").status_code == 200
+
+
+def test_post_appears_under_its_menu_category_only():
+    from .models import BlogCategory
+
+    author = get_user_model().objects.create_user(email="autora@example.com", password="x", is_active=True, is_staff=True)
+    fit = BlogCategory.objects.get(slug="fit")
+    BlogPost.objects.create(
+        title="Rutina en casa", slug="rutina-en-casa", summary="r", content="x", author=author, category=fit,
+        status=BlogPost.Status.PUBLISHED, publication_date=timezone.now(),
+    )
+    client = APIClient()
+    client.force_authenticate(author)
+    in_fit = client.get("/api/blog/?category=fit").data["results"]
+    in_lecturas = client.get("/api/blog/?category=lecturas").data["results"]
+    assert [p["slug"] for p in in_fit] == ["rutina-en-casa"]
+    assert in_lecturas == []

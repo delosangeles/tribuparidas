@@ -3,7 +3,9 @@ import { blogService } from "~/services/blog.service";
 import { userService } from "~/services/user.service";
 import type { BlogPost, BlogPostDetail, BlogFormPayload, User } from "~/types";
 
-definePageMeta({ layout: "admin", middleware: "admin" });
+definePageMeta({ layout: "admin", middleware: "admin", module: "blog" });
+
+const authStore = useAuthStore();
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
@@ -53,8 +55,14 @@ const authorOptions = computed(() => {
 });
 
 async function loadUsers() {
-  const { data } = await userService.adminList({ page_size: 100 });
-  users.value = data.results;
+  // Solo las administradoras (o madrinas con acceso a Usuarios) pueden listar autoras.
+  if (!authStore.hasModule("usuarios")) return;
+  try {
+    const { data } = await userService.adminList({ page_size: 100 });
+    users.value = data.results;
+  } catch {
+    users.value = [];
+  }
 }
 
 async function load() {
@@ -194,7 +202,7 @@ async function remove(item: BlogPost) {
         </p>
       </div>
 
-      <button class="btn-primary" @click="openCreate">
+      <button v-if="authStore.can('blog', 'add')" class="btn-primary" @click="openCreate">
         <AppIcon name="plus" :size="16" />
         Nuevo blog
       </button>
@@ -214,7 +222,7 @@ async function remove(item: BlogPost) {
         :initial="editing"
         :submit-label="editing ? 'Guardar cambios' : 'Crear blog'"
         :loading="formLoading"
-        is-admin
+        :is-admin="authStore.isAdmin"
         :authors="authorOptions"
         @submit="handleSubmit"
       />
@@ -351,12 +359,12 @@ async function remove(item: BlogPost) {
                   Ver
                 </NuxtLink>
 
-                <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(item)">
+                <button v-if="authStore.can('blog', 'edit', item.category_slug)" class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(item)">
                   Editar
                 </button>
 
                 <button
-                  v-if="item.status === 'IN_REVIEW'"
+                  v-if="item.status === 'IN_REVIEW' && authStore.can('blog', 'approve', item.category_slug)"
                   class="btn-outline !px-2 !py-1 text-xs !text-emerald-600"
                   :disabled="actingSlug === item.slug"
                   @click="approve(item)"
@@ -365,7 +373,7 @@ async function remove(item: BlogPost) {
                 </button>
 
                 <button
-                  v-if="item.status === 'IN_REVIEW'"
+                  v-if="item.status === 'IN_REVIEW' && authStore.can('blog', 'approve', item.category_slug)"
                   class="btn-outline !px-2 !py-1 text-xs !text-amber-600"
                   :disabled="actingSlug === item.slug"
                   @click="reject(item)"
@@ -374,6 +382,7 @@ async function remove(item: BlogPost) {
                 </button>
 
                 <button
+                  v-if="authStore.can('blog', 'delete', item.category_slug)"
                   class="btn-outline !px-2 !py-1 text-xs !text-rose-500"
                   :disabled="actingSlug === item.slug"
                   @click="remove(item)"

@@ -4,6 +4,7 @@ from rest_framework import serializers
 
 from django.utils import timezone
 
+from apps.access.services import can
 from apps.core.validators import validate_image_file
 
 from .models import OPEN_CATEGORY_SLUG, BlogCategory, BlogStage, BlogPost, BlogComment
@@ -43,6 +44,8 @@ class BlogPostListSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    category_slug = serializers.CharField(source="category.slug", read_only=True)
+
     author_name = serializers.SerializerMethodField()
 
     stage_names = serializers.SerializerMethodField()
@@ -59,6 +62,7 @@ class BlogPostListSerializer(serializers.ModelSerializer):
             "main_image",
             "category",
             "category_name",
+            "category_slug",
             "stage_names",
             "author_name",
             "content_type",
@@ -174,6 +178,10 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
 
         if request.user.is_staff:
             validated_data.setdefault("author", request.user)
+        elif can(request.user, "blog", "add", category_id=validated_data["category"].id):
+            # Madrina con "agregar" en esta categoría: publica sin revisión, siempre a su nombre.
+            validated_data["author"] = request.user
+            validated_data["featured"] = False
         else:
             validated_data["author"] = request.user
             validated_data["featured"] = False
@@ -185,6 +193,14 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
                 validated_data["status"] = BlogPost.Status.IN_REVIEW
 
         return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        request = self.context["request"]
+        if not request.user.is_staff:
+            # Solo las administradoras cambian la autoría y destacan blogs.
+            validated_data.pop("author", None)
+            validated_data.pop("featured", None)
+        return super().update(instance, validated_data)
 
 
 def _absolute(request, image):
@@ -205,6 +221,7 @@ class BlogCommentSerializer(serializers.ModelSerializer):
     like_count = serializers.SerializerMethodField()
     liked_by_me = serializers.SerializerMethodField()
     replies = serializers.SerializerMethodField()
+    can_delete = serializers.SerializerMethodField()
 
     class Meta:
         model = BlogComment
@@ -220,6 +237,7 @@ class BlogCommentSerializer(serializers.ModelSerializer):
             "like_count",
             "liked_by_me",
             "replies",
+            "can_delete",
             "edited_at",
             "created_at",
         ]
@@ -247,6 +265,13 @@ class BlogCommentSerializer(serializers.ModelSerializer):
         if not user or not user.is_authenticated:
             return False
         return any(like.user_id == user.id for like in obj.likes.all())
+
+    def get_can_delete(self, obj):
+        # La autora, o quien modera el blog (administradoras / madrinas de esa categoría).
+        user = getattr(self.context.get("request"), "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.author_id == user.id or can(user, "blog", "delete", category_id=obj.post.category_id)
 
     def get_replies(self, obj):
         if obj.parent_id:

@@ -2,7 +2,7 @@
 import { userService } from "~/services/user.service";
 import type { User, UserRole } from "~/types";
 
-definePageMeta({ layout: "admin", middleware: "admin" });
+definePageMeta({ layout: "admin", middleware: "admin", module: "usuarios" });
 
 const authStore = useAuthStore();
 
@@ -13,7 +13,14 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const search = ref("");
-const statusFilter = ref<"" | "pending" | "active" | "unregistered">("");
+type UserFilter = "" | "pending" | "active" | "unregistered" | "excel";
+const statusFilter = ref<UserFilter>("");
+const summary = ref({ all: 0, active: 0, pending_approval: 0, unregistered: 0, from_excel: 0 });
+async function loadSummary() {
+  const { data } = await userService.adminSummary();
+  summary.value = data;
+}
+loadSummary();
 const page = ref(1);
 const loading = ref(false);
 const users = ref<User[]>([]);
@@ -24,10 +31,12 @@ async function load() {
   try {
     const { data } = await userService.adminList({
       search: search.value || undefined,
-      // "Pendientes" = se registraron y esperan aprobación; "Sin registrarse" = precargadas desde el Excel.
+      // "Inactivos / por aprobar" = se registraron en la plataforma y esperan aprobación;
+      // "Sin registrarse" = precargadas desde el Excel; "Datos del Excel" = cualquiera con datos del formulario.
       is_active: statusFilter.value === "pending" ? false : statusFilter.value === "active" ? true : undefined,
       registration_status:
         statusFilter.value === "unregistered" ? "pending_registration" : statusFilter.value === "pending" ? "registered" : undefined,
+      has_excel_data: statusFilter.value === "excel" ? true : undefined,
       page: page.value,
     });
     users.value = data.results;
@@ -42,6 +51,14 @@ watch([search, statusFilter], () => {
   page.value = 1;
   load();
 });
+
+const USER_FILTERS: { key: UserFilter; label: string; count: keyof typeof summary.value; hint: string }[] = [
+  { key: "", label: "Todos", count: "all", hint: "Todas las cuentas" },
+  { key: "pending", label: "Inactivos / por aprobar", count: "pending_approval", hint: "Se registraron en la plataforma y esperan aprobación" },
+  { key: "active", label: "Activos", count: "active", hint: "Ya pueden entrar a la plataforma" },
+  { key: "unregistered", label: "Sin registrarse", count: "unregistered", hint: "Vienen del Excel y aún no se registran" },
+  { key: "excel", label: "Datos del Excel", count: "from_excel", hint: "Tienen datos del formulario de inscripción" },
+];
 
 function formatDay(iso: string) {
   const [y, m, d] = iso.split("-").map(Number);
@@ -80,6 +97,7 @@ function waLink(whatsapp: string) {
 async function toggleActive(user: User) {
   const { data } = await userService.setActive(user.id, !user.is_active);
   user.is_active = data.is_active;
+  loadSummary();
 }
 
 const roleActionLoading = ref<number | null>(null);
@@ -231,10 +249,16 @@ function closeEdit() {
         <input v-model="search" type="text" placeholder="Buscar por nombre, correo, cédula, teléfono o ciudad..." class="w-full border-none bg-transparent text-sm outline-none" />
       </div>
       <div class="flex gap-2">
-        <button class="btn-outline" :class="statusFilter === '' && '!border-gold !text-gold'" @click="statusFilter = ''">Todos</button>
-        <button class="btn-outline" :class="statusFilter === 'pending' && '!border-gold !text-gold'" @click="statusFilter = 'pending'">Pendientes</button>
-        <button class="btn-outline" :class="statusFilter === 'unregistered' && '!border-gold !text-gold'" @click="statusFilter = 'unregistered'">Sin registrarse</button>
-        <button class="btn-outline" :class="statusFilter === 'active' && '!border-gold !text-gold'" @click="statusFilter = 'active'">Activos</button>
+        <button
+          v-for="f in USER_FILTERS"
+          :key="f.key"
+          class="btn-outline"
+          :class="statusFilter === f.key && '!border-gold !text-gold'"
+          :title="f.hint"
+          @click="statusFilter = f.key"
+        >
+          {{ f.label }} <span class="ml-1 text-xs opacity-70">({{ summary[f.count] }})</span>
+        </button>
       </div>
     </div>
 
@@ -290,16 +314,16 @@ function closeEdit() {
             </td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
-                <button class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Ver ficha</button>
+                <button v-if="authStore.isAdmin || !user.is_staff" class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Ver ficha</button>
                 <button
-                  v-if="!user.is_staff && user.registration_status !== 'pending_registration'"
+                  v-if="!user.is_staff && user.registration_status !== 'pending_registration' && authStore.can('usuarios', 'approve')"
                   class="btn-outline !px-2 !py-1 text-xs"
                   @click="toggleActive(user)"
                 >
                   {{ user.is_active ? "Desactivar" : "Activar" }}
                 </button>
                 <button
-                  v-if="!user.is_staff && user.registration_status !== 'pending_registration'"
+                  v-if="!user.is_staff && user.registration_status !== 'pending_registration' && authStore.can('usuarios', 'edit')"
                   class="btn-outline !px-2 !py-1 text-xs"
                   @click="resetTarget = user"
                 >

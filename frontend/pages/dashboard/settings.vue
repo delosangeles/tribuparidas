@@ -133,12 +133,7 @@ async function handlePasswordSubmit() {
 
 <template>
   <div class="max-w-4xl">
-    <NuxtLink to="/" class="inline-flex items-center gap-2 text-sm font-medium text-muted transition hover:text-gold">
-      <img :src="useAssetUrl('logo-mark.png')" alt="Tribu Paridas" class="h-8 w-8" />
-      Volver al inicio
-    </NuxtLink>
-
-    <h1 class="mt-4 text-2xl font-bold text-ink">Mi perfil</h1>
+    <h1 class="text-2xl font-bold text-ink">Mi perfil</h1>
     <p class="mt-1 text-sm text-muted">Actualiza tus datos. Solo los datos principales son obligatorios.</p>
 
     <div class="card mt-6 p-6">
