@@ -33,7 +33,8 @@ Bitácora de lo que se hace en el proyecto, de lo más reciente a lo más antigu
 
 ### Pruebas
 - Backend en Docker: **226 pasan** (17 nuevas en `apps/access/tests.py`, más las de festejos con imagen, filtros de usuarios y categorías del menú). Frontend: 15 pasan y `nuxt build` compila. No se recorrió en navegador.
-- Sin commit ni deploy. Para producción: `migrate` (blog 0008, festejos 0002, access 0001).
+- Commit `a025ad3` subido a `main` y **desplegado a producción el 2026-10-12** (backend con `migrate`: blog 0008, festejos 0002, access 0001; frontend con `deploy-frontend.sh`). Antes se sacó un respaldo de la base de producción. Verificado: sitio y API responden, 18 categorías de blog activas, endpoints nuevos exigen sesión.
+- Detalle conocido (anterior a este cambio): en producción nginx manda `/admin/` a Django, así que abrir o recargar por URL cualquier página `/admin/...` del panel cae en el login de Django; funciona entrando desde el menú "Panel admin" (navegación interna).
 
 ---
 
