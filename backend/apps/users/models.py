@@ -57,6 +57,13 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Datos precargados desde el Excel de inscripción: al entrar, la persona ve
     # un aviso para revisarlos, corregirlos y confirmarlos. Se apaga al confirmar.
     needs_data_confirmation = models.BooleanField(default=False)
+    # "member": usuaria de la página (ve todo el sitio). "portal": cuenta solo
+    # para gestionar un emprendimiento en /portal; un admin la puede convertir.
+    account_type = models.CharField(
+        max_length=10,
+        choices=[("member", "Usuaria de la página"), ("portal", "Solo portal")],
+        default="member",
+    )
     data_confirmed_at = models.DateTimeField(null=True, blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -92,6 +99,7 @@ class Notification(models.Model):
     class Type(models.TextChoices):
         NEW_REGISTRATION = "new_registration", "Nuevo registro"
         PASSWORD_RESET_REQUEST = "password_reset_request", "Olvidó su contraseña"
+        MEMBER_CONVERSION_REQUEST = "member_conversion_request", "Pide pasar a usuaria de la página"
 
     type = models.CharField(max_length=30, choices=Type.choices)
     message = models.CharField(max_length=255)

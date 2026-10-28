@@ -43,11 +43,24 @@ def test_user_can_create_review(api, visitor, business):
     assert float(business.average_rating) == 5.0
 
 
-def test_user_cannot_review_twice(api, visitor, business):
+def test_user_cannot_review_twice_same_day(api, visitor, business):
     Review.objects.create(business=business, user=visitor, rating=4)
     api.force_authenticate(user=visitor)
     response = api.post(f"/api/businesses/{business.id}/reviews/", {"rating": 2, "comment": "Otra vez"}, format="json")
     assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_user_can_review_again_another_day(api, visitor, business):
+    from datetime import timedelta
+
+    from django.utils import timezone
+
+    old = Review.objects.create(business=business, user=visitor, rating=4)
+    Review.objects.filter(pk=old.pk).update(created_at=timezone.now() - timedelta(days=1, hours=1))
+    api.force_authenticate(user=visitor)
+    response = api.post(f"/api/businesses/{business.id}/reviews/", {"rating": 2, "comment": "Otro día"}, format="json")
+    assert response.status_code == status.HTTP_201_CREATED
+    assert Review.objects.filter(business=business, user=visitor).count() == 2
 
 
 def test_average_rating_recalculates_on_new_review(api, owner, visitor, business):

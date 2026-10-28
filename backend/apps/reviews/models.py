@@ -15,7 +15,6 @@ class Review(TimeStampedModel):
 
     class Meta:
         ordering = ["-created_at"]
-        unique_together = ("business", "user")
 
     def __str__(self):
         return f"{self.user} -> {self.business}: {self.rating}*"

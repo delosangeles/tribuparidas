@@ -55,6 +55,7 @@ INSTALLED_APPS = [
     "apps.blog",
     "apps.festejos",
     "apps.access",
+    "apps.portal",
 ]
 
 MIDDLEWARE = [
@@ -132,8 +133,13 @@ CORS_ALLOW_CREDENTIALS = False
 # ---- Django REST Framework ----
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": (
-        "rest_framework_simplejwt.authentication.JWTAuthentication",
+        "apps.portal.authentication.PortalAwareJWTAuthentication",
     ),
+    "DEFAULT_THROTTLE_RATES": {
+        "portal_redeem": "30/min",
+        "card_issue": "30/min",
+        "card_visit": "60/min",
+    },
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",
     ),

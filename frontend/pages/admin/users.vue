@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { portalService } from "~/services/portal.service";
 import { userService } from "~/services/user.service";
 import type { User, UserRole } from "~/types";
 
@@ -98,6 +99,18 @@ async function toggleActive(user: User) {
   const { data } = await userService.setActive(user.id, !user.is_active);
   user.is_active = data.is_active;
   loadSummary();
+}
+
+// Cuentas "solo portal": un admin las pasa a usuaria de la página (ven todo el sitio).
+const convertLoading = ref<number | null>(null);
+async function convertToMember(user: User) {
+  convertLoading.value = user.id;
+  try {
+    const { data } = await portalService.adminConvertToMember(user.id);
+    user.account_type = data.account_type;
+  } finally {
+    convertLoading.value = null;
+  }
 }
 
 const roleActionLoading = ref<number | null>(null);
@@ -285,6 +298,7 @@ function closeEdit() {
                   <p class="font-medium text-ink">{{ user.first_name }} {{ user.last_name }}</p>
                   <p class="text-xs text-muted">{{ user.email }}</p>
                   <span v-if="user.registration_status === 'pending_registration'" class="badge-pending mt-1">Pendiente de registrarse</span>
+                  <span v-if="user.account_type === 'portal'" class="badge mt-1 bg-gold-light text-gold">Solo portal</span>
                 </div>
               </div>
             </td>
@@ -328,6 +342,14 @@ function closeEdit() {
                   @click="resetTarget = user"
                 >
                   Resetear contraseña
+                </button>
+                <button
+                  v-if="user.account_type === 'portal' && authStore.isAdmin"
+                  class="btn-outline !px-2 !py-1 text-xs"
+                  :disabled="convertLoading === user.id"
+                  @click="convertToMember(user)"
+                >
+                  Pasar a usuaria de la página
                 </button>
                 <button
                   v-if="authStore.isSuperAdmin && !user.is_superuser"

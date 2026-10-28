@@ -45,6 +45,22 @@ describe("feature flags store", () => {
     expect(store.isBlogLive).toBe(false);
   });
 
+  it("exposes the portal flag, off before launch and on after", async () => {
+    vi.mocked(featureFlagService.list).mockResolvedValueOnce({
+      data: { results: [{ key: "portal_module", label: "Portal", activate_at: null, is_forced_active: false, is_active: false, updated_at: "" }] },
+    } as any);
+    const store = useFeatureFlagStore();
+    await store.load();
+    expect(store.isPortalLive).toBe(false);
+
+    vi.mocked(featureFlagService.list).mockResolvedValueOnce({
+      data: { results: [{ key: "portal_module", label: "Portal", activate_at: null, is_forced_active: true, is_active: true, updated_at: "" }] },
+    } as any);
+    await store.load();
+    expect(store.isPortalLive).toBe(true);
+    expect(store.isBlogLive).toBe(false);
+  });
+
   it("never throws when the request fails (must not block login)", async () => {
     vi.mocked(featureFlagService.list).mockRejectedValueOnce(new Error("network error"));
 

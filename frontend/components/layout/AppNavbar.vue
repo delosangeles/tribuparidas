@@ -36,6 +36,9 @@ const adminHome = computed(() => {
   return "/admin/festejos";
 });
 
+// Módulo portal (Mi tarjeta y Portal de emprendimientos): mismo criterio de lanzamiento.
+const portalVisible = computed(() => featureFlagStore.isPortalLive || authStore.isAdmin);
+
 const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
 // Igual que el blog: los festejos se revelan en la fecha de lanzamiento, pero
 // el equipo admin los ve siempre para ir aprobándolos antes.
@@ -144,7 +147,13 @@ async function handleLogout() {
             <NuxtLink v-if="authStore.canAccessAdmin" :to="authStore.isAdmin ? '/admin' : adminHome" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
               <AppIcon name="settings" :size="16" /> {{ authStore.isAdmin ? "Panel admin" : "Mi panel" }}
             </NuxtLink>
-            <NuxtLink to="/dashboard/settings" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
+            <NuxtLink v-if="portalVisible && !authStore.isPortalAccount" to="/mi-tarjeta" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
+              <AppIcon name="gift" :size="16" /> Mi tarjeta
+            </NuxtLink>
+            <NuxtLink v-if="portalVisible && authStore.hasPortalAccess" to="/portal" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
+              <AppIcon name="briefcase" :size="16" /> Portal de mi emprendimiento
+            </NuxtLink>
+            <NuxtLink v-if="!authStore.isPortalAccount" to="/dashboard/settings" class="flex items-center gap-2 rounded-xl2 px-3 py-2 text-sm text-ink hover:bg-gold-light">
               <AppIcon name="users" :size="16" /> Mi perfil
             </NuxtLink>
             <button class="flex w-full items-center gap-2 rounded-xl2 px-3 py-2 text-left text-sm text-rose-500 hover:bg-rose-50" @click="handleLogout">

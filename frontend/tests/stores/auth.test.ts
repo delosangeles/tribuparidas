@@ -58,4 +58,15 @@ describe("auth store", () => {
     expect(store.isAuthenticated).toBe(false);
     expect(store.user).toBeNull();
   });
+
+  it("distingue cuentas solo-portal de usuarias de la página", () => {
+    const store = useAuthStore();
+    store.setUser({ ...mockUser, account_type: "portal", has_portal_access: true } as any);
+    expect(store.isPortalAccount).toBe(true);
+    expect(store.hasPortalAccess).toBe(true);
+
+    store.setUser({ ...mockUser, account_type: "member", has_portal_access: false } as any);
+    expect(store.isPortalAccount).toBe(false);
+    expect(store.hasPortalAccess).toBe(false);
+  });
 });

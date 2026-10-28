@@ -2,6 +2,7 @@
 import { authService } from "~/services/auth.service";
 
 const authStore = useAuthStore();
+const featureFlagStore = useFeatureFlagStore();
 const route = useRoute();
 
 const mode = ref<"login" | "register">("login");
@@ -24,7 +25,7 @@ async function handleLogin() {
 
     const redirect =
       (route.query.redirect as string) ||
-      (authStore.isAdmin ? "/admin" : "/");
+      (authStore.isPortalAccount ? "/portal" : authStore.isAdmin ? "/admin" : "/");
 
     await navigateTo(redirect);
   } catch (err) {
@@ -254,6 +255,12 @@ function showRegister() {
             {{ loading ? "Ingresando..." : "Iniciar sesión" }}
           </button>
         </form>
+
+        <!-- PORTAL DE EMPRENDIMIENTOS (solo si ya está lanzado) -->
+        <p v-if="featureFlagStore.isPortalLive" class="mt-4 text-center text-sm text-muted">
+          ¿Tienes un emprendimiento en la tribu?
+          <NuxtLink to="/portal/registro" class="font-semibold text-gold hover:underline">Pide acceso al portal</NuxtLink>
+        </p>
 
         <!-- GO REGISTER -->
         <p class="mt-6 text-center text-sm text-muted">

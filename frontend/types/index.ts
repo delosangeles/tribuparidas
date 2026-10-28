@@ -1,3 +1,6 @@
+export * from "./portal";
+import type { PublicBenefit } from "./portal";
+
 export type UserRole = "user" | "admin" | "super_admin";
 
 export interface User {
@@ -15,6 +18,9 @@ export interface User {
   is_staff: boolean;
   is_superuser: boolean;
   role: UserRole;
+  /** "portal" = cuenta solo para gestionar un emprendimiento en /portal. */
+  account_type?: "member" | "portal";
+  has_portal_access?: boolean;
   is_entrepreneur: boolean;
   is_active?: boolean;
   businesses_count?: number;
@@ -108,7 +114,7 @@ export interface FeatureFlag {
   updated_at: string;
 }
 
-export type NotificationType = "new_registration" | "password_reset_request";
+export type NotificationType = "new_registration" | "password_reset_request" | "member_conversion_request";
 
 export interface AppNotification {
   id: number;
@@ -192,6 +198,9 @@ export interface Business {
   responsible_name: string;
   tribe_recommended: boolean;
   images?: BusinessImage[];
+  /** Beneficio Tribu aprobado y vigente del portal (null si no hay). */
+  portal_benefit?: PublicBenefit | null;
+  faqs?: { id: number; question: string; answer: string }[];
   created_at: string;
   updated_at?: string;
 }
@@ -249,6 +258,8 @@ export interface Review {
   rating: number;
   comment: string;
   is_active: boolean;
+  /** Respuesta pública de la dueña del emprendimiento. */
+  reply?: { text: string; created_at: string; updated_at: string } | null;
   created_at: string;
   updated_at: string;
 }

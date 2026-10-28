@@ -14,6 +14,9 @@ export const useAuthStore = defineStore("auth", () => {
   const isAdmin = computed(() => Boolean(user.value?.is_staff));
   const isSuperAdmin = computed(() => Boolean(user.value?.is_superuser));
   const isEntrepreneur = computed(() => Boolean(user.value?.is_entrepreneur));
+  // Cuenta "solo portal": solo ve /portal. Un admin puede pasarla a usuaria de la página.
+  const isPortalAccount = computed(() => user.value?.account_type === "portal");
+  const hasPortalAccess = computed(() => Boolean(user.value?.has_portal_access));
 
   // Madrinas: usuarias (no administradoras) con acceso a módulos puntuales del panel.
   const moduleAccess = computed(() => user.value?.module_access ?? null);
@@ -115,6 +118,8 @@ export const useAuthStore = defineStore("auth", () => {
     isAdmin,
     isSuperAdmin,
     isEntrepreneur,
+    isPortalAccount,
+    hasPortalAccess,
     moduleAccess,
     isMadrina,
     canAccessAdmin,

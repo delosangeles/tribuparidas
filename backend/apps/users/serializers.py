@@ -185,6 +185,7 @@ class UserSerializer(serializers.ModelSerializer):
     photo = serializers.SerializerMethodField()
     missing_festejos_data = serializers.SerializerMethodField()
     module_access = serializers.SerializerMethodField()
+    has_portal_access = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -202,6 +203,8 @@ class UserSerializer(serializers.ModelSerializer):
             "is_staff",
             "is_superuser",
             "role",
+            "account_type",
+            "has_portal_access",
             "is_entrepreneur",
             "birth_date",
             "children",
@@ -212,7 +215,10 @@ class UserSerializer(serializers.ModelSerializer):
             "needs_data_confirmation",
             "created_at",
         ]
-        read_only_fields = ["id", "email", "is_staff", "is_superuser", "needs_data_confirmation", "created_at"]
+        read_only_fields = [
+            "id", "email", "is_staff", "is_superuser", "account_type", "has_portal_access",
+            "needs_data_confirmation", "created_at",
+        ]
 
     def get_role(self, obj):
         return user_role(obj)
@@ -222,6 +228,9 @@ class UserSerializer(serializers.ModelSerializer):
 
     def get_missing_festejos_data(self, obj):
         return missing_festejos_data(obj)
+
+    def get_has_portal_access(self, obj):
+        return obj.portal_access.filter(business__status="approved").exists()
 
     def get_module_access(self, obj):
         # Madrinas: qué módulos del panel pueden usar (el frontend arma el menú con esto).
@@ -398,6 +407,7 @@ class AdminUserSerializer(DocumentIdMixin, serializers.ModelSerializer):
             "is_staff",
             "is_superuser",
             "role",
+            "account_type",
             "is_entrepreneur",
             "businesses_count",
             "registration_status",
@@ -412,7 +422,7 @@ class AdminUserSerializer(DocumentIdMixin, serializers.ModelSerializer):
         ]
         # is_staff se cambia solo vía la acción set_role (Super Admin); acá queda de solo lectura.
         read_only_fields = [
-            "id", "email", "is_staff", "is_superuser", "registration_status",
+            "id", "email", "is_staff", "is_superuser", "account_type", "registration_status",
             "needs_data_confirmation", "data_confirmed_at", "created_at",
         ]
 

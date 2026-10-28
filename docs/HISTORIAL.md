@@ -5,6 +5,36 @@ Bitácora de lo que se hace en el proyecto, de lo más reciente a lo más antigu
 
 ---
 
+## 2026-10-27
+
+### Portal de emprendimientos + Mi tarjeta (descuento por QR)
+Módulo nuevo `portal_module` (FeatureFlag: migración `core/0007`, API con `PortalModuleLive`, `isPortalLive` en `stores/featureFlags.ts`, enlaces del menú y páginas con redirección; el equipo admin lo ve siempre). Programable en `/admin/lanzamiento`.
+
+**Cuentas y roles**
+- `User.account_type`: `member` (usuaria de la página, las existentes) o `portal` (solo `/portal`). Se enforza en el servidor: `apps/portal/authentication.py` (`PortalAwareJWTAuthentication`) deja a una cuenta portal usar solo `/api/auth|me|portal|feature-flags|analytics` y leer `businesses|categories`. Registro en `/portal/registro` (`POST /api/auth/register-portal/`): queda inactiva hasta que un admin la apruebe. La cuenta pide el cambio con `POST /api/me/request-member-conversion/` (notificación al admin) y un admin la pasa con `POST /api/admin/users/<id>/convert_to_member/` (botón en `/admin/users`).
+- `BusinessOwner(usuaria, emprendimiento, rol)`: varias personas por emprendimiento aprobado; **dueña** (gestiona todo) y **vendedora** (escanea y ve estadísticas). La migración `portal/0002` da acceso de dueña a los `Business.owner` actuales no-admin. Se asigna desde `/admin/duenas` (`/api/admin/business-owners/`), solo `is_staff`. Los permisos de los roles existentes no cambian.
+- Aislamiento: toda vista cuelga de `/api/portal/businesses/<id>/…` y `PortalBusinessMixin` exige una fila `BusinessOwner` de ESE emprendimiento (si no, 404). Los hijos (FAQ, imágenes, opiniones, preguntas) se buscan siempre filtrando por el emprendimiento propio.
+
+**Secciones del portal** (`/portal/*`): resumen, mi emprendimiento (edición libre, sin volver a "pending"; cada cambio queda en `BusinessChangeLog` con valor anterior y nuevo, visible en `/portal/historial`), imágenes (máx. 4, orden, principal = la primera, compresión en el navegador `utils/compressImage.ts` + validación del servidor), opiniones (solo lectura + respuesta pública `ReviewReply`), preguntas (responder), FAQ (crear/editar/ordenar/eliminar), Beneficio Tribu, estadísticas, usuarias y escanear.
+- Beneficio (`BusinessBenefit`): porcentaje 1–100, condiciones, vigencia opcional. **Todo cambio vuelve a "pendiente"** y un admin lo aprueba en `/admin/duenas` (pestaña Beneficios); solo el aprobado y vigente se publica (`portal_benefit` en el detalle público) y se puede canjear. Queda en `ActivityLog` y en el historial del emprendimiento. Convive con los campos antiguos `benefit_*` de `Business` (no se tocaron).
+- Opiniones: se quitó el `unique_together`; ahora **una por usuaria y emprendimiento por día** (día de Bogotá, validado en el servidor). `reviews/0003`.
+- Usuarias (`/portal/usuarias`): nombre, teléfono y correo de quienes abrieron la tarjeta o canjearon **y aceptaron compartir datos**. Nunca la cédula, solo lectura, con búsqueda y paginación.
+
+**Tarjeta y QR**
+- `/mi-tarjeta`: QR dinámico (token firmado con `django.core.signing`, 90 s, sin datos personales; se dibuja en el cliente con `qrcode`) y código de respaldo de 6 dígitos (`CardCode`). Se renueva solo. Requiere: cuenta activa, membresía activa, **cédula registrada** y consentimiento (`DataSharingConsent`, versión y fecha, Ley 1581). Muestra nombre, estado y los beneficios de cada emprendimiento. Avisos a la usuaria (`MemberNotice`) cuando se le aplica un descuento.
+- Escáner (`/portal/escanear`, `QrScanner.vue`: `BarcodeDetector` o `jsqr`; requiere HTTPS) o escribir el código. `redeem/preview` valida firma/vencimiento, cuenta, membresía, consentimiento, beneficio vigente y que no haya canje hoy; devuelve un `ticket` firmado (3 min) y `redeem/confirm` crea `DiscountRedemption`. Mensajes: "Código vencido", "Cuenta inactiva", "Descuento ya usado hoy", etc. Una vez al día por usuaria y emprendimiento (día de Bogotá), garantizado por restricción única en la base. Limitado a 30/min (`ScopedRateThrottle`). Cada canje queda en `ActivityLog` y en la tabla de canjes.
+- Visitas: `POST /api/businesses/<id>/card-visit/` al abrir la tarjeta pública (deduplicada 30 min; no cuentan las del propio equipo ni se generan antes del lanzamiento).
+- **Membresías** (`/admin/membresias`): todas las cuentas aprobadas son activas por defecto (sin fila = activa); un admin puede suspender o reactivar.
+
+**Pruebas:** backend en Docker **282 pasan** (55 nuevas en `apps/portal/tests.py`: permisos, aislamiento cambiando el ID, vendedora vs. dueña, token vencido/alterado/de otro emprendimiento, canje duplicado, membresía, consentimiento, bloqueo de cuentas portal con JWT real, flag antes/después del lanzamiento). Frontend: ver abajo.
+- Archivos clave: `backend/apps/portal/*`, `core/migrations/0007`, `users/migrations/0008`, `reviews/migrations/0003`, `frontend/pages/portal/*`, `pages/mi-tarjeta.vue`, `pages/admin/{duenas,membresias}.vue`, `stores/portal.ts`, `middleware/{portal,member-card}.ts`, `layouts/portal.vue`.
+- **Recorrido en Chrome (Playwright, 28 pasos con capturas en `Stephania/recorrido-portal-2026-10-27/`):** registro portal → cuenta inactiva no entra → admin aprueba y asigna → dueña en `/portal` (beneficio 150% bloqueado, beneficio pendiente, edición, 2 FAQ, imagen principal, historial) → admin aprueba beneficio → usuaria acepta consentimiento y ve QR + código + beneficio → detalle público con beneficio y FAQ → en móvil la dueña valida por código, aplica el descuento y el segundo intento del día se bloquea ("Descuento ya usado hoy"), código inválido → la usuaria ve el aviso → lista de usuarias sin cédula → una usuaria sin acceso no entra a `/portal`. Todo OK.
+- **Bug encontrado y corregido en el recorrido:** `usePortalBusiness` cargaba datos durante `setup` y las páginas usaban variables declaradas después (error de inicialización → pantalla 500 en `/portal/escanear` y cargas vacías en otras). Ahora la primera carga va en `onMounted`. Aviso: en dev, la primera visita a una página con dependencias nuevas (`qrcode`, `jsqr`) recarga Vite una vez.
+- No se probó: lectura de QR con cámara real (se validó el flujo por código), HTTPS ni producción. Datos de prueba (`qa.*`, "QA Negocio") eliminados y el interruptor `portal_module` quedó sin forzar.
+- **Pendiente / a decidir:** el texto legal del consentimiento lo debe aprobar la usuaria del proyecto; el throttle usa la caché local (con 2 workers de Gunicorn el límite efectivo es el doble); no se recorrió en navegador ni se probó la cámara real (necesita HTTPS); no está desplegado a producción; la lista de usuarias del portal no muestra la cédula por decisión (solo el QR identifica); nada que ver con una app `products` (no existe).
+
+---
+
 ## 2026-10-12
 
 ### Categorías del blog en el menú principal
@@ -134,3 +164,10 @@ Antes todo el sitio exigía sesión. Ahora:
 ### Revisión y análisis
 - Cómo se generan los festejos: `logic.py` calcula fechas (mesversarios 1–11, cumpleaños, semana lunes–domingo) y `generator.py` crea registros de forma idempotente al consultar o con `calcular_festejos`. Quedan **pendientes de aprobar** por un admin.
 - Pendientes detectados: cron para `calcular_festejos` y `reporte_mensual`, revisar `TIME_ZONE`, correr tests con Postgres (Docker estaba apagado; se probó con SQLite), documentar festejos/importador/reportes en el README.
+
+### Editor de texto enriquecido en el Blog
+- Nuevo `components/ui/RichTextEditor.vue` (sin dependencias, `contenteditable`): negrita, cursiva, subrayado, título/subtítulo, viñetas, lista numerada, cita, enlace, imagen y quitar formato. Se usa en `BlogForm.vue` en lugar del textarea.
+- El contenido ahora se guarda como HTML. Backend: `apps/blog/sanitize.py` (lista cerrada de etiquetas) aplicado en `BlogPostWriteSerializer.validate_content`; nuevo endpoint `POST /api/blog/upload-image/` (autenticado) que guarda en `media/blog/content/`.
+- Vista del artículo (`pages/blog/[slug].vue`) renderiza con `contentToHtml` (`utils/richText.ts`); los artículos antiguos en texto plano se siguen viendo bien. Estilos `.rich-content` en `main.css`.
+- Tests: `apps/blog/tests.py` (68 en verde, SQLite) y `tests/utils/richText.test.ts`.
+- Pendiente: las imágenes subidas y luego borradas del editor quedan huérfanas en `media/`; probar el editor en navegador (no se pudo en esta sesión) y en móvil.

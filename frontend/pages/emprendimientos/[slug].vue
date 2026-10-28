@@ -2,6 +2,7 @@
 import { businessService } from "~/services/business.service";
 import { questionService } from "~/services/question.service";
 import { reviewService } from "~/services/review.service";
+import { portalService } from "~/services/portal.service";
 import type { Question, Review } from "~/types";
 
 const route = useRoute();
@@ -57,6 +58,19 @@ async function loadSecondaryData() {
   }
 }
 await loadSecondaryData();
+
+// Visitas a la tarjeta pública (módulo portal): el servidor deduplica y descarta las del propio equipo.
+onMounted(async () => {
+  const flags = useFeatureFlagStore();
+  if (!flags.loaded) await flags.load();
+  if (!business.value || !(flags.isPortalLive || authStore.isAdmin)) return;
+  let sessionId = sessionStorage.getItem("tp_session_id");
+  if (!sessionId) {
+    sessionId = crypto.randomUUID();
+    sessionStorage.setItem("tp_session_id", sessionId);
+  }
+  portalService.recordVisit(business.value.id, sessionId).catch(() => {});
+});
 
 const newQuestion = ref("");
 const askingQuestion = ref(false);
@@ -193,12 +207,32 @@ function shareBusiness() {
           <h2 class="font-semibold text-ink">Sobre el emprendimiento</h2>
           <p class="mt-2 whitespace-pre-line text-sm text-muted">{{ business.description || "Este emprendimiento aún no agregó una descripción." }}</p>
 
-          <div v-if="business.tribe_benefit" class="mt-6 rounded-xl2 border border-gold/30 bg-gold-light/40 p-4">
+          <div v-if="business.portal_benefit" class="mt-6 rounded-xl2 border border-gold/30 bg-gold-light/40 p-4">
+            <p class="flex items-center gap-2 text-sm font-semibold text-gold-dark">
+              <AppIcon name="gift" :size="16" />
+              Beneficio Tribu: {{ business.portal_benefit.percentage }}% de descuento
+            </p>
+            <p v-if="business.portal_benefit.conditions" class="mt-1 text-sm text-ink">{{ business.portal_benefit.conditions }}</p>
+            <p v-if="business.portal_benefit.valid_until" class="mt-1 text-xs text-muted">
+              Vigente hasta {{ new Date(business.portal_benefit.valid_until + "T00:00:00").toLocaleDateString("es-CO") }}
+            </p>
+            <NuxtLink v-if="authStore.isAuthenticated && !authStore.isPortalAccount" to="/mi-tarjeta" class="btn-outline mt-3">Mostrar mi tarjeta</NuxtLink>
+          </div>
+
+          <div v-else-if="business.tribe_benefit" class="mt-6 rounded-xl2 border border-gold/30 bg-gold-light/40 p-4">
             <p class="flex items-center gap-2 text-sm font-semibold text-gold-dark">
               <AppIcon name="heart-filled" :size="16" />
               Beneficio Tribu: {{ BENEFIT_LABELS[business.benefit_type] || "Beneficio especial" }}
             </p>
             <p v-if="business.benefit_detail" class="mt-1 text-sm text-ink">{{ business.benefit_detail }}</p>
+          </div>
+
+          <div v-if="business.faqs?.length" class="mt-6">
+            <h2 class="font-semibold text-ink">Preguntas frecuentes</h2>
+            <details v-for="faq in business.faqs" :key="faq.id" class="mt-2 rounded-xl2 border border-line bg-white p-3">
+              <summary class="cursor-pointer text-sm font-medium text-ink">{{ faq.question }}</summary>
+              <p class="mt-2 whitespace-pre-line text-sm text-muted">{{ faq.answer }}</p>
+            </details>
           </div>
         </div>
 

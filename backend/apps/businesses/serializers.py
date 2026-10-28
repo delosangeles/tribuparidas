@@ -42,6 +42,28 @@ class BusinessDetailSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
     images = BusinessImageSerializer(many=True, read_only=True)
     owner = serializers.PrimaryKeyRelatedField(read_only=True)
+    portal_benefit = serializers.SerializerMethodField()
+    faqs = serializers.SerializerMethodField()
+
+    def get_portal_benefit(self, obj):
+        # Solo se publica el Beneficio Tribu aprobado y vigente (módulo portal).
+        from apps.portal.serializers import PublicBenefitSerializer
+        from apps.portal.services import bogota_today, is_portal_module_live
+
+        if not is_portal_module_live():
+            return None
+        benefit = getattr(obj, "benefit", None)
+        if benefit is None or not benefit.is_valid_on(bogota_today()):
+            return None
+        return PublicBenefitSerializer(benefit).data
+
+    def get_faqs(self, obj):
+        from apps.portal.serializers import PublicFAQSerializer
+        from apps.portal.services import is_portal_module_live
+
+        if not is_portal_module_live():
+            return []
+        return PublicFAQSerializer(obj.faqs.all(), many=True).data
 
     class Meta:
         model = Business
@@ -72,6 +94,8 @@ class BusinessDetailSerializer(serializers.ModelSerializer):
             "responsible_name",
             "tribe_recommended",
             "images",
+            "portal_benefit",
+            "faqs",
             "created_at",
             "updated_at",
         ]

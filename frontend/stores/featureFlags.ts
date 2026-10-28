@@ -29,5 +29,7 @@ export const useFeatureFlagStore = defineStore("featureFlags", () => {
 
   const isFestejosLive = computed(() => isActive("festejos_module"));
 
-  return { flags, loaded, load, isActive, isBlogLive, isFestejosLive };
+  const isPortalLive = computed(() => isActive("portal_module"));
+
+  return { flags, loaded, load, isActive, isBlogLive, isFestejosLive, isPortalLive };
 });

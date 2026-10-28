@@ -12,6 +12,8 @@ const BASE_LINKS: { to: string; label: string; icon: string; module?: AdminModul
   { to: "/admin/blog", label: "Blog", icon: "file-text", module: "blog" },
   { to: "/admin/news", label: "Noticias", icon: "newspaper" },
   { to: "/admin/users", label: "Usuarios", icon: "users", module: "usuarios" },
+  { to: "/admin/duenas", label: "Portal de emprendimientos", icon: "briefcase" },
+  { to: "/admin/membresias", label: "Membresías", icon: "shield" },
   { to: "/admin/festejos", label: "Festejos", icon: "gift", module: "festejos" },
   { to: "/admin/categories", label: "Categorías", icon: "box" },
   { to: "/admin/activity", label: "Historial", icon: "clock" },

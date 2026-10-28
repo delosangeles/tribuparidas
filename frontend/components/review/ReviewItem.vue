@@ -23,5 +23,9 @@ function formatDate(value: string) {
       <span class="text-xs text-muted">{{ formatDate(review.created_at) }}</span>
     </div>
     <p v-if="review.comment" class="ml-12 mt-2 text-sm text-ink">{{ review.comment }}</p>
+    <div v-if="review.reply" class="ml-12 mt-2 rounded-xl2 bg-gold-light/40 p-3">
+      <p class="text-xs font-semibold text-gold-dark">Respuesta del emprendimiento</p>
+      <p class="text-sm text-ink">{{ review.reply.text }}</p>
+    </div>
   </div>
 </template>

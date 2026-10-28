@@ -216,6 +216,8 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         # Crear cuentas y cambiar roles sigue siendo solo del Super Admin.
         if self.action in ("create", "set_role"):
             return [IsSuperAdmin()]
+        if self.action == "convert_to_member":
+            return [permissions.IsAdminUser()]
         return super().get_permissions()
 
     def get_object(self):
@@ -265,6 +267,20 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
             log_activity(
                 self.request.user, "user_info_updated", f"{self.request.user.email} editó los datos de {user.email}.", target=user
             )
+
+    @action(detail=True, methods=["post"])
+    def convert_to_member(self, request, pk=None):
+        """Pasa una cuenta "solo portal" a usuaria de la página (ve todo el sitio)."""
+        user = self.get_object()
+        if user.account_type == "member":
+            return Response({"detail": "La cuenta ya es de usuaria de la página."}, status=400)
+        user.account_type = "member"
+        user.save(update_fields=["account_type", "updated_at"])
+        log_activity(
+            request.user, "account_converted_to_member",
+            f"{request.user.email} pasó a {user.email} de cuenta portal a usuaria de la página.", target=user,
+        )
+        return Response(AdminUserSerializer(user).data)
 
     @action(detail=False, methods=["get"])
     def summary(self, request):
