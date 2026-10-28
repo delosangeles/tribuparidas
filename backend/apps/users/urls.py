@@ -12,6 +12,7 @@ from .views import (
     MeView,
     NotificationViewSet,
     PasswordResetRequestView,
+    RequestAccessView,
     RegisterView,
 )
 
@@ -26,6 +27,7 @@ urlpatterns = [
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/password-reset-request/", PasswordResetRequestView.as_view(), name="auth-password-reset-request"),
     path("me/", MeView.as_view(), name="me"),
+    path("me/request-access/", RequestAccessView.as_view(), name="me-request-access"),
     path("me/photo/", MePhotoView.as_view(), name="me-photo"),
     path("me/children/<int:pk>/photo/", MeChildPhotoView.as_view(), name="me-child-photo"),
     path("me/change-password/", ChangePasswordView.as_view(), name="me-change-password"),

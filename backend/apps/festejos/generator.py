@@ -17,13 +17,13 @@ def generate(start, end):
         _, was_created = Festejo.objects.get_or_create(**kwargs)
         created += int(was_created)
 
-    for child in Child.objects.filter(user__is_active=True, birth_date__isnull=False).exclude(name="").select_related("user"):
+    for child in Child.objects.filter(user__is_active=True, user__is_approved=True, birth_date__isnull=False).exclude(name="").select_related("user"):
         for when, n in monthiversaries(child.birth_date, start, end):
             make(kind=Festejo.Kind.MONTHIVERSARY, user=child.user, child=child, event_date=when, defaults={"number": n})
         for when, age in birthdays(child.birth_date, start, end):
             make(kind=Festejo.Kind.CHILD_BIRTHDAY, user=child.user, child=child, event_date=when, defaults={"number": age})
 
-    for mother in User.objects.filter(is_active=True, birth_date__isnull=False):
+    for mother in User.objects.filter(is_active=True, is_approved=True, birth_date__isnull=False):
         for when, age in birthdays(mother.birth_date, start, end):
             make(kind=Festejo.Kind.MOTHER_BIRTHDAY, user=mother, child=None, event_date=when, defaults={"number": age})
 

@@ -34,7 +34,7 @@ async function load() {
       search: search.value || undefined,
       // "Inactivos / por aprobar" = se registraron en la plataforma y esperan aprobación;
       // "Sin registrarse" = precargadas desde el Excel; "Datos del Excel" = cualquiera con datos del formulario.
-      is_active: statusFilter.value === "pending" ? false : statusFilter.value === "active" ? true : undefined,
+      is_approved: statusFilter.value === "pending" ? false : statusFilter.value === "active" ? true : undefined,
       registration_status:
         statusFilter.value === "unregistered" ? "pending_registration" : statusFilter.value === "pending" ? "registered" : undefined,
       has_excel_data: statusFilter.value === "excel" ? true : undefined,
@@ -55,8 +55,8 @@ watch([search, statusFilter], () => {
 
 const USER_FILTERS: { key: UserFilter; label: string; count: keyof typeof summary.value; hint: string }[] = [
   { key: "", label: "Todos", count: "all", hint: "Todas las cuentas" },
-  { key: "pending", label: "Inactivos / por aprobar", count: "pending_approval", hint: "Se registraron en la plataforma y esperan aprobación" },
-  { key: "active", label: "Activos", count: "active", hint: "Ya pueden entrar a la plataforma" },
+  { key: "pending", label: "Por aprobar", count: "pending_approval", hint: "Se registraron y esperan que confirmes que están en el grupo de WhatsApp" },
+  { key: "active", label: "Aprobados", count: "active", hint: "Pertenecen al grupo de WhatsApp y ya usan la plataforma" },
   { key: "unregistered", label: "Sin registrarse", count: "unregistered", hint: "Vienen del Excel y aún no se registran" },
   { key: "excel", label: "Datos del Excel", count: "from_excel", hint: "Tienen datos del formulario de inscripción" },
 ];
@@ -96,7 +96,8 @@ function waLink(whatsapp: string) {
 }
 
 async function toggleActive(user: User) {
-  const { data } = await userService.setActive(user.id, !user.is_active);
+  const { data } = await userService.setApproved(user.id, !user.is_approved);
+  user.is_approved = data.is_approved;
   user.is_active = data.is_active;
   loadSummary();
 }
@@ -324,7 +325,8 @@ function closeEdit() {
             </td>
             <td class="px-4 py-3 text-muted">{{ user.businesses_count ?? 0 }}</td>
             <td class="px-4 py-3">
-              <span :class="user.is_active ? 'badge-approved' : 'badge-rejected'">{{ user.is_active ? "Activo" : "Inactivo" }}</span>
+              <span :class="user.is_approved ? 'badge-approved' : 'badge-pending'">{{ user.is_approved ? "Aprobada" : "Por aprobar" }}</span>
+              <span v-if="!user.is_active" class="badge-rejected ml-1">Inactiva</span>
             </td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
@@ -334,7 +336,7 @@ function closeEdit() {
                   class="btn-outline !px-2 !py-1 text-xs"
                   @click="toggleActive(user)"
                 >
-                  {{ user.is_active ? "Desactivar" : "Activar" }}
+                  {{ user.is_approved ? "Quitar aprobación" : "Aprobar" }}
                 </button>
                 <button
                   v-if="!user.is_staff && user.registration_status !== 'pending_registration' && authStore.can('usuarios', 'edit')"
@@ -482,7 +484,7 @@ function closeEdit() {
               <p class="text-lg font-semibold text-ink">{{ editTarget.first_name }} {{ editTarget.last_name }}</p>
               <p class="text-sm text-muted">{{ editTarget.email }}</p>
               <div class="mt-1 flex flex-wrap items-center gap-2 text-xs text-muted">
-                <span :class="editTarget.is_active ? 'badge-approved' : 'badge-rejected'">{{ editTarget.is_active ? "Activo" : "Inactivo" }}</span>
+                <span :class="editTarget.is_approved ? 'badge-approved' : 'badge-pending'">{{ editTarget.is_approved ? "Aprobada" : "Por aprobar" }}</span>
                 <span v-if="editTarget.registration_status === 'pending_registration'" class="badge-pending">Pendiente de registrarse</span>
                 <span>{{ ROLE_LABELS[editTarget.role] }}</span>
                 <span>Registro: {{ formatDateTime(editTarget.created_at) }}</span>

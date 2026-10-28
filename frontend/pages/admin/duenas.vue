@@ -32,7 +32,7 @@ watch(userSearch, (value) => {
   if (userTimer) clearTimeout(userTimer);
   if (value.trim().length < 2) return (userResults.value = []);
   userTimer = setTimeout(async () => {
-    userResults.value = (await userService.adminList({ search: value.trim(), is_active: true, page_size: 8 })).data.results;
+    userResults.value = (await userService.adminList({ search: value.trim(), is_approved: true, page_size: 8 })).data.results;
   }, 300);
 });
 let bizTimer: ReturnType<typeof setTimeout> | null = null;

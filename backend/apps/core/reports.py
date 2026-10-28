@@ -35,8 +35,8 @@ def _totals(year: int, month: int) -> dict:
     views = PageView.objects.filter(created_at__range=(start, end)).exclude(ANALYTICS_EXCLUDED_PATHS)
     return {
         "users": users.count(),
-        "users_active": users.filter(is_active=True).count(),
-        "users_pending": users.filter(is_active=False).count(),
+        "users_active": users.filter(is_approved=True).count(),
+        "users_pending": users.filter(is_approved=False).count(),
         "businesses": businesses.count(),
         "businesses_approved": businesses.filter(status="approved").count(),
         "businesses_pending": businesses.filter(status="pending").count(),

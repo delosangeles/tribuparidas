@@ -15,7 +15,7 @@ class AdminUserFilter(filters.FilterSet):
 
     class Meta:
         model = User
-        fields = ["is_active", "is_staff", "registration_status"]
+        fields = ["is_active", "is_approved", "is_staff", "registration_status"]
 
     def filter_excel(self, queryset, name, value):
         return queryset.filter(FROM_EXCEL) if value else queryset.exclude(FROM_EXCEL)

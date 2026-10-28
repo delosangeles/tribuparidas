@@ -43,6 +43,12 @@ class User(AbstractBaseUser, PermissionsMixin):
     # Al registrarse queda inactiva hasta que un admin confirma que pertenece
     # al grupo de WhatsApp de la tribu (ver RegisterSerializer).
     is_active = models.BooleanField(default=True)
+    # Aprobación = la admin confirmó que la persona pertenece al grupo de
+    # WhatsApp de la tribu. Una cuenta activa pero sin aprobar puede iniciar
+    # sesión, pero solo ve el aviso "debes pertenecer al grupo". Por defecto
+    # True para que las cuentas creadas por un admin o por scripts nazcan
+    # aprobadas; el registro público lo pone en False (ver RegisterSerializer).
+    is_approved = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     # Fecha de cumpleaños de la madre (festejos). Opcional a nivel de base de
     # datos para no romper usuarias existentes; la API la exige al registrarse.
@@ -100,6 +106,7 @@ class Notification(models.Model):
         NEW_REGISTRATION = "new_registration", "Nuevo registro"
         PASSWORD_RESET_REQUEST = "password_reset_request", "Olvidó su contraseña"
         MEMBER_CONVERSION_REQUEST = "member_conversion_request", "Pide pasar a usuaria de la página"
+        ACCESS_REQUEST = "access_request", "Pide que la aprueben (grupo de WhatsApp)"
 
     type = models.CharField(max_length=30, choices=Type.choices)
     message = models.CharField(max_length=255)

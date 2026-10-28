@@ -107,7 +107,8 @@ def test_apply_creates_pending_and_never_overwrites(excel, tmp_path):
     call_command("importar_excel", str(excel), "--aplicar", "--si", "--reporte", str(tmp_path), stdout=StringIO())
 
     new = User.objects.get(email="nueva@example.com")
-    assert new.registration_status == "pending_registration" and not new.is_active and not new.has_usable_password()
+    assert new.registration_status == "pending_registration" and new.is_active and new.is_approved
+    assert not new.has_usable_password()
     assert new.children.get().name == "Sol"
 
     existing.refresh_from_db()

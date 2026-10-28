@@ -204,6 +204,7 @@ class UserSerializer(serializers.ModelSerializer):
             "is_superuser",
             "role",
             "account_type",
+            "is_approved",
             "has_portal_access",
             "is_entrepreneur",
             "birth_date",
@@ -216,7 +217,7 @@ class UserSerializer(serializers.ModelSerializer):
             "created_at",
         ]
         read_only_fields = [
-            "id", "email", "is_staff", "is_superuser", "account_type", "has_portal_access",
+            "id", "email", "is_staff", "is_superuser", "account_type", "is_approved", "has_portal_access",
             "needs_data_confirmation", "created_at",
         ]
 
@@ -353,15 +354,24 @@ class RegisterSerializer(DocumentIdMixin, serializers.ModelSerializer):
                 setattr(pending, field, value)
             pending.set_password(password)
             pending.registration_status = "registered"
-            pending.is_active = auto_active
+            # Venía del Excel de la tribu: ya está activa y aprobada, solo activa su contraseña.
+            pending.is_active = True
+            pending.is_approved = pending.is_approved or auto_active
             pending.save()
             user = pending
         else:
-            user = User.objects.create_user(**validated_data, password=password, is_active=auto_active)
+            # Activa desde el primer momento (puede iniciar sesión), pero sin aprobar
+            # hasta que un admin confirme que está en el grupo de WhatsApp.
+            user = User.objects.create_user(**validated_data, password=password, is_active=True, is_approved=auto_active)
         sync_festejos_data(user, extra)
         sync_member_profile(user, profile)
         message = f"{user.get_full_name()} ({user.email}) se registró"
-        message += " (activo automático por lanzamiento)." if auto_active else " y espera aprobación."
+        if pending:
+            message += " (venía del Excel: ya estaba aprobada y activó su contraseña)."
+        elif auto_active:
+            message += " (aprobada automáticamente por lanzamiento)."
+        else:
+            message += " y espera aprobación (confirmar que está en el grupo de WhatsApp)."
         Notification.objects.create(type=Notification.Type.NEW_REGISTRATION, related_user=user, message=message)
         return user
 
@@ -404,6 +414,7 @@ class AdminUserSerializer(DocumentIdMixin, serializers.ModelSerializer):
             "city",
             "photo",
             "is_active",
+            "is_approved",
             "is_staff",
             "is_superuser",
             "role",

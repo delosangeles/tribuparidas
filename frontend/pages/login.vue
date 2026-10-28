@@ -25,7 +25,13 @@ async function handleLogin() {
 
     const redirect =
       (route.query.redirect as string) ||
-      (authStore.isPortalAccount ? "/portal" : authStore.isAdmin ? "/admin" : "/");
+      (authStore.user?.is_approved === false && !authStore.isAdmin
+        ? "/acceso-pendiente"
+        : authStore.isPortalAccount
+          ? "/portal"
+          : authStore.isAdmin
+            ? "/admin"
+            : "/");
 
     await navigateTo(redirect);
   } catch (err) {
@@ -242,7 +248,7 @@ function showRegister() {
             </p>
 
             <p class="mt-1 text-xs text-muted">
-              Si te acabas de registrar, tu cuenta puede estar en revisión.
+              Si aún no activaste tu contraseña, regístrate con el mismo correo.
             </p>
           </div>
 
@@ -412,7 +418,7 @@ function showRegister() {
           >
             <FestejosDataForm v-model="festejosForm" optional-birth-date />
             <p class="text-xs text-muted">
-              Las fotos (la tuya y la de cada hijo/a) las puedes subir desde tu perfil cuando tu cuenta esté aprobada.
+              Las fotos (la tuya y la de cada hijo/a) las puedes subir desde tu perfil cuando tu cuenta esté aprobada por el equipo.
             </p>
           </div>
 

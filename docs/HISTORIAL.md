@@ -7,6 +7,17 @@ Bitácora de lo que se hace en el proyecto, de lo más reciente a lo más antigu
 
 ## 2026-10-27
 
+### Activar ≠ aprobar: usuarias del Excel activas y registro abierto con aprobación
+Antes `is_active` hacía de "aprobada" (una cuenta inactiva ni siquiera podía iniciar sesión). Ahora son dos cosas (`User.is_approved`, migración `users/0009`):
+- **Activa** = puede iniciar sesión. **Aprobada** = un admin confirmó que pertenece al grupo de WhatsApp.
+- **Usuarias del Excel (`pending_registration`)**: quedan **activas y aprobadas** (el importador `importar_excel` ya las crea así) pero siguen sin contraseña: deben registrarse con su correo para activarla. Así sus festejos (cumpleaños de mamás y bebés) ya se generan y se ven. La migración convirtió a todas las que existían (92 en desarrollo).
+- **Registro nuevo**: la cuenta nace **activa pero sin aprobar**. Al iniciar sesión solo ve `/acceso-pendiente` ("debes pertenecer al grupo de WhatsApp…") con el botón *Avisar al equipo que quiero entrar* (`POST /api/me/request-access/`, notificación `access_request` para los admin), un enlace a WhatsApp (si se configura `NUXT_PUBLIC_ACCESS_WHATSAPP`) y "Ya me aprobaron, entrar". Durante la ventana de lanzamiento de registro abierto sigue quedando aprobada de una vez.
+- **Se impone en el servidor** (`apps/portal/authentication.py`): una cuenta sin aprobar solo usa `/api/auth|me|feature-flags|analytics` y lee lo público como visitante (no ve noticias privadas); todo lo demás responde 403 `not_approved`. El frontend la redirige a `/acceso-pendiente` desde cualquier ruta (`middleware/auth.global.ts`).
+- **Admin**: en `/admin/users` el botón es ahora **Aprobar / Quitar aprobación** (aprobar también activa la cuenta, p. ej. las del portal); filtros "Por aprobar" y "Aprobados"; las madrinas con permiso "aprobar" siguen pudiendo. Queda en `ActivityLog` (`user_approved`/`user_unapproved`). Festejos, reportes, tarjeta/QR y membresías usan `is_approved`.
+- **Migración de datos**: Excel pendientes → activas+aprobadas; cuentas de usuarias que esperaban aprobación (estaban inactivas) → activas pero **sin aprobar** (verán el aviso); cuentas de portal inactivas y admins no cambian. Ojo: una cuenta que un admin había desactivado a propósito queda igual que una que esperaba (activa, sin aprobar).
+- Pruebas: backend **completo en verde**; recorrido en Chrome (registro → aviso → solicitar acceso → admin aprueba → entra; Excel sin contraseña no entra hasta registrarse y luego entra directo). Capturas en `Stephania/recorrido-aprobacion-2026-10-27/`.
+- **Pendiente:** definir el número de WhatsApp de quien aprueba (`NUXT_PUBLIC_ACCESS_WHATSAPP`, solo dígitos con indicativo); al desplegar a producción hay que correr `migrate` (afecta a todas las cuentas) y sacar respaldo antes.
+
 ### Portal de emprendimientos + Mi tarjeta (descuento por QR)
 Módulo nuevo `portal_module` (FeatureFlag: migración `core/0007`, API con `PortalModuleLive`, `isPortalLive` en `stores/featureFlags.ts`, enlaces del menú y páginas con redirección; el equipo admin lo ve siempre). Programable en `/admin/lanzamiento`.
 
@@ -171,3 +182,8 @@ Antes todo el sitio exigía sesión. Ahora:
 - Vista del artículo (`pages/blog/[slug].vue`) renderiza con `contentToHtml` (`utils/richText.ts`); los artículos antiguos en texto plano se siguen viendo bien. Estilos `.rich-content` en `main.css`.
 - Tests: `apps/blog/tests.py` (68 en verde, SQLite) y `tests/utils/richText.test.ts`.
 - Pendiente: las imágenes subidas y luego borradas del editor quedan huérfanas en `media/`; probar el editor en navegador (no se pudo en esta sesión) y en móvil.
+
+### Conversión automática de HEIC (fotos de iPhone)
+- `utils/compressImage.ts`: `isHeic`, `convertHeicToJpeg` (librería `heic2any`, carga diferida) y `ACCEPT_IMAGES`. `compressImage` convierte HEIC→JPEG y luego reduce/comprime (WEBP, lado mayor 1600 px), así el peso final queda bajo el límite de 5 MB del servidor.
+- Ahora pasan por `compressImage`: `ImageUploader`, `CommentComposer`, foto de perfil (`dashboard/settings`), foto de hijos (`FestejosDataForm`), editor del blog y galería del portal. Todos los inputs aceptan `.heic/.heif`.
+- Tests en `tests/utils/compressImage.test.ts`. Pendiente: probar con una foto HEIC real en navegador (Chrome/Firefox y Safari); el backend sigue sin aceptar HEIC (la conversión es solo en el cliente).

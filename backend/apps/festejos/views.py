@@ -74,7 +74,7 @@ class FestejoViewSet(viewsets.ModelViewSet):
             if not is_festejos_module_live():
                 return qs.none()
             qs = qs.filter(status=Festejo.Status.APPROVED)
-        return qs.filter(user__is_active=True)
+        return qs.filter(user__is_active=True, user__is_approved=True)
 
     def list(self, request, *args, **kwargs):
         day = parse_date(request.query_params.get("date")) or date.today()

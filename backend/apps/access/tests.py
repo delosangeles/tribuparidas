@@ -239,14 +239,14 @@ def test_madrina_with_festejos_access_sees_pending(madrina):
 # ---------- Usuarios ----------
 
 def test_madrina_users_approve_vs_edit(madrina):
-    waiting = make_user("espera@example.com", is_active=False, first_name="Ana")
+    waiting = make_user("espera@example.com", is_approved=False, first_name="Ana")
     api = client_for(madrina)
     assert api.get("/api/admin/users/").status_code == 403  # sin acceso al módulo
 
     grant(madrina, "usuarios", approve=True)
     assert api.get("/api/admin/users/").status_code == 200
     assert api.get("/api/admin/users/summary/").status_code == 200
-    assert api.patch(f"/api/admin/users/{waiting.id}/", {"is_active": True}, format="json").status_code == 200
+    assert api.patch(f"/api/admin/users/{waiting.id}/", {"is_approved": True}, format="json").status_code == 200
     assert api.patch(f"/api/admin/users/{waiting.id}/", {"first_name": "Otro"}, format="json").status_code == 403
     assert api.post(f"/api/admin/users/{waiting.id}/reset_password/").status_code == 403
 

@@ -45,7 +45,7 @@ function timeAgo(value: string) {
   return `hace ${Math.round(hours / 24)} d`;
 }
 
-const iconFor = (type: AppNotification["type"]) => (type === "new_registration" || type === "member_conversion_request" ? "users" : "logout");
+const iconFor = (type: AppNotification["type"]) => (type === "password_reset_request" ? "logout" : "users");
 </script>
 
 <template>

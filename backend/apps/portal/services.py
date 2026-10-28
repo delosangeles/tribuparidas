@@ -92,7 +92,7 @@ def card_blockers(user):
     blockers = []
     if user.account_type != "member":
         blockers.append("not_member")
-    if not user.is_active:
+    if not user.is_active or not user.is_approved:
         blockers.append("inactive")
     if not has_active_membership(user):
         blockers.append("membership_inactive")
@@ -165,7 +165,7 @@ def resolve_user(token="", code=""):
 
 def validate_redemption(user, business):
     """Devuelve el beneficio aplicable o lanza CardError con el motivo."""
-    if user.account_type != "member" or not user.is_active:
+    if user.account_type != "member" or not user.is_active or not user.is_approved:
         raise CardError("inactive_account", "Cuenta inactiva.")
     if not has_active_membership(user):
         raise CardError("membership_inactive", "Membresía inactiva.")

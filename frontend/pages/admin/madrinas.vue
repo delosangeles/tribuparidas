@@ -68,7 +68,7 @@ watch(search, (value) => {
     return;
   }
   timer = setTimeout(async () => {
-    const { data } = await userService.adminList({ search: value.trim(), is_active: true });
+    const { data } = await userService.adminList({ search: value.trim(), is_approved: true });
     // Las administradoras ya tienen acceso a todo: no se listan.
     results.value = data.results.filter((u) => !u.is_staff && !u.is_superuser);
   }, 300);

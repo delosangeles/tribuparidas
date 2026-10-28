@@ -17,10 +17,24 @@ function isPortalArea(path: string) {
   return path === "/portal" || path.startsWith("/portal/") || path === "/login";
 }
 
+// Cuenta activa pero sin aprobar (aún no se confirma que está en el grupo de WhatsApp):
+// solo ve el aviso para solicitar acceso (el servidor también lo impone).
+const PENDING_PATH = "/acceso-pendiente";
+const needsApproval = (auth: ReturnType<typeof useAuthStore>) =>
+  auth.isAuthenticated && auth.user !== null && !auth.isAdmin && auth.user.is_approved === false;
+
 export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
 
+  if (to.path === PENDING_PATH) {
+    if (!authStore.isAuthenticated) return navigateTo("/login");
+    if (!authStore.user) await authStore.fetchMe();
+    return needsApproval(authStore) ? undefined : navigateTo("/");
+  }
+
   if (!isPrivate(to.path)) {
+    if (authStore.isAuthenticated && !authStore.user) await authStore.fetchMe();
+    if (needsApproval(authStore) && to.path !== "/login") return navigateTo(PENDING_PATH);
     if (authStore.isPortalAccount && !isPortalArea(to.path)) return navigateTo("/portal");
     return;
   }
@@ -36,5 +50,6 @@ export default defineNuxtRouteMiddleware(async (to) => {
     }
   }
 
+  if (needsApproval(authStore)) return navigateTo(PENDING_PATH);
   if (authStore.isPortalAccount && !isPortalArea(to.path)) return navigateTo("/portal");
 });

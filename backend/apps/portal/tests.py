@@ -582,7 +582,9 @@ def test_portal_registration_inactive_until_approved_then_convert(biz_a):
 
     admin = make_user("admin@example.com", is_staff=True)
     api = client_for(admin)
-    assert api.patch(f"/api/admin/users/{user.id}/", {"is_active": True}, format="json").status_code == 200
+    assert api.patch(f"/api/admin/users/{user.id}/", {"is_approved": True}, format="json").status_code == 200
+    user.refresh_from_db()
+    assert user.is_active and user.is_approved  # aprobar también activa la cuenta
     created = api.post("/api/admin/business-owners/", {"user": user.id, "business": biz_a.id, "role": "seller"}, format="json")
     assert created.status_code == 201
     assert client_for(user).get("/api/portal/me/").json()[0]["role"] == "seller"

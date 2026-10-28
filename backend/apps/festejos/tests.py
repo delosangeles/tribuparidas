@@ -293,3 +293,19 @@ def test_approved_param_hides_pending_even_for_admin(mother):
     client.force_authenticate(admin)
     assert len(client.get("/api/festejos/?scope=week&date=2026-10-06").data["results"]) == 1  # pendiente, el admin lo ve
     assert client.get("/api/festejos/?scope=week&date=2026-10-06&approved=1").data["results"] == []
+
+
+def test_excel_users_pending_registration_get_festejos_but_unapproved_do_not():
+    start, end = date(2026, 10, 1), date(2026, 10, 31)
+    excel = User(email="excel@example.com", first_name="Excel", birth_date=date(1990, 10, 6),
+                 registration_status="pending_registration", is_active=True, is_approved=True)
+    excel.set_unusable_password()
+    excel.save()
+    waiting = User.objects.create_user(
+        email="espera@example.com", password="x", is_active=True, is_approved=False, birth_date=date(1990, 10, 7)
+    )
+
+    generate(start, end)
+    owners = set(Festejo.objects.values_list("user__email", flat=True))
+    assert "excel@example.com" in owners
+    assert waiting.email not in owners

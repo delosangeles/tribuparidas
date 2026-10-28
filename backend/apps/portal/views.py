@@ -671,7 +671,7 @@ class AdminMembershipViewSet(mixins.ListModelMixin, viewsets.GenericViewSet):
     """/api/admin/memberships/ — activar o suspender la membresía de las usuarias (por defecto, todas activas)."""
 
     permission_classes = [permissions.IsAdminUser]
-    queryset = User.objects.filter(account_type="member", is_active=True, is_staff=False).select_related("membership")
+    queryset = User.objects.filter(account_type="member", is_active=True, is_approved=True, is_staff=False).select_related("membership")
     search_fields = ["email", "first_name", "last_name", "whatsapp"]
     ordering_fields = ["first_name", "created_at"]
 

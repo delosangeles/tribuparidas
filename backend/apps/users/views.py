@@ -50,8 +50,13 @@ class RegisterView(generics.CreateAPIView):
         user = serializer.save()
         if is_open_registration_window():
             detail = "¡Registro recibido! Tu cuenta ya está activa, puedes iniciar sesión."
+        elif user.is_approved:
+            detail = "¡Listo! Ya activaste tu contraseña, puedes iniciar sesión."
         else:
-            detail = "¡Registro recibido! Tu cuenta está en revisión, te avisaremos cuando quede aprobada."
+            detail = (
+                "¡Registro recibido! Ya puedes iniciar sesión. Para entrar a la página, un administrador debe "
+                "confirmar que perteneces al grupo de WhatsApp de la tribu."
+            )
         return Response(
             {"detail": detail, "user": UserSerializer(user).data},
             status=status.HTTP_201_CREATED,
@@ -94,6 +99,30 @@ class PasswordResetRequestView(APIView):
         return Response(
             {"detail": "Le avisamos al equipo. Te contactarán por WhatsApp para ayudarte a recuperar el acceso."},
             status=status.HTTP_200_OK,
+        )
+
+
+class RequestAccessView(APIView):
+    """POST /api/me/request-access/ — una cuenta sin aprobar avisa al equipo admin
+    que pide acceso (para que confirmen que pertenece al grupo de WhatsApp)."""
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+        if user.is_approved:
+            return Response({"detail": "Tu cuenta ya está aprobada."}, status=status.HTTP_400_BAD_REQUEST)
+        already = Notification.objects.filter(
+            type=Notification.Type.ACCESS_REQUEST, related_user=user, is_read=False
+        ).exists()
+        if not already:
+            Notification.objects.create(
+                type=Notification.Type.ACCESS_REQUEST,
+                related_user=user,
+                message=f"{user.get_full_name()} ({user.email}) pide que aprueben su acceso: confirmar que está en el grupo de WhatsApp.",
+            )
+        return Response(
+            {"detail": "Listo, le avisamos al equipo. Te aprobarán cuando confirmen que estás en el grupo."}, status=202
         )
 
 
@@ -249,16 +278,24 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         user_ = self.request.user
         if not user_.is_staff:
             # Activar/desactivar es "aprobar"; cambiar datos es "editar".
-            changed = set(serializer.validated_data) - {"is_active"}
-            if "is_active" in serializer.validated_data and not can(user_, "usuarios", "approve"):
+            changed = set(serializer.validated_data) - {"is_active", "is_approved"}
+            if ({"is_active", "is_approved"} & set(serializer.validated_data)) and not can(user_, "usuarios", "approve"):
                 raise PermissionDenied("No tienes permiso para aprobar usuarias.")
             if changed and not can(user_, "usuarios", "edit"):
                 raise PermissionDenied("No tienes permiso para editar usuarias.")
         was_active = serializer.instance.is_active
+        was_approved = serializer.instance.is_approved
         before = (serializer.instance.first_name, serializer.instance.last_name, serializer.instance.whatsapp)
-        user = serializer.save()
+        # Aprobar a alguien siempre la deja activa (ej. cuentas del portal, que nacen inactivas).
+        extra = {"is_active": True} if serializer.validated_data.get("is_approved") else {}
+        user = serializer.save(**extra)
 
-        if user.is_active != was_active:
+        if user.is_approved != was_approved:
+            action_name = "user_approved" if user.is_approved else "user_unapproved"
+            verb = "aprobó a" if user.is_approved else "quitó la aprobación a"
+            log_activity(self.request.user, action_name, f"{self.request.user.email} {verb} {user.email}.", target=user)
+
+        if user.is_active != was_active and not (user.is_approved and not was_approved):
             action_name = "user_activated" if user.is_active else "user_deactivated"
             verb = "activó" if user.is_active else "desactivó"
             log_activity(self.request.user, action_name, f"{self.request.user.email} {verb} a {user.email}.", target=user)
@@ -289,9 +326,9 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         return Response(
             {
                 "all": users.count(),
-                "active": users.filter(is_active=True).count(),
-                # Se registraron en la plataforma y esperan aprobación (o fueron desactivadas).
-                "pending_approval": users.filter(registration_status="registered", is_active=False).count(),
+                "active": users.filter(is_approved=True).count(),
+                # Se registraron y esperan que un admin confirme que están en el grupo de WhatsApp.
+                "pending_approval": users.filter(registration_status="registered", is_approved=False).count(),
                 "unregistered": users.filter(registration_status="pending_registration").count(),
                 "from_excel": users.filter(FROM_EXCEL).count(),
             }

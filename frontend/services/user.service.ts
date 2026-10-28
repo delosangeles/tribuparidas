@@ -9,8 +9,12 @@ export const userService = {
       "/admin/users/summary/"
     );
   },
-  setActive(userId: number, isActive: boolean) {
-    return useApi().patch<User>(`/admin/users/${userId}/`, { is_active: isActive });
+  /** Aprobar = confirmar que pertenece al grupo de WhatsApp (también activa la cuenta). */
+  setApproved(userId: number, isApproved: boolean) {
+    return useApi().patch<User>(`/admin/users/${userId}/`, { is_approved: isApproved });
+  },
+  requestAccess() {
+    return useApi().post<{ detail: string }>("/me/request-access/");
   },
   resetPassword(userId: number) {
     return useApi().post<{ new_password: string }>(`/admin/users/${userId}/reset_password/`);

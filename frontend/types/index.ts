@@ -20,6 +20,8 @@ export interface User {
   role: UserRole;
   /** "portal" = cuenta solo para gestionar un emprendimiento en /portal. */
   account_type?: "member" | "portal";
+  /** Un admin confirmó que pertenece al grupo de WhatsApp de la tribu. Sin esto solo ve el aviso de acceso. */
+  is_approved?: boolean;
   has_portal_access?: boolean;
   is_entrepreneur: boolean;
   is_active?: boolean;
@@ -114,7 +116,7 @@ export interface FeatureFlag {
   updated_at: string;
 }
 
-export type NotificationType = "new_registration" | "password_reset_request" | "member_conversion_request";
+export type NotificationType = "new_registration" | "password_reset_request" | "member_conversion_request" | "access_request";
 
 export interface AppNotification {
   id: number;

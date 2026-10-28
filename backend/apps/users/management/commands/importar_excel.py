@@ -94,7 +94,7 @@ class Command(BaseCommand):
         if user is None:
             user = User(
                 email=p.email, first_name=p.first_name, last_name=p.last_name, whatsapp=p.whatsapp,
-                birth_date=p.birth_date, registration_status="pending_registration", is_active=False,
+                birth_date=p.birth_date, registration_status="pending_registration", is_active=True, is_approved=True,
             )
             user.set_unusable_password()
             user.save()

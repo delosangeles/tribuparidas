@@ -36,7 +36,7 @@ const links = computed(() => {
 const pendingUsers = ref(0);
 if (authStore.hasModule("usuarios")) {
   userService
-    .adminList({ is_active: false, page_size: 1 })
+    .adminList({ is_approved: false, page_size: 1 })
     .then(({ data }) => {
       pendingUsers.value = data.count;
     })
