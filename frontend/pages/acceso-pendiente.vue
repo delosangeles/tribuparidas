@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { siteSettingsService } from "~/services/site-settings.service";
 import { userService } from "~/services/user.service";
 
 // Cuenta activa pero aún sin aprobar: la tribu es un espacio privado y solo
@@ -6,7 +7,15 @@ import { userService } from "~/services/user.service";
 definePageMeta({ layout: false });
 
 const authStore = useAuthStore();
-const { public: config } = useRuntimeConfig();
+// El número lo define el equipo admin en /admin/ajustes.
+const accessWhatsapp = ref("");
+onMounted(async () => {
+  try {
+    accessWhatsapp.value = (await siteSettingsService.get()).data.access_whatsapp;
+  } catch {
+    // sin número: solo se muestra el botón de avisar al equipo
+  }
+});
 
 const sending = ref(false);
 const checking = ref(false);
@@ -15,7 +24,7 @@ const error = ref("");
 
 const firstName = computed(() => authStore.user?.first_name || "");
 const whatsappUrl = computed(() => {
-  const number = String(config.accessWhatsapp || "").replace(/\D/g, "");
+  const number = accessWhatsapp.value.replace(/\D/g, "");
   if (!number) return "";
   const text = encodeURIComponent(
     `Hola, soy ${authStore.user?.first_name ?? ""} ${authStore.user?.last_name ?? ""} (${authStore.user?.email ?? ""}). ` +

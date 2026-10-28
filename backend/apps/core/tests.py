@@ -153,3 +153,44 @@ def test_numbers_use_dot_thousands_without_touching_text_commas():
               "best_registration_day": None, "by_hour": [], "top_pages": []}
     visits = next(s for s in build_sections(report) if s["title"] == "Visitas")["text"]
     assert "4.095 visitas" in visits and "login, registro" in visits
+
+
+# ---------- Ajustes generales del sitio ----------
+
+
+def test_site_settings_public_read_and_admin_edit(api):
+    assert api.get("/api/site-settings/").data == {"access_whatsapp": ""}
+    assert api.patch("/api/site-settings/", {"access_whatsapp": "+573001234567"}, format="json").status_code == 401
+
+    normal = User.objects.create_user(email="normal@example.com", password="x")
+    api.force_authenticate(normal)
+    assert api.patch("/api/site-settings/", {"access_whatsapp": "+573001234567"}, format="json").status_code == 403
+
+    admin = User.objects.create_user(email="adm@example.com", password="x", is_staff=True)
+    api.force_authenticate(admin)
+    response = api.patch("/api/site-settings/", {"access_whatsapp": "+57 300 123 4567"}, format="json")
+    assert response.status_code == 200 and response.data["access_whatsapp"] == "+57 300 123 4567"
+    api.force_authenticate(None)
+    assert api.get("/api/site-settings/").data["access_whatsapp"] == "+57 300 123 4567"
+    from .models import ActivityLog
+
+    assert ActivityLog.objects.filter(action="site_setting_changed").count() == 1
+
+
+def test_site_settings_validates_phone_and_rejects_unknown_keys(api):
+    admin = User.objects.create_user(email="adm@example.com", password="x", is_staff=True)
+    api.force_authenticate(admin)
+    assert api.patch("/api/site-settings/", {"access_whatsapp": "3001234567"}, format="json").status_code == 400
+    assert api.patch("/api/site-settings/", {"otra_cosa": "x"}, format="json").status_code == 400
+    # se puede vaciar
+    api.patch("/api/site-settings/", {"access_whatsapp": "+573001234567"}, format="json")
+    assert api.patch("/api/site-settings/", {"access_whatsapp": ""}, format="json").data["access_whatsapp"] == ""
+
+
+def test_unapproved_user_can_read_site_settings():
+    from rest_framework_simplejwt.tokens import RefreshToken
+
+    user = User.objects.create_user(email="sin@example.com", password="x", is_approved=False)
+    client = APIClient()
+    client.credentials(HTTP_AUTHORIZATION=f"Bearer {RefreshToken.for_user(user).access_token}")
+    assert client.get("/api/site-settings/").status_code == 200

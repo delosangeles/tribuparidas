@@ -105,6 +105,34 @@ class FeatureFlag(models.Model):
         return timezone.now() >= self.activate_at
 
 
+class SiteSetting(models.Model):
+    """Ajustes generales del sitio que el equipo admin cambia desde el panel
+    (sin tocar código ni volver a desplegar). Solo se aceptan las claves de
+    `SITE_SETTING_KEYS`."""
+
+    key = models.SlugField(unique=True)
+    value = models.CharField(max_length=255, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["key"]
+
+    def __str__(self):
+        return f"{self.key}={self.value}"
+
+
+# clave -> etiqueta
+SITE_SETTING_KEYS = {
+    "access_whatsapp": "WhatsApp para solicitar el acceso al grupo",
+}
+
+
+def get_site_settings():
+    """Todos los ajustes conocidos (vacíos si nunca se han definido)."""
+    stored = dict(SiteSetting.objects.filter(key__in=SITE_SETTING_KEYS).values_list("key", "value"))
+    return {key: stored.get(key, "") for key in SITE_SETTING_KEYS}
+
+
 def log_activity(actor, action, description, target=None):
     """Registra una acción admin en el historial. `target` es la instancia
     afectada (Business, Category, User...), opcional."""

@@ -8,11 +8,64 @@ from rest_framework import generics, permissions, viewsets
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import ActivityLog, FeatureFlag, MonthlyReport, PageView, log_activity
+from apps.core.validators import validate_phone_with_country_code
+
+from .models import (
+    SITE_SETTING_KEYS,
+    ActivityLog,
+    FeatureFlag,
+    MonthlyReport,
+    PageView,
+    SiteSetting,
+    get_site_settings,
+    log_activity,
+)
 from .permissions import IsSuperAdmin
 from .reports import ANALYTICS_EXCLUDED_PATHS, ensure_previous_month_report
 from .serializers import ActivityLogSerializer, FeatureFlagSerializer, MonthlyReportSerializer, PageViewCreateSerializer
 
+
+
+class SiteSettingsView(APIView):
+    """GET /api/site-settings/ — público (la pantalla de acceso pendiente lo lee);
+    PATCH — solo el equipo admin cambia los ajustes generales del sitio."""
+
+    def get_permissions(self):
+        if self.request.method == "GET":
+            return [permissions.AllowAny()]
+        return [permissions.IsAdminUser()]
+
+    def get(self, request):
+        return Response(get_site_settings())
+
+    def patch(self, request):
+        unknown = set(request.data) - set(SITE_SETTING_KEYS)
+        if unknown:
+            return Response({"detail": f"Ajuste desconocido: {', '.join(sorted(unknown))}."}, status=400)
+        errors = {}
+        values = {}
+        for key, raw in request.data.items():
+            value = str(raw or "").strip()
+            if key == "access_whatsapp" and value:
+                try:
+                    validate_phone_with_country_code(value)
+                except Exception:
+                    errors[key] = ["Escribe el número con el código de país, ej: +57 300 000 0000."]
+                    continue
+            values[key] = value
+        if errors:
+            return Response(errors, status=400)
+        for key, value in values.items():
+            setting, _ = SiteSetting.objects.get_or_create(key=key)
+            if setting.value != value:
+                old = setting.value
+                setting.value = value
+                setting.save()
+                log_activity(
+                    request.user, "site_setting_changed",
+                    f"{request.user.email} cambió «{SITE_SETTING_KEYS[key]}»: {old or 'vacío'} → {value or 'vacío'}.",
+                )
+        return Response(get_site_settings())
 
 
 class ActivityLogViewSet(viewsets.ReadOnlyModelViewSet):

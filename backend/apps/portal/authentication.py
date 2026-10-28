@@ -13,7 +13,7 @@ PORTAL_ACCOUNT_READ_PREFIXES = ("/api/businesses/", "/api/categories/")
 # Cuenta activa pero SIN aprobar (aún no se confirma que está en el grupo de WhatsApp):
 # solo puede iniciar sesión, ver/editar su perfil y pedir acceso. En lo público
 # (lectura) se trata como visitante, así que no ve noticias privadas.
-UNAPPROVED_PREFIXES = ("/api/auth/", "/api/me/", "/api/feature-flags/", "/api/analytics/")
+UNAPPROVED_PREFIXES = ("/api/auth/", "/api/me/", "/api/feature-flags/", "/api/analytics/", "/api/site-settings/")
 UNAPPROVED_PUBLIC_READ_PREFIXES = ("/api/businesses/", "/api/categories/", "/api/blog/", "/api/news/")
 
 

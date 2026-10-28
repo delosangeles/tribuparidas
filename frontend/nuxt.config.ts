@@ -18,8 +18,6 @@ export default defineNuxtConfig({
       // Disponible en el navegador: debe ser una URL alcanzable desde fuera de Docker.
       apiBase: process.env.NUXT_PUBLIC_API_BASE || "http://localhost:8000/api",
       siteName: process.env.NUXT_PUBLIC_SITE_NAME || "Tribu Paridas",
-      // WhatsApp de quien aprueba el ingreso al grupo (solo dígitos con indicativo, ej. 573001234567).
-      accessWhatsapp: process.env.NUXT_PUBLIC_ACCESS_WHATSAPP || "",
     },
   },
 
