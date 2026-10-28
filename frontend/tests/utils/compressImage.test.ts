@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { fitSize, validateImage } from "~/utils/compressImage";
+import { fitSize, isHeic, validateImage } from "~/utils/compressImage";
 
 describe("validateImage", () => {
   it("acepta JPG, PNG y WEBP", () => {
     for (const type of ["image/jpeg", "image/png", "image/webp"]) {
       expect(validateImage({ type, size: 1000 })).toBeNull();
     }
+  });
+
+  it("acepta HEIC/HEIF de iPhone, incluso con type vacío", () => {
+    expect(validateImage({ type: "image/heic", size: 1000, name: "a.heic" })).toBeNull();
+    expect(validateImage({ type: "", size: 1000, name: "IMG_0001.HEIC" })).toBeNull();
   });
 
   it("rechaza otros formatos", () => {
@@ -26,5 +31,13 @@ describe("fitSize", () => {
 
   it("no agranda imágenes pequeñas", () => {
     expect(fitSize(400, 300)).toEqual({ width: 400, height: 300 });
+  });
+});
+
+describe("isHeic", () => {
+  it("detecta por tipo o por extensión", () => {
+    expect(isHeic({ type: "image/heif", name: "x" })).toBe(true);
+    expect(isHeic({ type: "", name: "foto.HEIC" })).toBe(true);
+    expect(isHeic({ type: "image/jpeg", name: "foto.jpg" })).toBe(false);
   });
 });

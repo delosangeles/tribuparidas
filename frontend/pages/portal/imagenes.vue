@@ -85,7 +85,7 @@ async function remove() {
         <p class="text-sm text-muted">Hasta {{ MAX_IMAGES }} fotos (JPG, PNG o WEBP). La principal es la primera.</p>
       </div>
       <div>
-        <input ref="input" type="file" accept="image/jpeg,image/png,image/webp" multiple class="hidden" @change="onPick" />
+        <input ref="input" type="file" :accept="ACCEPT_IMAGES" multiple class="hidden" @change="onPick" />
         <button class="btn-primary" :disabled="busy || images.length >= MAX_IMAGES" @click="input?.click()">
           <AppIcon name="plus" :size="16" /> {{ busy ? "Procesando..." : "Subir imágenes" }}
         </button>

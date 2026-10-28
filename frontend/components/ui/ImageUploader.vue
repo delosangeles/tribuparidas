@@ -41,18 +41,29 @@ const shapeClass = computed(() => {
 });
 
 async function onFileSelected(event: Event) {
-  const file = (event.target as HTMLInputElement).files?.[0];
-  if (!file) return;
+  const input = event.target as HTMLInputElement;
+  const picked = input.files?.[0];
+  input.value = "";
+  if (!picked) return;
 
   error.value = "";
+  loading.value = true;
+  let file: File;
+  try {
+    file = await compressImage(picked); // HEIC → JPEG y reduce el peso
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : useErrorMessage(err);
+    loading.value = false;
+    return;
+  }
   preview.value = URL.createObjectURL(file);
 
   if (!props.uploadFn) {
+    loading.value = false;
     emit("select", file);
     return;
   }
 
-  loading.value = true;
   try {
     const url = await props.uploadFn(file);
     preview.value = url;
@@ -95,7 +106,7 @@ function triggerSelect() {
       </span>
     </button>
 
-    <input ref="inputRef" type="file" accept="image/png,image/jpeg,image/webp" class="hidden" @change="onFileSelected" />
+    <input ref="inputRef" type="file" :accept="ACCEPT_IMAGES" class="hidden" @change="onFileSelected" />
     <p v-if="error" class="mt-2 text-xs text-rose-500">{{ error }}</p>
   </div>
 </template>

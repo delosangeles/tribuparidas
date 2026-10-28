@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { blogService } from "~/services/blog.service";
-import { compressImage, validateImage } from "~/utils/compressImage";
+import { ACCEPT_IMAGES, compressImage, validateImage } from "~/utils/compressImage";
 import { contentToHtml } from "~/utils/richText";
 
 const props = defineProps<{
@@ -185,7 +185,7 @@ const buttons = [
     <input
       ref="fileInput"
       type="file"
-      accept="image/jpeg,image/png,image/webp"
+      :accept="ACCEPT_IMAGES"
       class="hidden"
       @change="handleImage"
     />

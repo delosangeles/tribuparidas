@@ -1,10 +1,26 @@
 export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp"];
 export const MAX_UPLOAD_MB = 5;
+export const ACCEPT_IMAGES = "image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif";
 const MAX_SIDE = 1600;
 
+/** Las fotos de iPhone vienen en HEIC/HEIF; algunos navegadores dejan el `type` vacío. */
+export function isHeic(file: Pick<File, "type" | "name">): boolean {
+  return /^image\/hei[cf]$/i.test(file.type) || /\.hei[cf]$/i.test(file.name ?? "");
+}
+
+/** Convierte HEIC/HEIF a JPEG en el navegador (el servidor no los acepta). */
+export async function convertHeicToJpeg(file: File): Promise<File> {
+  const { default: heic2any } = await import("heic2any");
+  const result = await heic2any({ blob: file, toType: "image/jpeg", quality: 0.85 });
+  const blob = Array.isArray(result) ? result[0] : result;
+  return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+}
+
 /** Valida tipo y tamaño ANTES de comprimir. Devuelve el mensaje de error o null. */
-export function validateImage(file: Pick<File, "type" | "size">): string | null {
-  if (!ALLOWED_IMAGE_TYPES.includes(file.type)) return "Formato no permitido. Usa JPG, PNG o WEBP.";
+export function validateImage(file: Pick<File, "type" | "size"> & { name?: string }): string | null {
+  if (!ALLOWED_IMAGE_TYPES.includes(file.type) && !isHeic({ type: file.type, name: file.name ?? "" })) {
+    return "Formato no permitido. Usa JPG, PNG, WEBP o HEIC.";
+  }
   if (file.size > 25 * 1024 * 1024) return "La imagen es demasiado pesada para procesarla.";
   return null;
 }
@@ -19,6 +35,14 @@ export function fitSize(width: number, height: number, maxSide = MAX_SIDE) {
 export async function compressImage(file: File, maxSide = MAX_SIDE, quality = 0.82): Promise<File> {
   const problem = validateImage(file);
   if (problem) throw new Error(problem);
+
+  if (isHeic(file)) {
+    try {
+      file = await convertHeicToJpeg(file);
+    } catch {
+      throw new Error("No se pudo convertir la foto de iPhone (HEIC). Prueba con otra o súbela como JPG.");
+    }
+  }
 
   const bitmap = await createImageBitmap(file);
   const { width, height } = fitSize(bitmap.width, bitmap.height, maxSide);

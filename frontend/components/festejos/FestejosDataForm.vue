@@ -16,16 +16,17 @@ const photoError = ref("");
 
 async function changeChildPhoto(child: Child, event: Event) {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const original = input.files?.[0];
   input.value = "";
-  if (!file || !child.id) return;
+  if (!original || !child.id) return;
   photoBusy.value = child.id;
   photoError.value = "";
   try {
+    const file = await compressImage(original); // HEIC → JPEG y reduce el peso
     const { data } = await authService.uploadChildPhoto(child.id, file);
     child.photo = data.photo;
   } catch (err) {
-    photoError.value = useErrorMessage(err);
+    photoError.value = err instanceof Error && !("response" in err) ? err.message : useErrorMessage(err);
   } finally {
     photoBusy.value = null;
   }
@@ -102,7 +103,7 @@ function removeChild(index: number) {
             <div v-if="photos && child.id" class="flex flex-wrap items-center gap-2">
               <label class="btn-outline cursor-pointer !px-2 !py-1 text-xs" :class="photoBusy === child.id && 'pointer-events-none opacity-60'">
                 {{ child.photo ? "Cambiar foto" : "Subir foto" }}
-                <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="changeChildPhoto(child, $event)" />
+                <input type="file" :accept="ACCEPT_IMAGES" class="hidden" @change="changeChildPhoto(child, $event)" />
               </label>
               <button v-if="child.photo" type="button" class="btn-ghost !px-2 !py-1 text-xs text-rose-500" @click="dropChildPhoto(child)">Quitar</button>
               <span class="text-xs text-muted">Se verá en sus festejos.</span>

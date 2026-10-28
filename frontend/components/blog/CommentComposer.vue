@@ -30,24 +30,22 @@ const emit = defineEmits<{
   (e: "cancel"): void;
 }>();
 
-const MAX_MB = 5;
 const text = ref(props.initialText);
 const file = ref<File | null>(null);
 const preview = ref<string | null>(props.initialImage);
 const removeImage = ref(false);
 const localError = ref("");
 
-function pick(event: Event) {
+async function pick(event: Event) {
   const input = event.target as HTMLInputElement;
-  const picked = input.files?.[0];
+  const original = input.files?.[0];
   input.value = "";
-  if (!picked) return;
-  if (!["image/jpeg", "image/png", "image/webp"].includes(picked.type)) {
-    localError.value = "Usa una foto JPG, PNG o WEBP.";
-    return;
-  }
-  if (picked.size > MAX_MB * 1024 * 1024) {
-    localError.value = `La foto no puede superar ${MAX_MB}MB.`;
+  if (!original) return;
+  let picked: File;
+  try {
+    picked = await compressImage(original); // HEIC → JPEG y reduce el peso
+  } catch (err) {
+    localError.value = err instanceof Error ? err.message : "No se pudo procesar la foto.";
     return;
   }
   localError.value = "";
@@ -103,7 +101,7 @@ defineExpose({ reset });
     <div class="mt-2 flex flex-wrap items-center gap-2">
       <label class="btn-outline cursor-pointer !px-3 !py-1.5 text-xs">
         <AppIcon name="camera" :size="14" /> {{ preview ? "Cambiar foto" : "Agregar foto" }}
-        <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="pick" />
+        <input type="file" :accept="ACCEPT_IMAGES" class="hidden" @change="pick" />
       </label>
       <div class="ml-auto flex gap-2">
         <button v-if="cancelable" type="button" class="btn-ghost !px-3 !py-1.5 text-sm" @click="emit('cancel')">Cancelar</button>

@@ -73,16 +73,17 @@ const photoError = ref("");
 
 async function changePhoto(event: Event) {
   const input = event.target as HTMLInputElement;
-  const file = input.files?.[0];
+  const original = input.files?.[0];
   input.value = "";
-  if (!file) return;
+  if (!original) return;
   photoBusy.value = true;
   photoError.value = "";
   try {
+    const file = await compressImage(original); // HEIC → JPEG y reduce el peso
     const { data } = await authService.uploadPhoto(file);
     authStore.setUser(data);
   } catch (err) {
-    photoError.value = useErrorMessage(err);
+    photoError.value = err instanceof Error && !("response" in err) ? err.message : useErrorMessage(err);
   } finally {
     photoBusy.value = false;
   }
@@ -150,7 +151,7 @@ async function handlePasswordSubmit() {
               <div class="mt-2 flex flex-wrap items-center gap-2">
                 <label class="btn-outline cursor-pointer !px-3 !py-1.5 text-xs" :class="photoBusy && 'pointer-events-none opacity-60'">
                   {{ photoBusy ? "Subiendo..." : authStore.user?.photo ? "Cambiar foto" : "Subir foto" }}
-                  <input type="file" accept="image/jpeg,image/png,image/webp" class="hidden" @change="changePhoto" />
+                  <input type="file" :accept="ACCEPT_IMAGES" class="hidden" @change="changePhoto" />
                 </label>
                 <button v-if="authStore.user?.photo" type="button" class="btn-ghost !px-3 !py-1.5 text-xs text-rose-500" :disabled="photoBusy" @click="dropPhoto">
                   Quitar
