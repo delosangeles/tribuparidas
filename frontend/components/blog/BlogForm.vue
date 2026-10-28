@@ -184,7 +184,7 @@ function handleTitleInput() {
 }
 
 function handleSubmit() {
-  if (!form.category) {
+  if (!form.category || !form.content) {
     return;
   }
 
@@ -407,11 +407,8 @@ const isOpenCategory = computed(
         Contenido
       </label>
 
-      <textarea
+      <RichTextEditor
         v-model="form.content"
-        rows="12"
-        required
-        class="field"
         placeholder="Escribe aquí el contenido completo del artículo..."
       />
     </div>

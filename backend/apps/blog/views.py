@@ -1,3 +1,6 @@
+import uuid
+
+from django.core.files.storage import default_storage
 from django.db.models import Count, Q
 from django.http import Http404
 from django.shortcuts import get_object_or_404
@@ -26,6 +29,7 @@ from .serializers import (
     BlogCommentSerializer,
     BlogCommentCreateSerializer,
     BlogCommentUpdateSerializer,
+    BlogContentImageSerializer,
 )
 
 
@@ -38,6 +42,24 @@ def is_blog_module_live():
 
     flag = FeatureFlag.objects.filter(key="blog_module").first()
     return flag.is_active if flag else True
+
+
+class BlogContentImageUploadView(APIView):
+    """Sube una imagen para insertarla dentro del contenido de un artículo."""
+
+    permission_classes = [IsAuthenticated]
+    parser_classes = [MultiPartParser]
+
+    def post(self, request):
+        serializer = BlogContentImageSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        image = serializer.validated_data["image"]
+        ext = {"image/png": "png", "image/webp": "webp"}.get(getattr(image, "content_type", ""), "jpg")
+        name = default_storage.save(f"blog/content/{uuid.uuid4().hex}.{ext}", image)
+        return Response(
+            {"url": request.build_absolute_uri(default_storage.url(name))},
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class BlogCategoryViewSet(viewsets.ModelViewSet):

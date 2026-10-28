@@ -50,3 +50,15 @@
     @apply badge bg-rose-50 text-rose-600;
   }
 }
+
+
+/* Contenido enriquecido del blog (editor y vista del artículo) */
+.rich-content { line-height: 1.7; overflow-wrap: anywhere; }
+.rich-content p { margin: 0 0 0.9em; }
+.rich-content h2 { margin: 1.2em 0 0.5em; font-family: "Playfair Display", serif; font-size: 1.4rem; font-weight: 700; }
+.rich-content h3 { margin: 1em 0 0.4em; font-family: "Playfair Display", serif; font-size: 1.15rem; font-weight: 700; }
+.rich-content ul { margin: 0 0 0.9em; padding-left: 1.4em; list-style: disc; }
+.rich-content ol { margin: 0 0 0.9em; padding-left: 1.4em; list-style: decimal; }
+.rich-content blockquote { margin: 0 0 0.9em; border-left: 3px solid #C9A35A; padding-left: 1em; color: #8A7A66; font-style: italic; }
+.rich-content a { color: #A9803C; text-decoration: underline; }
+.rich-content img { display: block; max-width: 100%; height: auto; margin: 1em 0; border-radius: 1rem; }

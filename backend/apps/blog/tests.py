@@ -710,3 +710,39 @@ def test_post_appears_under_its_menu_category_only():
     in_lecturas = client.get("/api/blog/?category=lecturas").data["results"]
     assert [p["slug"] for p in in_fit] == ["rutina-en-casa"]
     assert in_lecturas == []
+
+
+# ── Editor de texto enriquecido ──────────────────────────────────────────────
+
+def test_post_content_html_is_sanitized(api, visitor, category):
+    api.force_authenticate(user=visitor)
+    dirty = (
+        '<p>Hola <strong>mundo</strong><script>alert(1)</script></p>'
+        '<a href="javascript:alert(1)" onclick="x()">mal</a>'
+        '<img src="javascript:alert(1)"><ul><li>uno</li></ul>'
+    )
+    response = api.post("/api/blog/", create_payload(category, content=dirty), format="multipart")
+    assert response.status_code == status.HTTP_201_CREATED
+    content = BlogPost.objects.get(slug="un-articulo-de-prueba").content
+    assert "<strong>mundo</strong>" in content
+    assert "<ul><li>uno</li></ul>" in content
+    assert "script" not in content and "alert" not in content
+    assert "javascript" not in content and "onclick" not in content
+
+
+def test_post_content_empty_html_is_rejected(api, visitor, category):
+    api.force_authenticate(user=visitor)
+    response = api.post("/api/blog/", create_payload(category, content="<p><br></p>"), format="multipart")
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+
+
+def test_upload_content_image_requires_login(api, media):
+    response = api.post("/api/blog/upload-image/", {"image": comment_png()}, format="multipart")
+    assert response.status_code in (status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN)
+
+
+def test_upload_content_image_returns_url(api, visitor, media):
+    api.force_authenticate(user=visitor)
+    response = api.post("/api/blog/upload-image/", {"image": comment_png()}, format="multipart")
+    assert response.status_code == status.HTTP_201_CREATED
+    assert "/blog/content/" in response.data["url"]

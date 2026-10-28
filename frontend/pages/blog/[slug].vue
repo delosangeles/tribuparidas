@@ -108,7 +108,7 @@ function formatDate(value: string) {
 
     <p class="mt-6 text-base font-medium text-ink">{{ post.summary }}</p>
 
-    <div class="prose prose-sm mt-6 max-w-none whitespace-pre-line text-sm text-ink">{{ post.content }}</div>
+    <div class="rich-content mt-6 text-sm text-ink" v-html="contentToHtml(post.content)" />
 
     <div v-if="post.sources" class="mt-8 rounded-xl2 border border-line p-4">
       <p class="text-sm font-semibold text-ink">Fuentes</p>

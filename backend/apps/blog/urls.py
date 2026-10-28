@@ -8,6 +8,7 @@ from .views import (
     BlogPostCommentsView,
     BlogCommentDetailView,
     BlogCommentLikeView,
+    BlogContentImageUploadView,
 )
 
 router = DefaultRouter()
@@ -31,6 +32,11 @@ router.register(
 )
 
 urlpatterns = [
+    path(
+        "blog/upload-image/",
+        BlogContentImageUploadView.as_view(),
+        name="blog-upload-image",
+    ),
     path(
         "blog/<slug:slug>/comments/",
         BlogPostCommentsView.as_view(),

@@ -1,3 +1,5 @@
+import re
+
 from django.contrib.auth import get_user_model
 
 from rest_framework import serializers
@@ -6,6 +8,8 @@ from django.utils import timezone
 
 from apps.access.services import can
 from apps.core.validators import validate_image_file
+
+from .sanitize import sanitize_blog_html
 
 from .models import OPEN_CATEGORY_SLUG, BlogCategory, BlogStage, BlogPost, BlogComment
 
@@ -173,6 +177,12 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
             "seo_description",
         ]
 
+    def validate_content(self, value):
+        value = sanitize_blog_html(value)
+        if not re.sub(r"<(?!img)[^>]*>|\s|&nbsp;", "", value):
+            raise serializers.ValidationError("Escribe el contenido del artículo.")
+        return value
+
     def create(self, validated_data):
         request = self.context["request"]
 
@@ -336,3 +346,7 @@ class BlogCommentUpdateSerializer(serializers.ModelSerializer):
         instance.edited_at = timezone.now()
         instance.save()
         return instance
+
+
+class BlogContentImageSerializer(serializers.Serializer):
+    image = serializers.ImageField(validators=[validate_image_file])

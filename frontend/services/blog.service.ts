@@ -46,6 +46,15 @@ export const blogService = {
     );
   },
 
+  // Imagen para insertar dentro del contenido del artículo
+  uploadContentImage(image: File) {
+    return useApi().post<{ url: string }>(
+      "/blog/upload-image/",
+      toFormData({ image }),
+      { headers: { "Content-Type": "multipart/form-data" } }
+    );
+  },
+
   remove(slug: string) {
     return useApi().delete(`/blog/${slug}/`);
   },
