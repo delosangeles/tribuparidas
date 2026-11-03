@@ -209,3 +209,12 @@ Antes todo el sitio exigía sesión. Ahora:
 - Se quitó una propiedad `photo` duplicada en el tipo `Festejo`. Tests: `tests/utils/festejoCard.test.ts`.
 - No cambia el flag `festejos_module` (es una mejora de un módulo existente).
 - Pendiente: probar en navegador/celular real (el dibujo del canvas, fuentes y la hoja de compartir no se pudieron ver aquí); confirmar que `/media/` responde con cabeceras CORS cuando front y API están en orígenes distintos.
+
+### Revisión de vista móvil (390 px) y ajustes de menús
+- Se revisaron en un navegador a 390 px 17 páginas (inicio, blog, festejos, noticias, emprendimientos, login, panel admin, mi cuenta). Se detectó desborde horizontal en `/admin/users` (la fila de filtros ensanchaba toda la página a 652 px) y `/admin/businesses` (botón del encabezado).
+- **Menú del panel admin y de "Mi cuenta" en celular:** ahora va plegado con botón de hamburguesa (como el del portal y el de la página de inicio) y queda fijo arriba; antes la lista completa ocupaba casi toda la primera pantalla. `AdminSidebar.vue`, `DashboardSidebar.vue`. En escritorio no cambia.
+- **Menú de la página (celular):** "Blog" ahora es un botón que despliega "Todos los blogs" y las categorías al tocarlo; antes la lista de "Blog por categoría" estaba siempre abierta debajo. `AppNavbar.vue`. En escritorio ya era un desplegable al hacer clic.
+- Encabezados de admin (blog, emprendimientos, categorías, noticias) y filtros de usuarios pasan a varias líneas en vez de apretarse; `min-w-0` en los layouts admin y mi cuenta.
+- `/admin/blog` en celular: cada blog es una tarjeta (título, estado, ♥ / lecturas / comentarios y botones); en escritorio las columnas Me gusta, Leídos y Comentarios se unieron en "Actividad" para que no empujen los botones fuera de la tabla.
+- Festejos: la foto grande usa proporción 4:3 en celular (cuadrada desde `sm`); fechas con solo la primera letra en mayúscula ("Jueves, 5 de noviembre").
+- Pendiente: otras tablas del admin (usuarios, noticias, emprendimientos, membresías) siguen con scroll horizontal dentro de su tarjeta en celular; revisar con datos reales.

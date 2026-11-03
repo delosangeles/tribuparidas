@@ -50,10 +50,10 @@ const subtitle = computed(() =>
         v-if="festejo.photo"
         :src="festejo.photo"
         :alt="`Foto de ${festejo.child_name || festejo.mother_name}`"
-        class="aspect-square w-full object-cover"
+        class="aspect-[4/3] w-full object-cover sm:aspect-square"
         loading="lazy"
       />
-      <div v-else class="flex aspect-square w-full items-center justify-center" :class="theme.tint">
+      <div v-else class="flex aspect-[4/3] w-full items-center justify-center sm:aspect-square" :class="theme.tint">
         <AppIcon :name="theme.icon" :size="72" />
       </div>
     </template>
@@ -76,7 +76,7 @@ const subtitle = computed(() =>
         <p class="mt-0.5 font-semibold text-ink" :class="compact ? 'text-sm' : 'text-xl'">{{ festejo.headline }}</p>
         <p v-if="subtitle" class="text-sm text-muted">{{ subtitle }}</p>
         <p v-if="festejo.note" class="mt-1 text-sm text-muted">{{ festejo.note }}</p>
-        <p class="mt-1 text-sm capitalize text-gold-dark">{{ dateLabel }}</p>
+        <p class="mt-1 text-sm text-gold-dark first-letter:uppercase">{{ dateLabel }}</p>
         <p v-if="shareMessage" class="mt-1 text-xs text-muted" role="status">{{ shareMessage }}</p>
       </div>
       <button

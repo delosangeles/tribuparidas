@@ -193,7 +193,7 @@ async function remove(item: BlogPost) {
 <template>
   <div>
     <!-- Encabezado -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold text-ink">Blog</h1>
 
@@ -284,23 +284,21 @@ async function remove(item: BlogPost) {
 
     <div v-else class="mt-6 overflow-x-auto rounded-xl2 border border-line bg-white">
       <table class="w-full text-left text-sm">
-        <thead class="border-b border-line text-xs uppercase text-muted">
+        <thead class="hidden border-b border-line text-xs uppercase text-muted md:table-header-group">
           <tr>
             <th class="px-4 py-3">Blog</th>
-            <th class="px-4 py-3">Categoría</th>
-            <th class="px-4 py-3">Autor</th>
-            <th class="px-4 py-3">Estado</th>
-            <th class="px-4 py-3">Me gusta</th>
-            <th class="px-4 py-3">Leídos</th>
-            <th class="px-4 py-3">Comentarios</th>
+            <th class="hidden px-4 py-3 md:table-cell">Categoría</th>
+            <th class="hidden px-4 py-3 md:table-cell">Autor</th>
+            <th class="hidden px-4 py-3 md:table-cell">Estado</th>
+            <th class="hidden px-4 py-3 md:table-cell">Actividad</th>
             <th class="px-4 py-3">Acciones</th>
           </tr>
         </thead>
 
         <tbody class="divide-y divide-line">
-          <tr v-for="item in posts" :key="item.id">
+          <tr v-for="item in posts" :key="item.id" class="max-md:block">
             <!-- Blog -->
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 max-md:block max-md:pb-1">
               <div class="flex items-center gap-3">
                 <img
                   v-if="item.main_image"
@@ -309,14 +307,25 @@ async function remove(item: BlogPost) {
                   class="h-12 w-16 rounded-lg object-cover"
                 />
 
-                <p class="max-w-xs truncate font-medium text-ink">
-                  {{ item.title }}
-                </p>
+                <div class="min-w-0">
+                  <p class="max-w-[16rem] truncate font-medium text-ink sm:max-w-xs">
+                    {{ item.title }}
+                  </p>
+                  <!-- Resumen en celular (las columnas se ocultan) -->
+                  <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted md:hidden">
+                    <span class="inline-flex rounded-full px-2 py-0.5 font-medium" :class="STATUS_BADGE_CLASS[item.status]">
+                      {{ STATUS_LABELS[item.status] }}
+                    </span>
+                    <span>♥ {{ item.likes_count }}</span>
+                    <span>👁 {{ item.reads_count }}</span>
+                    <span>💬 {{ item.comments_count }}</span>
+                  </div>
+                </div>
               </div>
             </td>
 
             <!-- Categoría -->
-            <td class="px-4 py-3 text-muted">
+            <td class="hidden md:table-cell px-4 py-3 text-muted">
               {{ item.category_name }}
               <span class="ml-1 text-xs" :class="item.visibility === 'private' ? 'text-amber-700' : 'text-sky-600'">
                 · {{ item.visibility === "private" ? "Privado" : "Público" }}
@@ -324,12 +333,12 @@ async function remove(item: BlogPost) {
             </td>
 
             <!-- Autor -->
-            <td class="px-4 py-3 text-muted">
+            <td class="hidden md:table-cell px-4 py-3 text-muted">
               {{ item.author_name }}
             </td>
 
             <!-- Estado -->
-            <td class="px-4 py-3">
+            <td class="hidden md:table-cell px-4 py-3">
               <span
                 class="inline-flex rounded-full px-2.5 py-1 text-xs font-medium"
                 :class="STATUS_BADGE_CLASS[item.status]"
@@ -338,33 +347,31 @@ async function remove(item: BlogPost) {
               </span>
             </td>
 
-            <!-- Me gusta -->
-            <td class="px-4 py-3 text-muted">
-              <span class="inline-flex items-center gap-1">
-                <AppIcon name="heart" :size="14" />
-                {{ item.likes_count }}
-              </span>
-            </td>
-
-            <!-- Leídos (≥ 1 minuto en el artículo) -->
-            <td class="px-4 py-3 text-muted" title="Personas que pasaron al menos 1 minuto en el artículo">
-              {{ item.reads_count }}
-            </td>
-
-            <!-- Comentarios -->
-            <td class="px-4 py-3">
-              <NuxtLink
-                :to="`/blog/${item.slug}`"
-                target="_blank"
-                class="inline-flex items-center gap-1 text-muted hover:text-gold"
-              >
-                <AppIcon name="message" :size="14" />
-                {{ item.comments_count }}
-              </NuxtLink>
+            <!-- Actividad: me gusta, leídos (≥ 1 minuto en el artículo) y comentarios -->
+            <td class="hidden px-4 py-3 md:table-cell">
+              <div class="flex items-center gap-3 whitespace-nowrap text-muted">
+                <span class="inline-flex items-center gap-1" title="Me gusta">
+                  <AppIcon name="heart" :size="14" />
+                  {{ item.likes_count }}
+                </span>
+                <span class="inline-flex items-center gap-1" title="Personas que pasaron al menos 1 minuto en el artículo">
+                  <AppIcon name="users" :size="14" />
+                  {{ item.reads_count }}
+                </span>
+                <NuxtLink
+                  :to="`/blog/${item.slug}`"
+                  target="_blank"
+                  class="inline-flex items-center gap-1 hover:text-gold"
+                  title="Comentarios"
+                >
+                  <AppIcon name="message" :size="14" />
+                  {{ item.comments_count }}
+                </NuxtLink>
+              </div>
             </td>
 
             <!-- Acciones -->
-            <td class="px-4 py-3">
+            <td class="px-4 py-3 max-md:block max-md:pt-1">
               <div class="flex flex-wrap gap-2">
                 <NuxtLink
                   :to="`/blog/${item.slug}`"

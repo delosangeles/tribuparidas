@@ -77,7 +77,7 @@ const monthLabel = computed(() => (month.value.start ? fmt(month.value.start, { 
       </NuxtLink>
     </div>
 
-    <p class="mt-6 text-sm font-semibold capitalize text-gold-dark">{{ weekLabel }}</p>
+    <p class="mt-6 text-sm font-semibold text-gold-dark">{{ weekLabel }}</p>
 
     <!-- Tabs -->
     <div class="mt-3 flex gap-2 border-b border-line">
@@ -113,7 +113,7 @@ const monthLabel = computed(() => (month.value.start ? fmt(month.value.start, { 
 
       <!-- Cumpleaños del mes -->
       <section class="mt-12">
-        <h2 class="text-xl font-bold capitalize text-ink">Cumpleaños de {{ monthLabel }}</h2>
+        <h2 class="text-xl font-bold text-ink">Cumpleaños de {{ monthLabel }}</h2>
         <p class="mt-1 text-sm text-muted">Todos los cumpleaños del mes, de las mamás y de sus hijos.</p>
         <div v-if="monthBirthdays.length" class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           <FestejoCard v-for="f in monthBirthdays" :key="`m-${f.id}`" :festejo="f" compact />

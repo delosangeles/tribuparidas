@@ -5,6 +5,7 @@ const route = useRoute();
 const menuOpen = ref(false);
 const mobileNavOpen = ref(false);
 const blogMenuOpen = ref(false);
+const mobileBlogOpen = ref(false);
 const blogMenuRef = ref<HTMLElement | null>(null);
 
 // Sub-items del menú "Blog": cada uno filtra el listado por el slug de una
@@ -202,24 +203,35 @@ async function handleLogout() {
         Festejos
       </NuxtLink>
       <template v-if="canSeeBlog">
-        <NuxtLink
-          to="/blog"
-          class="rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
-          active-class="!bg-gold-light !text-gold"
-          @click="mobileNavOpen = false"
+        <!-- Blog: al tocarlo se despliegan sus categorías (no ocupan espacio hasta entonces) -->
+        <button
+          type="button"
+          class="flex items-center justify-between rounded-xl2 px-3 py-2.5 text-left transition hover:bg-gold-light hover:text-gold"
+          :class="route.path.startsWith('/blog') ? '!bg-gold-light !text-gold' : ''"
+          :aria-expanded="mobileBlogOpen"
+          @click="mobileBlogOpen = !mobileBlogOpen"
         >
           Blog
-        </NuxtLink>
-        <p class="mt-1 px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted/60">Blog por categoría</p>
-        <NuxtLink
-          v-for="item in BLOG_SUBMENU"
-          :key="item.label"
-          :to="item.to"
-          class="rounded-xl2 py-2.5 pl-6 pr-3 transition hover:bg-gold-light hover:text-gold"
-          @click="mobileNavOpen = false"
-        >
-          {{ item.label }}
-        </NuxtLink>
+          <AppIcon name="chevron" :size="12" :class="mobileBlogOpen ? '-rotate-90' : 'rotate-90'" />
+        </button>
+        <template v-if="mobileBlogOpen">
+          <NuxtLink
+            to="/blog"
+            class="rounded-xl2 py-2.5 pl-6 pr-3 transition hover:bg-gold-light hover:text-gold"
+            @click="mobileNavOpen = false"
+          >
+            Todos los blogs
+          </NuxtLink>
+          <NuxtLink
+            v-for="item in BLOG_SUBMENU"
+            :key="item.label"
+            :to="item.to"
+            class="rounded-xl2 py-2.5 pl-6 pr-3 transition hover:bg-gold-light hover:text-gold"
+            @click="mobileNavOpen = false"
+          >
+            {{ item.label }}
+          </NuxtLink>
+        </template>
       </template>
     </nav>
   </header>

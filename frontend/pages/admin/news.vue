@@ -142,7 +142,7 @@ async function handleSubmit(payload: NewsFormPayload) {
 <template>
   <div>
     <!-- Encabezado -->
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold text-ink">Noticias</h1>
 
