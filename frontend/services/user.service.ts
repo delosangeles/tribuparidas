@@ -5,13 +5,21 @@ export const userService = {
     return useApi().get<Paginated<User>>("/admin/users/", { params });
   },
   adminSummary() {
-    return useApi().get<{ all: number; active: number; pending_approval: number; unregistered: number; from_excel: number }>(
+    return useApi().get<{ all: number; active: number; pending_review: number; pending_approval: number; unregistered: number; from_excel: number }>(
       "/admin/users/summary/"
     );
   },
   /** Aprobar = confirmar que pertenece al grupo de WhatsApp (también activa la cuenta). */
   setApproved(userId: number, isApproved: boolean) {
     return useApi().patch<User>(`/admin/users/${userId}/`, { is_approved: isApproved });
+  },
+  /** Marca la cuenta como revisada (sale de "Pendientes de revisar"). */
+  markReviewed(userId: number) {
+    return useApi().patch<User>(`/admin/users/${userId}/`, { needs_review: false });
+  },
+  /** Elimina la cuenta y sus datos. No funciona con administradoras ni con la propia cuenta. */
+  adminDelete(userId: number) {
+    return useApi().delete(`/admin/users/${userId}/`);
   },
   requestAccess() {
     return useApi().post<{ detail: string }>("/me/request-access/");

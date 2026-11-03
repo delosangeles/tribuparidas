@@ -49,6 +49,10 @@ class User(AbstractBaseUser, PermissionsMixin):
     # True para que las cuentas creadas por un admin o por scripts nazcan
     # aprobadas; el registro público lo pone en False (ver RegisterSerializer).
     is_approved = models.BooleanField(default=True)
+    # Quien se registra por su cuenta entra de una vez (activa y aprobada), pero
+    # queda "pendiente de revisar" para el equipo admin hasta que confirmen que
+    # pertenece al grupo de WhatsApp (o la quiten). No bloquea el acceso.
+    needs_review = models.BooleanField(default=False)
     is_staff = models.BooleanField(default=False)
     # Fecha de cumpleaños de la madre (festejos). Opcional a nivel de base de
     # datos para no romper usuarias existentes; la API la exige al registrarse.

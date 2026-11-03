@@ -11,88 +11,40 @@ from apps.core.models import ActivityLog
 from django.utils import timezone
 
 from .models import Child, MemberProfile, Notification
-from .serializers import OPEN_REGISTRATION_END, OPEN_REGISTRATION_START
 
 User = get_user_model()
 
 pytestmark = pytest.mark.django_db
-
-OUTSIDE_LAUNCH_WINDOW = OPEN_REGISTRATION_START - timedelta(days=1)
-INSIDE_LAUNCH_WINDOW = OPEN_REGISTRATION_START + timedelta(hours=1)
-
 
 @pytest.fixture
 def api():
     return APIClient()
 
 
-def test_register_creates_inactive_user_without_tokens(api):
-    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
-        response = api.post(
-            "/api/auth/register/",
-            {
-                "email": "nueva@example.com",
-                "password": "ClaveSegura123",
-                "first_name": "Nueva",
-                "last_name": "Usuaria",
-                "whatsapp": "+57 300 000 0000",
-                "document_id": "1000000001",
-                "birth_date": "1992-05-10",
-            },
-            format="json",
-        )
+def test_register_accepts_the_user_active_and_pending_review(api):
+    response = api.post(
+        "/api/auth/register/",
+        {
+            "email": "nueva@example.com",
+            "password": "ClaveSegura123",
+            "first_name": "Nueva",
+            "last_name": "Usuaria",
+            "whatsapp": "+57 300 000 0000",
+            "document_id": "1000000001",
+            "birth_date": "1992-05-10",
+        },
+        format="json",
+    )
     assert response.status_code == status.HTTP_201_CREATED
-    assert "access" not in response.data
-    assert "refresh" not in response.data
-    user = User.objects.get(email="nueva@example.com")
-    # Activa (puede iniciar sesión) pero sin aprobar hasta confirmar el grupo de WhatsApp.
-    assert user.is_active is True and user.is_approved is False
-
-
-def test_register_during_launch_window_is_active_immediately(api):
-    with patch("apps.users.serializers.timezone.now", return_value=INSIDE_LAUNCH_WINDOW):
-        response = api.post(
-            "/api/auth/register/",
-            {
-                "email": "lanzamiento@example.com",
-                "password": "ClaveSegura123",
-                "first_name": "Lanzamiento",
-                "last_name": "Usuaria",
-                "whatsapp": "+57 300 000 0000",
-                "document_id": "1000000002",
-                "birth_date": "1992-05-10",
-            },
-            format="json",
-        )
-    assert response.status_code == status.HTTP_201_CREATED
+    assert "access" not in response.data and "refresh" not in response.data
     assert "activa" in response.data["detail"]
-    user = User.objects.get(email="lanzamiento@example.com")
-    assert user.is_active is True and user.is_approved is True
+    user = User.objects.get(email="nueva@example.com")
+    # Aceptada de una vez (activa y aprobada), pero pendiente de revisar para el equipo admin.
+    assert user.is_active is True and user.is_approved is True and user.needs_review is True
 
-    login = api.post("/api/auth/login/", {"email": "lanzamiento@example.com", "password": "ClaveSegura123"}, format="json")
+    login = api.post("/api/auth/login/", {"email": "nueva@example.com", "password": "ClaveSegura123"}, format="json")
     assert login.status_code == status.HTTP_200_OK
-
-
-def test_register_after_launch_window_ends_is_pending_again(api):
-    after_window = OPEN_REGISTRATION_END + timedelta(hours=1)
-    with patch("apps.users.serializers.timezone.now", return_value=after_window):
-        response = api.post(
-            "/api/auth/register/",
-            {
-                "email": "tarde@example.com",
-                "password": "ClaveSegura123",
-                "first_name": "Tarde",
-                "last_name": "Usuaria",
-                "whatsapp": "+57 300 000 0000",
-                "document_id": "1000000003",
-                "birth_date": "1992-05-10",
-            },
-            format="json",
-        )
-    assert response.status_code == status.HTTP_201_CREATED
-    assert "grupo de WhatsApp" in response.data["detail"]
-    user = User.objects.get(email="tarde@example.com")
-    assert user.is_active is True and user.is_approved is False
+    assert login.data["user"]["is_approved"] is True
 
 
 def test_register_rejects_duplicate_email(api):
@@ -106,7 +58,14 @@ def test_register_rejects_duplicate_email(api):
 
 
 def _register_outside_window(api, email="pendiente@example.com", document_id="1000000004"):
-    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
+    """Registra una cuenta y luego un admin le quita la aprobación (ej. no está en el grupo de WhatsApp)."""
+    response = _register(api, email, document_id)
+    User.objects.filter(email=email).update(is_approved=False, needs_review=False)
+    return response
+
+
+def _register(api, email, document_id):
+    if True:
         return api.post(
             "/api/auth/register/",
             {
@@ -199,12 +158,11 @@ def test_excel_users_are_active_and_approved_but_cannot_log_in_until_they_regist
     pending.save()
     response = api.post("/api/auth/login/", {"email": "excel2@example.com", "password": "loquesea"}, format="json")
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
-    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
-        registered = api.post(
-            "/api/auth/register/",
-            {**REGISTER_BASE, "email": "excel2@example.com"},
-            format="json",
-        )
+    registered = api.post(
+        "/api/auth/register/",
+        {**REGISTER_BASE, "email": "excel2@example.com"},
+        format="json",
+    )
     assert registered.status_code == status.HTTP_201_CREATED
     assert "contraseña" in registered.data["detail"]
     login = api.post("/api/auth/login/", {"email": "excel2@example.com", "password": "ClaveSegura123"}, format="json")
@@ -604,12 +562,11 @@ def test_pending_registration_account_is_claimed_on_register(api):
     pending.save()
     Child.objects.create(user=pending, name="Bebé", birth_date="2026-01-01")
 
-    with patch("apps.users.serializers.timezone.now", return_value=OUTSIDE_LAUNCH_WINDOW):
-        response = api.post(
-            "/api/auth/register/",
-            {**REGISTER_BASE, "email": "excel@example.com", "birth_date": "1991-01-01"},
-            format="json",
-        )
+    response = api.post(
+        "/api/auth/register/",
+        {**REGISTER_BASE, "email": "excel@example.com", "birth_date": "1991-01-01"},
+        format="json",
+    )
     assert response.status_code == status.HTTP_201_CREATED
     assert User.objects.filter(email="excel@example.com").count() == 1
     pending.refresh_from_db()
@@ -973,9 +930,94 @@ def test_admin_user_filters_and_summary(api):
     assert "excel@example.com" not in emails("has_excel_data=false")
 
     summary = api.get("/api/admin/users/summary/").data
-    assert summary == {"all": 4, "active": 3, "pending_approval": 1, "unregistered": 1, "from_excel": 2}
+    assert summary == {"all": 4, "active": 3, "pending_review": 0, "pending_approval": 1, "unregistered": 1, "from_excel": 2}
 
 
 def test_admin_user_summary_requires_admin(api):
     api.force_authenticate(User.objects.create_user(email="normal@example.com", password="x", is_active=True))
     assert api.get("/api/admin/users/summary/").status_code == 403
+
+
+# ── Registro aceptado + pendiente de revisar, y eliminar usuarios ──
+
+def _staff(email="adm-rev@example.com"):
+    return User.objects.create_user(email=email, password="x", is_staff=True)
+
+
+def test_registered_user_shows_as_pending_review_in_admin_list_and_summary(api):
+    _register(api, "revisar@example.com", "1000000010")
+    api.force_authenticate(_staff())
+    listed = api.get("/api/admin/users/?needs_review=true")
+    assert [u["email"] for u in listed.data["results"]] == ["revisar@example.com"]
+    assert listed.data["results"][0]["needs_review"] is True and listed.data["results"][0]["is_approved"] is True
+    assert api.get("/api/admin/users/summary/").data["pending_review"] == 1
+
+
+def test_admin_can_mark_a_pending_account_as_reviewed(api):
+    _register(api, "revisar@example.com", "1000000010")
+    target = User.objects.get(email="revisar@example.com")
+    api.force_authenticate(_staff())
+    response = api.patch(f"/api/admin/users/{target.id}/", {"needs_review": False}, format="json")
+    assert response.status_code == status.HTTP_200_OK
+    target.refresh_from_db()
+    assert target.needs_review is False and target.is_approved is True and target.is_active is True
+    assert ActivityLog.objects.filter(action="user_reviewed", object_id=target.id).exists()
+    assert api.get("/api/admin/users/summary/").data["pending_review"] == 0
+
+
+def test_removing_approval_also_closes_the_pending_review(api):
+    _register(api, "revisar@example.com", "1000000010")
+    target = User.objects.get(email="revisar@example.com")
+    api.force_authenticate(_staff())
+    api.patch(f"/api/admin/users/{target.id}/", {"is_approved": False}, format="json")
+    target.refresh_from_db()
+    assert target.is_approved is False and target.needs_review is False
+
+
+def test_excel_account_that_was_not_approved_enters_pending_review_when_registering(api):
+    pending = User(email="excel9@example.com", registration_status="pending_registration", is_active=False, is_approved=False)
+    pending.set_unusable_password()
+    pending.save()
+    api.post("/api/auth/register/", {**REGISTER_BASE, "email": "excel9@example.com"}, format="json")
+    pending.refresh_from_db()
+    assert (pending.is_active, pending.is_approved, pending.needs_review) == (True, True, True)
+
+
+def test_admin_can_delete_a_user_and_it_is_logged(api):
+    target = User.objects.create_user(email="borrar@example.com", password="x")
+    Child.objects.create(user=target, name="Bebé", birth_date="2026-01-01")
+    api.force_authenticate(_staff())
+    response = api.delete(f"/api/admin/users/{target.id}/")
+    assert response.status_code == status.HTTP_204_NO_CONTENT
+    assert not User.objects.filter(pk=target.pk).exists()
+    assert not Child.objects.filter(name="Bebé").exists()
+    assert ActivityLog.objects.filter(action="user_deleted", description__contains="borrar@example.com").exists()
+
+
+def test_cannot_delete_own_account_or_staff_accounts(api):
+    admin = _staff()
+    other_admin = _staff("otra-adm@example.com")
+    api.force_authenticate(admin)
+    assert api.delete(f"/api/admin/users/{admin.id}/").status_code == status.HTTP_400_BAD_REQUEST
+    assert api.delete(f"/api/admin/users/{other_admin.id}/").status_code == status.HTTP_400_BAD_REQUEST
+    assert User.objects.filter(pk__in=[admin.pk, other_admin.pk]).count() == 2
+
+
+def test_regular_users_cannot_delete_users(api):
+    victim = User.objects.create_user(email="victima@example.com", password="x")
+    api.force_authenticate(User.objects.create_user(email="comun@example.com", password="x"))
+    assert api.delete(f"/api/admin/users/{victim.id}/").status_code in (status.HTTP_403_FORBIDDEN, status.HTTP_401_UNAUTHORIZED)
+    assert User.objects.filter(pk=victim.pk).exists()
+
+
+def test_deleting_a_user_with_blog_posts_is_blocked_with_a_clear_message(api):
+    from apps.blog.models import BlogCategory, BlogPost
+
+    author = User.objects.create_user(email="autora@example.com", password="x")
+    category = BlogCategory.objects.create(name="Cat", slug="cat")
+    BlogPost.objects.create(title="T", slug="t", summary="s", content="c", category=category, author=author)
+    api.force_authenticate(_staff())
+    response = api.delete(f"/api/admin/users/{author.id}/")
+    assert response.status_code == status.HTTP_409_CONFLICT
+    assert "Desactívala" in response.data["detail"]
+    assert User.objects.filter(pk=author.pk).exists()

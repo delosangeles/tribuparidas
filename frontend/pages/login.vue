@@ -418,7 +418,7 @@ function showRegister() {
           >
             <FestejosDataForm v-model="festejosForm" optional-birth-date />
             <p class="text-xs text-muted">
-              Las fotos (la tuya y la de cada hijo/a) las puedes subir desde tu perfil cuando tu cuenta esté aprobada por el equipo.
+              Las fotos (la tuya y la de cada hijo/a) las puedes subir desde tu perfil cuando quieras.
             </p>
           </div>
 

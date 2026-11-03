@@ -1,5 +1,7 @@
 import secrets
 
+from django.db import transaction
+from django.db.models import ProtectedError
 from django.shortcuts import get_object_or_404
 from rest_framework import generics, mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
@@ -29,16 +31,15 @@ from .serializers import (
     PhotoUploadSerializer,
     RegisterSerializer,
     UserSerializer,
-    is_open_registration_window,
     user_role,
 )
 
 
 class RegisterView(generics.CreateAPIView):
-    """POST /api/auth/register/ — normalmente queda inactiva (sin tokens: no
-    hay auto-login) hasta que un admin la aprueba manualmente. Durante la
-    ventana de lanzamiento (ver is_open_registration_window) queda activa
-    de una vez y puede iniciar sesión directo."""
+    """POST /api/auth/register/ — acepta a todas: la cuenta queda activa y
+    aprobada (puede iniciar sesión y usar la página, sin tokens: no hay
+    auto-login), pero marcada "pendiente de revisar" para que el equipo admin
+    confirme que pertenece al grupo de WhatsApp."""
 
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
@@ -48,7 +49,7 @@ class RegisterView(generics.CreateAPIView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        if is_open_registration_window():
+        if user.needs_review:
             detail = "¡Registro recibido! Tu cuenta ya está activa, puedes iniciar sesión."
         elif user.is_approved:
             detail = "¡Listo! Ya activaste tu contraseña, puedes iniciar sesión."
@@ -225,11 +226,18 @@ UsersModulePermission = module_permission(
         "update": ["edit", "approve"],
         "partial_update": ["edit", "approve"],
         "reset_password": "edit",
+        "destroy": "delete",
     },
 )
 
 
-class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.UpdateModelMixin, viewsets.GenericViewSet):
+class AdminUserViewSet(
+    mixins.ListModelMixin,
+    mixins.RetrieveModelMixin,
+    mixins.UpdateModelMixin,
+    mixins.DestroyModelMixin,
+    viewsets.GenericViewSet,
+):
     """/api/admin/users/ — el admin puede activar/desactivar cuentas y editar
     nombre/apellido/WhatsApp; el email y el rol no se tocan desde acá."""
 
@@ -239,7 +247,7 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
     filterset_class = AdminUserFilter
     search_fields = ["email", "first_name", "last_name", "document_id", "whatsapp", "city"]
     ordering_fields = ["created_at", "email"]
-    http_method_names = ["get", "patch", "post", "head", "options"]
+    http_method_names = ["get", "patch", "post", "delete", "head", "options"]
 
     def get_permissions(self):
         # Crear cuentas y cambiar roles sigue siendo solo del Super Admin.
@@ -274,12 +282,38 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
             status=status.HTTP_201_CREATED,
         )
 
+    def destroy(self, request, *args, **kwargs):
+        """DELETE /api/admin/users/{id}/ — elimina la cuenta y todo lo suyo
+        (comentarios, favoritos, hijos...). No se puede con la propia cuenta
+        ni con cuentas de administradoras. Si la usuaria tiene contenido que no
+        se puede borrar en cascada (ej. blogs publicados), se avisa y se
+        sugiere desactivarla."""
+        user = self.get_object()
+        if user.pk == request.user.pk:
+            return Response({"detail": "No puedes eliminar tu propia cuenta."}, status=status.HTTP_400_BAD_REQUEST)
+        if user.is_staff or user.is_superuser:
+            return Response(
+                {"detail": "No se pueden eliminar cuentas de administradoras. Quítale primero el rol."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        label = f"{user.get_full_name()} ({user.email})"
+        try:
+            with transaction.atomic():
+                user.delete()
+        except ProtectedError:
+            return Response(
+                {"detail": "Esta cuenta tiene contenido propio (por ejemplo blogs) que no se puede borrar con ella. Desactívala o quítale la aprobación en su lugar."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        log_activity(request.user, "user_deleted", f"{request.user.email} eliminó la cuenta de {label}.")
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     def perform_update(self, serializer):
         user_ = self.request.user
         if not user_.is_staff:
             # Activar/desactivar es "aprobar"; cambiar datos es "editar".
-            changed = set(serializer.validated_data) - {"is_active", "is_approved"}
-            if ({"is_active", "is_approved"} & set(serializer.validated_data)) and not can(user_, "usuarios", "approve"):
+            changed = set(serializer.validated_data) - {"is_active", "is_approved", "needs_review"}
+            if ({"is_active", "is_approved", "needs_review"} & set(serializer.validated_data)) and not can(user_, "usuarios", "approve"):
                 raise PermissionDenied("No tienes permiso para aprobar usuarias.")
             if changed and not can(user_, "usuarios", "edit"):
                 raise PermissionDenied("No tienes permiso para editar usuarias.")
@@ -288,7 +322,14 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
         before = (serializer.instance.first_name, serializer.instance.last_name, serializer.instance.whatsapp)
         # Aprobar a alguien siempre la deja activa (ej. cuentas del portal, que nacen inactivas).
         extra = {"is_active": True} if serializer.validated_data.get("is_approved") else {}
+        # Tomar una decisión (aprobar o quitar la aprobación) cierra la revisión pendiente.
+        if "is_approved" in serializer.validated_data:
+            extra["needs_review"] = False
+        was_pending_review = serializer.instance.needs_review
         user = serializer.save(**extra)
+
+        if was_pending_review and not user.needs_review and user.is_approved == was_approved:
+            log_activity(self.request.user, "user_reviewed", f"{self.request.user.email} revisó la cuenta de {user.email}.", target=user)
 
         if user.is_approved != was_approved:
             action_name = "user_approved" if user.is_approved else "user_unapproved"
@@ -327,6 +368,8 @@ class AdminUserViewSet(mixins.ListModelMixin, mixins.RetrieveModelMixin, mixins.
             {
                 "all": users.count(),
                 "active": users.filter(is_approved=True).count(),
+                # Se registraron, ya usan la página y esperan que un admin las revise.
+                "pending_review": users.filter(needs_review=True).count(),
                 # Se registraron y esperan que un admin confirme que están en el grupo de WhatsApp.
                 "pending_approval": users.filter(registration_status="registered", is_approved=False).count(),
                 "unregistered": users.filter(registration_status="pending_registration").count(),

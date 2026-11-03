@@ -14,9 +14,9 @@ const ROLE_LABELS: Record<UserRole, string> = {
 };
 
 const search = ref("");
-type UserFilter = "" | "pending" | "active" | "unregistered" | "excel";
+type UserFilter = "" | "review" | "pending" | "active" | "unregistered" | "excel";
 const statusFilter = ref<UserFilter>("");
-const summary = ref({ all: 0, active: 0, pending_approval: 0, unregistered: 0, from_excel: 0 });
+const summary = ref({ all: 0, active: 0, pending_review: 0, pending_approval: 0, unregistered: 0, from_excel: 0 });
 async function loadSummary() {
   const { data } = await userService.adminSummary();
   summary.value = data;
@@ -37,6 +37,7 @@ async function load() {
       is_approved: statusFilter.value === "pending" ? false : statusFilter.value === "active" ? true : undefined,
       registration_status:
         statusFilter.value === "unregistered" ? "pending_registration" : statusFilter.value === "pending" ? "registered" : undefined,
+      needs_review: statusFilter.value === "review" ? true : undefined,
       has_excel_data: statusFilter.value === "excel" ? true : undefined,
       page: page.value,
     });
@@ -55,6 +56,7 @@ watch([search, statusFilter], () => {
 
 const USER_FILTERS: { key: UserFilter; label: string; count: keyof typeof summary.value; hint: string }[] = [
   { key: "", label: "Todos", count: "all", hint: "Todas las cuentas" },
+  { key: "review", label: "Pendientes de revisar", count: "pending_review", hint: "Se registraron, ya usan la página y falta que confirmes que están en el grupo de WhatsApp" },
   { key: "pending", label: "Por aprobar", count: "pending_approval", hint: "Se registraron y esperan que confirmes que están en el grupo de WhatsApp" },
   { key: "active", label: "Aprobados", count: "active", hint: "Pertenecen al grupo de WhatsApp y ya usan la plataforma" },
   { key: "unregistered", label: "Sin registrarse", count: "unregistered", hint: "Vienen del Excel y aún no se registran" },
@@ -99,7 +101,43 @@ async function toggleActive(user: User) {
   const { data } = await userService.setApproved(user.id, !user.is_approved);
   user.is_approved = data.is_approved;
   user.is_active = data.is_active;
+  user.needs_review = data.needs_review;
   loadSummary();
+  if (statusFilter.value === "review") load();
+}
+
+// "Marcar revisada": confirma que la usuaria está bien y la saca de "Pendientes de revisar".
+async function markReviewed(user: User) {
+  const { data } = await userService.markReviewed(user.id);
+  user.needs_review = data.needs_review;
+  loadSummary();
+  if (statusFilter.value === "review") load();
+}
+
+// Eliminar usuaria (con confirmación).
+const deleteTarget = ref<User | null>(null);
+const deleteLoading = ref(false);
+const deleteError = ref("");
+
+function askDelete(user: User) {
+  deleteTarget.value = user;
+  deleteError.value = "";
+}
+
+async function confirmDelete() {
+  if (!deleteTarget.value) return;
+  deleteLoading.value = true;
+  deleteError.value = "";
+  try {
+    await userService.adminDelete(deleteTarget.value.id);
+    users.value = users.value.filter((u) => u.id !== deleteTarget.value?.id);
+    deleteTarget.value = null;
+    loadSummary();
+  } catch (err) {
+    deleteError.value = useErrorMessage(err);
+  } finally {
+    deleteLoading.value = false;
+  }
 }
 
 // Cuentas "solo portal": un admin las pasa a usuaria de la página (ven todo el sitio).
@@ -250,7 +288,7 @@ function closeEdit() {
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
         <h1 class="text-2xl font-bold text-ink">Usuarios</h1>
-        <p class="mt-1 text-sm text-muted">Aprueba el acceso solo de quienes están en el grupo de WhatsApp de la tribu.</p>
+        <p class="mt-1 text-sm text-muted">Quien se registra entra de una vez; aquí revisas que esté en el grupo de WhatsApp de la tribu.</p>
       </div>
       <button v-if="authStore.isSuperAdmin" class="btn-primary" @click="openCreate">
         <AppIcon name="users" :size="16" /> Crear usuario
@@ -325,12 +363,20 @@ function closeEdit() {
             </td>
             <td class="px-4 py-3 text-muted">{{ user.businesses_count ?? 0 }}</td>
             <td class="px-4 py-3">
-              <span :class="user.is_approved ? 'badge-approved' : 'badge-pending'">{{ user.is_approved ? "Aprobada" : "Por aprobar" }}</span>
+              <span v-if="user.needs_review" class="badge-pending">Pendiente de revisar</span>
+              <span v-else :class="user.is_approved ? 'badge-approved' : 'badge-pending'">{{ user.is_approved ? "Aprobada" : "Por aprobar" }}</span>
               <span v-if="!user.is_active" class="badge-rejected ml-1">Inactiva</span>
             </td>
             <td class="px-4 py-3">
               <div class="flex flex-wrap gap-2">
                 <button v-if="authStore.isAdmin || !user.is_staff" class="btn-outline !px-2 !py-1 text-xs" @click="openEdit(user)">Ver ficha</button>
+                <button
+                  v-if="user.needs_review && authStore.can('usuarios', 'approve')"
+                  class="btn-outline !px-2 !py-1 text-xs !text-emerald-600"
+                  @click="markReviewed(user)"
+                >
+                  Marcar revisada
+                </button>
                 <button
                   v-if="!user.is_staff && user.registration_status !== 'pending_registration' && authStore.can('usuarios', 'approve')"
                   class="btn-outline !px-2 !py-1 text-xs"
@@ -361,6 +407,13 @@ function closeEdit() {
                 >
                   {{ user.is_staff ? "Quitar Administrador" : "Ascender a Administrador" }}
                 </button>
+                <button
+                  v-if="!user.is_staff && !user.is_superuser && authStore.can('usuarios', 'delete')"
+                  class="btn-outline !px-2 !py-1 text-xs !text-rose-500"
+                  @click="askDelete(user)"
+                >
+                  Eliminar
+                </button>
               </div>
             </td>
           </tr>
@@ -377,6 +430,25 @@ function closeEdit() {
       class="mt-4"
       @update:page="changePage"
     />
+
+    <Teleport to="body">
+      <div v-if="deleteTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">
+        <div class="card w-full max-w-sm p-6">
+          <p class="text-lg font-semibold text-ink">¿Eliminar a {{ deleteTarget.first_name || deleteTarget.email }}?</p>
+          <p class="mt-1 text-sm text-muted">
+            Se borra su cuenta y todo lo suyo (comentarios, favoritos, hijos...). Esta acción no se puede deshacer.
+            Si solo quieres que no entre, usa "Quitar aprobación".
+          </p>
+          <p v-if="deleteError" class="mt-3 text-sm text-rose-500">{{ deleteError }}</p>
+          <div class="mt-6 flex justify-end gap-2">
+            <button class="btn-ghost" @click="deleteTarget = null">Cancelar</button>
+            <button class="btn-primary !bg-rose-500 hover:!bg-rose-600" :disabled="deleteLoading" @click="confirmDelete">
+              {{ deleteLoading ? "Eliminando..." : "Sí, eliminar" }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </Teleport>
 
     <Teleport to="body">
       <div v-if="resetTarget" class="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 px-4">

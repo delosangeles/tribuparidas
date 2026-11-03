@@ -22,6 +22,8 @@ export interface User {
   account_type?: "member" | "portal";
   /** Un admin confirmó que pertenece al grupo de WhatsApp de la tribu. Sin esto solo ve el aviso de acceso. */
   is_approved?: boolean;
+  /** Se registró sola: ya usa la página, pero el equipo admin aún no la revisa. */
+  needs_review?: boolean;
   has_portal_access?: boolean;
   is_entrepreneur: boolean;
   is_active?: boolean;

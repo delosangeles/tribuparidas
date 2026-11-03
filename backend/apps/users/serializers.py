@@ -1,7 +1,6 @@
+from datetime import timedelta
 import re
 import secrets
-from datetime import datetime, timedelta
-from datetime import timezone as dt_timezone
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -298,18 +297,6 @@ class ChangePasswordSerializer(serializers.Serializer):
 
 
 
-# Ventana de lanzamiento: 24h desde que abre el sitio (2026-09-01 7:00pm
-# Colombia) donde el registro queda activo de una vez, sin esperar
-# aprobación manual — para no generar cuello de botella la noche del
-# lanzamiento. Después de esta ventana, vuelve a quedar pendiente.
-OPEN_REGISTRATION_START = datetime(2026, 9, 1, 19, 0, 0, tzinfo=dt_timezone(timedelta(hours=-5)))
-OPEN_REGISTRATION_END = OPEN_REGISTRATION_START + timedelta(hours=24)
-
-
-def is_open_registration_window():
-    return OPEN_REGISTRATION_START <= timezone.now() <= OPEN_REGISTRATION_END
-
-
 class RegisterSerializer(DocumentIdMixin, serializers.ModelSerializer):
     """Obligatorios: nombre, apellido, teléfono (WhatsApp), correo y
     contraseña. La cédula es opcional, pero sin ella no se accede a los
@@ -344,7 +331,6 @@ class RegisterSerializer(DocumentIdMixin, serializers.ModelSerializer):
 
     @transaction.atomic
     def create(self, validated_data):
-        auto_active = is_open_registration_window()
         extra = {k: validated_data.pop(k) for k in FESTEJOS_FIELDS if k in validated_data}
         profile = validated_data.pop("member_profile", None)
         password = validated_data.pop("password")
@@ -356,22 +342,25 @@ class RegisterSerializer(DocumentIdMixin, serializers.ModelSerializer):
             pending.registration_status = "registered"
             # Venía del Excel de la tribu: ya está activa y aprobada, solo activa su contraseña.
             pending.is_active = True
-            pending.is_approved = pending.is_approved or auto_active
+            # Si no estaba aprobada, entra igual y queda pendiente de revisar.
+            if not pending.is_approved:
+                pending.is_approved = True
+                pending.needs_review = True
             pending.save()
             user = pending
         else:
             # Activa desde el primer momento (puede iniciar sesión), pero sin aprobar
             # hasta que un admin confirme que está en el grupo de WhatsApp.
-            user = User.objects.create_user(**validated_data, password=password, is_active=True, is_approved=auto_active)
+            user = User.objects.create_user(
+                **validated_data, password=password, is_active=True, is_approved=True, needs_review=True
+            )
         sync_festejos_data(user, extra)
         sync_member_profile(user, profile)
         message = f"{user.get_full_name()} ({user.email}) se registró"
         if pending:
             message += " (venía del Excel: ya estaba aprobada y activó su contraseña)."
-        elif auto_active:
-            message += " (aprobada automáticamente por lanzamiento)."
         else:
-            message += " y espera aprobación (confirmar que está en el grupo de WhatsApp)."
+            message += " y quedó activa, pendiente de revisar (confirmar que está en el grupo de WhatsApp)."
         Notification.objects.create(type=Notification.Type.NEW_REGISTRATION, related_user=user, message=message)
         return user
 
@@ -415,6 +404,7 @@ class AdminUserSerializer(DocumentIdMixin, serializers.ModelSerializer):
             "photo",
             "is_active",
             "is_approved",
+            "needs_review",
             "is_staff",
             "is_superuser",
             "role",
