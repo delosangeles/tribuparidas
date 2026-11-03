@@ -454,11 +454,14 @@ class MyCardView(APIView):
         blockers = card_blockers(user)
         today = bogota_today()
         benefits = []
+        with_discount = set()
         for benefit in BusinessBenefit.objects.filter(business__status="approved").select_related("business"):
             if benefit.is_valid_on(today):
                 business = benefit.business
+                with_discount.add(business.pk)
                 benefits.append(
                     {
+                        "kind": "discount",
                         "business_id": business.pk,
                         "name": business.name,
                         "slug": business.slug,
@@ -468,6 +471,23 @@ class MyCardView(APIView):
                         "valid_until": benefit.valid_until,
                     }
                 )
+        # Beneficios que el emprendimiento ya tenía registrado en su perfil (sin porcentaje ni QR):
+        # se muestran igual para que la usuaria sepa quién ofrece algo a la tribu.
+        registered = Business.objects.filter(status="approved", tribe_benefit=True).exclude(pk__in=with_discount)
+        for business in registered.order_by("name"):
+            benefits.append(
+                {
+                    "kind": "registered",
+                    "business_id": business.pk,
+                    "name": business.name,
+                    "slug": business.slug,
+                    "logo": request.build_absolute_uri(business.logo.url) if business.logo else None,
+                    "percentage": None,
+                    "benefit_label": business.get_benefit_type_display() if business.benefit_type else "Beneficio Tribu",
+                    "conditions": business.benefit_detail,
+                    "valid_until": None,
+                }
+            )
         data = {
             "eligible": not blockers,
             "blockers": blockers,

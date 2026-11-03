@@ -31,6 +31,10 @@ export interface PortalBusiness {
   status: "pending" | "approved" | "rejected";
   average_rating: string;
   public_path: string;
+  /** Beneficio que ya tenía registrado en su perfil (solo lectura). */
+  tribe_benefit?: boolean;
+  benefit_type?: string;
+  benefit_detail?: string;
 }
 
 export interface PortalImage {
@@ -121,11 +125,15 @@ export interface RedeemError {
 export type CardBlocker = "not_member" | "inactive" | "membership_inactive" | "missing_document" | "consent_required";
 
 export interface CardBenefit {
+  /** "discount": descuento con % que se aplica con el QR. "registered": beneficio que el emprendimiento ya tenía registrado. */
+  kind?: "discount" | "registered";
   business_id: number;
   name: string;
   slug: string;
   logo: string | null;
-  percentage: number;
+  percentage: number | null;
+  /** Solo en los registrados: tipo de beneficio ("Envío gratis", "Descuento"...). */
+  benefit_label?: string;
   conditions: string;
   valid_until: string | null;
 }

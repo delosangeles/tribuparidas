@@ -15,6 +15,20 @@ class BusinessImageSerializer(serializers.ModelSerializer):
 
 class BusinessListSerializer(serializers.ModelSerializer):
     category = CategorySerializer(read_only=True)
+    portal_benefit_percentage = serializers.SerializerMethodField()
+
+    def get_portal_benefit_percentage(self, obj):
+        # % del Beneficio Tribu aprobado y vigente (módulo portal); None si no hay.
+        from apps.portal.services import bogota_today, is_portal_module_live
+
+        if "portal_live" not in self.context:
+            self.context["portal_live"] = is_portal_module_live()
+        if not self.context["portal_live"]:
+            return None
+        benefit = getattr(obj, "benefit", None)
+        if benefit is None or not benefit.is_valid_on(bogota_today()):
+            return None
+        return benefit.percentage
 
     class Meta:
         model = Business
@@ -32,6 +46,7 @@ class BusinessListSerializer(serializers.ModelSerializer):
             "home_delivery",
             "tribe_benefit",
             "benefit_type",
+            "portal_benefit_percentage",
             "is_mama_tribu",
             "tribe_recommended",
             "created_at",

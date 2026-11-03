@@ -31,7 +31,7 @@ class BusinessPublicViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         return (
             Business.objects.filter(status=Business.Status.APPROVED)
-            .select_related("category")
+            .select_related("category", "benefit")
             .prefetch_related("images")
         )
 

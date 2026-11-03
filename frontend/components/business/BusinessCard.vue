@@ -19,8 +19,8 @@ defineProps<{ business: Business }>();
       <div v-else class="flex h-full w-full items-center justify-center text-gold">
         <AppIcon name="briefcase" :size="40" />
       </div>
-      <span v-if="business.tribe_benefit" class="badge absolute left-2 top-2 bg-white/90 text-gold-dark shadow-soft">
-        Beneficio Tribu
+      <span v-if="business.tribe_benefit || business.portal_benefit_percentage" class="badge absolute left-2 top-2 bg-white/90 text-gold-dark shadow-soft">
+        Beneficio Tribu<template v-if="business.portal_benefit_percentage"> · <strong>{{ business.portal_benefit_percentage }}%</strong></template>
       </span>
     </div>
     <div class="flex flex-1 flex-col items-center gap-1 p-4 text-center">

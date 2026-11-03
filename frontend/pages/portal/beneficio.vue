@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import { portalService } from "~/services/portal.service";
-import type { PortalBenefit } from "~/types";
+import type { PortalBenefit, PortalBusiness } from "~/types";
+import { BENEFIT_TYPE_LABELS, suggestPortalBenefit } from "~/utils/benefit";
 
 definePageMeta({ layout: "portal", middleware: "portal", ownerOnly: true });
 
 const benefit = ref<PortalBenefit | null>(null);
+// Beneficio que el emprendimiento ya tenía registrado en su perfil (antes del portal).
+const registered = ref<{ label: string; detail: string } | null>(null);
 const form = reactive({ percentage: 10, conditions: "", valid_from: "", valid_until: "" });
 const saving = ref(false);
 const message = ref("");
@@ -17,7 +20,16 @@ const STATUS: Record<string, { label: string; cls: string }> = {
 };
 
 const { businessId } = usePortalBusiness(async (id) => {
+  registered.value = null;
   benefit.value = (await portalService.benefit(id)).data;
+  if (!benefit.value) {
+    const business: PortalBusiness = (await portalService.business(id)).data;
+    if (business.tribe_benefit && business.benefit_detail) {
+      registered.value = { label: BENEFIT_TYPE_LABELS[business.benefit_type || ""] || "Beneficio Tribu", detail: business.benefit_detail };
+      const suggestion = suggestPortalBenefit(business.benefit_detail);
+      Object.assign(form, { percentage: suggestion.percentage ?? form.percentage, conditions: suggestion.conditions });
+    }
+  }
   if (benefit.value) {
     Object.assign(form, {
       percentage: benefit.value.percentage,
@@ -61,6 +73,15 @@ async function save() {
     </header>
 
     <p v-if="benefit" :class="STATUS[benefit.status].cls" class="w-fit">{{ STATUS[benefit.status].label }}</p>
+
+    <div v-if="registered && !benefit" class="card border-gold/40 bg-gold-light/40 p-4 text-sm text-ink" role="status">
+      <p class="font-semibold">Tu emprendimiento ya tiene un beneficio registrado</p>
+      <p class="mt-1"><strong>{{ registered.label }}:</strong> {{ registered.detail }}</p>
+      <p class="mt-2 text-xs text-muted">
+        Lo dejamos como punto de partida. Confirma el porcentaje y envíalo a revisión: cuando un administrador lo apruebe aparecerá con su % en tu
+        tarjeta y en la tarjeta de las usuarias, y podrás aplicarlo escaneando su QR.
+      </p>
+    </div>
 
     <form class="card space-y-4 p-5" @submit.prevent="save">
       <label class="block">

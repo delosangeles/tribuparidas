@@ -118,7 +118,10 @@ const spacedCode = computed(() => (card.value?.code ? `${card.value.code.slice(0
       </section>
 
       <section>
-        <h2 class="mb-2 font-semibold text-ink">Tus beneficios</h2>
+        <h2 class="font-semibold text-ink">Tus beneficios</h2>
+        <p v-if="card.benefits.length" class="mb-2 mt-0.5 text-xs text-muted">
+          Los que tienen porcentaje se aplican al mostrar tu tarjeta (una vez al día). Los demás los acuerdas directamente con el emprendimiento.
+        </p>
         <EmptyState v-if="!card.benefits.length" icon="gift" title="Aún no hay beneficios publicados" description="Pronto verás aquí los descuentos de los emprendimientos de la tribu." />
         <ul class="space-y-2">
           <li v-for="b in card.benefits" :key="b.business_id">
@@ -129,9 +132,10 @@ const spacedCode = computed(() => (card.value?.code ? `${card.value.code.slice(0
               </span>
               <span class="min-w-0 flex-1">
                 <span class="block truncate font-medium text-ink">{{ b.name }}</span>
-                <span class="block truncate text-xs text-muted">{{ b.conditions || "Una vez al día" }}</span>
+                <span class="line-clamp-2 text-xs text-muted">{{ b.conditions || (b.percentage ? "Una vez al día" : "Pregúntale al emprendimiento cómo aplicarlo") }}</span>
               </span>
-              <span class="text-lg font-bold text-gold-dark">{{ b.percentage }}%</span>
+              <span v-if="b.percentage" class="text-lg font-bold text-gold-dark">{{ b.percentage }}%</span>
+              <span v-else class="badge shrink-0 bg-gold-light text-gold-dark">{{ b.benefit_label || "Beneficio Tribu" }}</span>
             </NuxtLink>
           </li>
         </ul>

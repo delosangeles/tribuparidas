@@ -653,3 +653,58 @@ def test_existing_roles_unchanged(member):
     api = client_for(member)
     assert api.get("/api/admin/users/").status_code == 403
     assert api.get("/api/admin/business-owners/").status_code == 403
+
+
+# ---------------------------------------------------------------- Beneficios registrados vs. beneficio del portal
+
+
+def test_card_lists_registered_benefits_and_portal_discounts_without_repeating(category, member):
+    owner = make_user("d1@example.com", account_type="portal")
+    with_discount = make_business(category, owner, "Con descuento", tribe_benefit=True, benefit_type="descuento", benefit_detail="10% antiguo")
+    BusinessBenefit.objects.create(business=with_discount, percentage=15, status="approved")
+    make_business(category, owner, "Solo registrado", tribe_benefit=True, benefit_type="envio_gratis", benefit_detail="Envío gratis desde $80.000")
+    make_business(category, owner, "Sin beneficio")
+    make_business(category, owner, "Pendiente", status=Business.Status.PENDING, tribe_benefit=True, benefit_type="descuento")
+
+    benefits = client_for(member).get("/api/me/card/").json()["benefits"]
+    by_name = {b["name"]: b for b in benefits}
+    assert set(by_name) == {"Con descuento", "Solo registrado"}  # sin repetir, sin pendientes ni sin beneficio
+    assert by_name["Con descuento"]["kind"] == "discount" and by_name["Con descuento"]["percentage"] == 15
+    registered = by_name["Solo registrado"]
+    assert registered["kind"] == "registered" and registered["percentage"] is None
+    assert registered["benefit_label"] == "Envío gratis" and "80.000" in registered["conditions"]
+
+
+def test_card_shows_registered_benefit_when_portal_discount_is_not_approved_yet(category, member):
+    owner = make_user("d2@example.com", account_type="portal")
+    business = make_business(category, owner, "En revisión", tribe_benefit=True, benefit_type="descuento", benefit_detail="10% para mamás")
+    BusinessBenefit.objects.create(business=business, percentage=20, status="pending")
+    benefits = client_for(member).get("/api/me/card/").json()["benefits"]
+    assert [(b["kind"], b["percentage"]) for b in benefits] == [("registered", None)]
+
+
+def test_business_list_exposes_the_approved_portal_percentage_only(category):
+    owner = make_user("d3@example.com", account_type="portal")
+    approved = make_business(category, owner, "Aprobado")
+    pending = make_business(category, owner, "Pendiente de beneficio")
+    make_business(category, owner, "Sin beneficio")
+    BusinessBenefit.objects.create(business=approved, percentage=15, status="approved")
+    BusinessBenefit.objects.create(business=pending, percentage=30, status="pending")
+
+    results = APIClient().get("/api/businesses/").json()["results"]
+    by_name = {b["name"]: b["portal_benefit_percentage"] for b in results}
+    assert by_name == {"Aprobado": 15, "Pendiente de beneficio": None, "Sin beneficio": None}
+
+    FeatureFlag.objects.update_or_create(key="portal_module", defaults={"is_forced_active": False, "activate_at": None})
+    results = APIClient().get("/api/businesses/").json()["results"]
+    assert all(b["portal_benefit_percentage"] is None for b in results)  # antes del lanzamiento no se publica
+
+
+def test_portal_business_shows_registered_benefit_read_only(owner_a, biz_a):
+    Business.objects.filter(pk=biz_a.pk).update(tribe_benefit=True, benefit_type="descuento", benefit_detail="10% para mamás")
+    client = client_for(owner_a)
+    data = client.get(f"/api/portal/businesses/{biz_a.id}/").json()
+    assert (data["tribe_benefit"], data["benefit_type"], data["benefit_detail"]) == (True, "descuento", "10% para mamás")
+    client.patch(f"/api/portal/businesses/{biz_a.id}/", {"benefit_detail": "otro", "tribe_benefit": False}, format="json")
+    biz_a.refresh_from_db()
+    assert biz_a.tribe_benefit is True and biz_a.benefit_detail == "10% para mamás"

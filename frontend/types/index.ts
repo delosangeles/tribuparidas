@@ -197,6 +197,8 @@ export interface Business {
   tribe_benefit: boolean;
   benefit_type: BenefitType;
   benefit_detail: string;
+  /** % del Beneficio Tribu del portal, aprobado y vigente (solo viene en el listado). */
+  portal_benefit_percentage?: number | null;
   is_mama_tribu: boolean;
   responsible_name: string;
   tribe_recommended: boolean;

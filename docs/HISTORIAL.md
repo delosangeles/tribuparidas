@@ -227,3 +227,23 @@ Antes todo el sitio exigía sesión. Ahora:
 - Textos: mensaje de registro y aviso de fotos en `login.vue` ya no hablan de esperar aprobación.
 - Tests en `apps/users/tests.py`. Los de "cuenta sin aprobar" se conservan simulando que un admin quitó la aprobación.
 - Pendiente: las usuarias que ya estaban registradas "por aprobar" siguen así (no se migraron); se pueden aprobar desde el filtro "Por aprobar". En celular la tabla de usuarios sigue con scroll horizontal, así que los botones quedan a la derecha.
+
+## 2026-11-02 (noche)
+
+### Portal de emprendedores: los beneficios ya registrados no se veían en la tarjeta
+Se hicieron dos recorridos completos en un navegador (entorno local aparte, con datos de prueba): **A) creo mi emprendimiento desde cero** (registro → Emprendimientos → "Crear emprendimiento" con beneficio tribu → aprobación del admin → acceso al portal) y **B) ya tengo mi emprendimiento** (dueña con beneficio registrado → portal → Beneficio Tribu → aprobación → usuaria ve su tarjeta → canje por código). Capturas en `C:\Proyectos\Stephania\recorrido-beneficios-2026-11-02`.
+
+**Causa:** existen dos beneficios distintos. El *registrado* (campos `tribe_benefit`, `benefit_type`, `benefit_detail` del perfil) y el *Beneficio Tribu del portal* (`BusinessBenefit`, con % y aprobación del admin). Mi tarjeta y el portal solo conocían el segundo; el listado solo el primero.
+
+**Corregido:**
+- **Mi tarjeta → "Tus beneficios":** ahora lista también los beneficios registrados (emprendimientos aprobados con `tribe_benefit`) con su tipo ("Envío gratis", "Descuento"...) y detalle, sin repetir los que ya tienen descuento del portal. Los del portal siguen mostrando su % (se aplican con el QR); `GET /api/me/card/` devuelve `kind: "discount" | "registered"`. Texto aclaratorio bajo el título.
+- **Tarjeta del listado:** `BusinessListSerializer.portal_benefit_percentage` (solo si está aprobado, vigente y el portal ya fue lanzado; `select_related("benefit")` evita consultas extra). La insignia queda "Beneficio Tribu · 15%".
+- **Portal → Beneficio Tribu:** la dueña ve el beneficio que ya tenía registrado y el formulario parte de él (si el texto trae "10%" se sugiere ese %). El portal devuelve `tribe_benefit/benefit_type/benefit_detail` en solo lectura. `utils/benefit.ts`.
+- Tests: `apps/portal/tests.py` (4 nuevos; portal + emprendimientos: 68 en verde con SQLite) y `tests/utils/benefit.test.ts`.
+
+**Verificado en el recorrido (sin cambios):** registro (mensaje "tu cuenta ya está activa"), creación con modal, aprobación y asignación de dueña, escaneo/código → vista previa → "¡Descuento aplicado!" → aviso en Mi tarjeta, y vista de celular.
+
+**Pendiente / a considerar:**
+- Los beneficios registrados no se pueden canjear con QR (no tienen %); la dueña debe enviarlos a revisión como Beneficio Tribu del portal. Se podría preguntarles por WhatsApp o migrarlos automáticamente cuando el texto trae un %.
+- Los beneficios registrados que aún no están aprobados como Beneficio Tribu del portal se siguen mostrando en el detalle del emprendimiento como antes.
+- Sin desplegar.

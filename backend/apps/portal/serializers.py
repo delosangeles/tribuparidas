@@ -29,8 +29,9 @@ class PortalBusinessSerializer(serializers.ModelSerializer):
             "id", "name", "slug", "logo", "description", "category", "category_name", "city", "department",
             "address", "whatsapp", "instagram", "facebook", "website", "opening_hours", "home_delivery",
             "responsible_name", "status", "average_rating", "public_path",
+            "tribe_benefit", "benefit_type", "benefit_detail",
         ]
-        read_only_fields = ["id", "slug", "status", "average_rating"]
+        read_only_fields = ["id", "slug", "status", "average_rating", "tribe_benefit", "benefit_type", "benefit_detail"]
 
     def get_public_path(self, obj):
         return f"/emprendimientos/{obj.slug}"
