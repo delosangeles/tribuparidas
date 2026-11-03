@@ -247,3 +247,8 @@ Se hicieron dos recorridos completos en un navegador (entorno local aparte, con 
 - Los beneficios registrados no se pueden canjear con QR (no tienen %); la dueña debe enviarlos a revisión como Beneficio Tribu del portal. Se podría preguntarles por WhatsApp o migrarlos automáticamente cuando el texto trae un %.
 - Los beneficios registrados que aún no están aprobados como Beneficio Tribu del portal se siguen mostrando en el detalle del emprendimiento como antes.
 - Sin desplegar.
+
+### Migración automática de beneficios registrados al portal
+- Nuevo comando `python manage.py migrar_beneficios_registrados [--dry-run]` (`apps/portal/management/commands/`). Convierte en **Beneficio Tribu del portal aprobado** el beneficio registrado de los emprendimientos aprobados cuyo tipo es **Descuento** y cuyo detalle trae **un único porcentaje** (`services.percentage_from_text`); las condiciones quedan con el texto original. Así salen con su % en el listado y en Mi tarjeta y se pueden aplicar con QR/código.
+- No toca: emprendimientos que ya tienen beneficio del portal (sin importar su estado), los que no son "Descuento" (envío gratis, precio especial...), los de texto sin % o con varios % distintos (ambiguo), ni los no aprobados. Es idempotente y deja una entrada `benefits_migrated` en el historial. Los que se quedan fuera siguen visibles como "beneficio registrado".
+- Tests en `apps/portal/tests.py`.

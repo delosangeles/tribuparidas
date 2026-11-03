@@ -198,3 +198,20 @@ def read_ticket(ticket, business):
         raise CardError("invalid", "Confirmación no válida.")
     return User.objects.get(pk=user_id)
 
+
+
+# ---------- Beneficios registrados en el perfil -> Beneficio Tribu del portal ----------
+
+import re  # noqa: E402
+
+_PERCENT = re.compile(r"(\d{1,3})\s*%")
+
+
+def percentage_from_text(text):
+    """Porcentaje de un texto como "10% de descuento para mamás". Devuelve None si no hay
+    ninguno, si hay varios distintos (ambiguo) o si no está entre 1 y 100."""
+    values = {int(m) for m in _PERCENT.findall(text or "")}
+    if len(values) != 1:
+        return None
+    value = values.pop()
+    return value if 1 <= value <= 100 else None

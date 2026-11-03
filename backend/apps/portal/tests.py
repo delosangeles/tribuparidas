@@ -708,3 +708,55 @@ def test_portal_business_shows_registered_benefit_read_only(owner_a, biz_a):
     client.patch(f"/api/portal/businesses/{biz_a.id}/", {"benefit_detail": "otro", "tribe_benefit": False}, format="json")
     biz_a.refresh_from_db()
     assert biz_a.tribe_benefit is True and biz_a.benefit_detail == "10% para mamás"
+
+
+# ---------------------------------------------------------------- Migración de beneficios registrados
+
+
+@pytest.mark.parametrize(
+    "text,expected",
+    [
+        ("10% de descuento para mamás", 10),
+        ("Hasta 25 % en kits", 25),
+        ("20% en todo y 20% extra el sábado", 20),  # mismo valor repetido: no es ambiguo
+        ("10% en velas y 20% en jabones", None),  # dos valores distintos: ambiguo
+        ("Envío gratis desde $80.000", None),
+        ("150% de descuento", None),
+        ("", None),
+    ],
+)
+def test_percentage_from_text(text, expected):
+    assert services.percentage_from_text(text) == expected
+
+
+def test_migrate_registered_benefits_creates_approved_discounts_only_when_clear(category):
+    from io import StringIO
+
+    from django.core.management import call_command
+
+    owner = make_user("mig@example.com", account_type="portal")
+    clear = make_business(category, owner, "Claro", tribe_benefit=True, benefit_type="descuento", benefit_detail="10% de descuento para mamás")
+    make_business(category, owner, "Ambiguo", tribe_benefit=True, benefit_type="descuento", benefit_detail="10% en velas y 20% en jabones")
+    make_business(category, owner, "Envío", tribe_benefit=True, benefit_type="envio_gratis", benefit_detail="Envío gratis")
+    make_business(category, owner, "Pendiente", status=Business.Status.PENDING, tribe_benefit=True, benefit_type="descuento", benefit_detail="5% hoy")
+    already = make_business(category, owner, "Ya tiene", tribe_benefit=True, benefit_type="descuento", benefit_detail="30% antiguo")
+    BusinessBenefit.objects.create(business=already, percentage=12, status="pending")
+
+    call_command("migrar_beneficios_registrados", "--dry-run", stdout=StringIO())
+    assert BusinessBenefit.objects.count() == 1  # la simulación no guarda nada
+
+    out = StringIO()
+    call_command("migrar_beneficios_registrados", stdout=out)
+    assert BusinessBenefit.objects.count() == 2
+    created = BusinessBenefit.objects.get(business=clear)
+    assert (created.percentage, created.status, created.conditions) == (10, "approved", "10% de descuento para mamás")
+    assert created.reviewed_at is not None
+    assert BusinessBenefit.objects.get(business=already).percentage == 12  # no se pisa lo existente
+    assert ActivityLog.objects.filter(action="benefits_migrated").exists()
+    assert "Ambiguo" in out.getvalue() and "Envío" in out.getvalue()
+
+    call_command("migrar_beneficios_registrados", stdout=StringIO())  # idempotente
+    assert BusinessBenefit.objects.count() == 2
+    assert APIClient().get("/api/businesses/").json()["results"] and {
+        b["name"]: b["portal_benefit_percentage"] for b in APIClient().get("/api/businesses/").json()["results"]
+    }["Claro"] == 10
