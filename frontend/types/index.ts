@@ -98,7 +98,6 @@ export interface Festejo {
   child_name: string | null;
   headline: string;
   photo: string | null;
-  photo: string | null;
 }
 
 export interface FestejosResponse {

@@ -201,3 +201,11 @@ Antes todo el sitio exigía sesión. Ahora:
 - Migración `blog/0009_post_likes_and_reads`. Tests en `apps/blog/tests.py` (73 en verde con SQLite).
 - No es un módulo nuevo: usa el flag `blog_module` existente (el gate pasa por `blog_post_for`), no se creó otro.
 - Pendiente: las visitas sin sesión (blogs públicos) no cuentan como lectura; si se quiere, habría que identificarlas con un id anónimo en el navegador. Probar el temporizador en navegador real.
+
+### Festejos: fotos grandes y imagen de felicitación para compartir
+- `FestejoCard.vue`: en las tarjetas de la semana la foto ahora ocupa todo el ancho de la tarjeta (cuadrada); en las compactas (cumpleaños del mes) pasa de 40 a 64 px. Sin foto se muestra el ícono grande.
+- Botón **Compartir felicitación**: `utils/festejoCard.ts` dibuja con `<canvas>` una imagen 1080×1350 (fondo vainilla/nude, marco dorado, logo, "¡Feliz cumpleaños!" / "¡Feliz mesversario!", foto circular grande, nombre, edad o meses y fecha — sin fecha de nacimiento). En celular abre la hoja de compartir con la imagen (WhatsApp, Instagram…); si el dispositivo no puede compartir archivos, la descarga como PNG.
+- La foto se baja con `fetch` (blob) para no contaminar el canvas; si falla, la imagen sale con la inicial del nombre.
+- Se quitó una propiedad `photo` duplicada en el tipo `Festejo`. Tests: `tests/utils/festejoCard.test.ts`.
+- No cambia el flag `festejos_module` (es una mejora de un módulo existente).
+- Pendiente: probar en navegador/celular real (el dibujo del canvas, fuentes y la hoja de compartir no se pudieron ver aquí); confirmar que `/media/` responde con cabeceras CORS cuando front y API están en orígenes distintos.
