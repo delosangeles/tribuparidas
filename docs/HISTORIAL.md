@@ -188,3 +188,16 @@ Antes todo el sitio exigía sesión. Ahora:
 - `utils/compressImage.ts`: `isHeic`, `convertHeicToJpeg` (librería `heic2any`, carga diferida) y `ACCEPT_IMAGES`. `compressImage` convierte HEIC→JPEG y luego reduce/comprime (WEBP, lado mayor 1600 px), así el peso final queda bajo el límite de 5 MB del servidor.
 - Ahora pasan por `compressImage`: `ImageUploader`, `CommentComposer`, foto de perfil (`dashboard/settings`), foto de hijos (`FestejosDataForm`), editor del blog y galería del portal. Todos los inputs aceptan `.heic/.heif`.
 - Tests en `tests/utils/compressImage.test.ts`. Pendiente: probar con una foto HEIC real en navegador (Chrome/Firefox y Safari); el backend sigue sin aceptar HEIC (la conversión es solo en el cliente).
+
+---
+
+## 2026-11-02
+
+### Blog: "me gusta" del artículo y contador de lecturas (visibles en el admin)
+- **Me gusta:** modelo `BlogPostLike` (una por persona, con sesión) y `POST /api/blog/{slug}/like/` (pone/quita). Botón con corazón en `pages/blog/[slug].vue`; sin sesión lleva al login.
+- **Lecturas:** modelo `BlogPostRead` (una por persona). `POST /api/blog/{slug}/read/` se llama al abrir el artículo y otra vez tras **60 s con la pestaña visible**; **el servidor mide el tiempo** desde la primera llamada (`READ_MIN_SECONDS`), así que no se puede inflar llamando varias veces. Solo cuentan personas con sesión, una vez cada una; quien solo abrió y salió queda registrado pero no suma.
+- API: `likes_count` y `reads_count` en lista y detalle; `liked_by_me` en detalle. En la lista se usan `Count(..., distinct=True)` para que no se multipliquen con los comentarios.
+- Se ve en el blog ("N personas lo han leído") y en el panel `/admin/blog` (columnas **Me gusta** y **Leídos**). En el admin de Django: columnas en Publicaciones y listados de quién dio me gusta / quién abrió y quién leyó.
+- Migración `blog/0009_post_likes_and_reads`. Tests en `apps/blog/tests.py` (73 en verde con SQLite).
+- No es un módulo nuevo: usa el flag `blog_module` existente (el gate pasa por `blog_post_for`), no se creó otro.
+- Pendiente: las visitas sin sesión (blogs públicos) no cuentan como lectura; si se quiere, habría que identificarlas con un id anónimo en el navegador. Probar el temporizador en navegador real.

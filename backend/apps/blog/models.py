@@ -302,3 +302,61 @@ class BlogCommentLike(models.Model):
 
     def __str__(self):
         return f"{self.user} ♥ {self.comment_id}"
+
+class BlogPostLike(models.Model):
+    """Reacción "me gusta" a un artículo (una por persona)."""
+
+    post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.CASCADE,
+        related_name="likes",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="blog_post_likes",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["post", "user"], name="blog_post_like_unico"),
+        ]
+        verbose_name = "Me gusta del blog"
+        verbose_name_plural = "Me gusta del blog"
+
+    def __str__(self):
+        return f"{self.user} ♥ {self.post_id}"
+
+
+# Segundos que una persona debe pasar en el artículo para contarlo como leído.
+READ_MIN_SECONDS = 60
+
+
+class BlogPostRead(models.Model):
+    """Una persona (con sesión) abrió el artículo. `completed_at` se llena
+    cuando el servidor comprueba que pasó al menos READ_MIN_SECONDS desde
+    `started_at`; solo entonces cuenta como "lo leyó"."""
+
+    post = models.ForeignKey(
+        BlogPost,
+        on_delete=models.CASCADE,
+        related_name="reads",
+    )
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="blog_post_reads",
+    )
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name="Abrió el artículo")
+    completed_at = models.DateTimeField(null=True, blank=True, verbose_name="Lo leyó (1 min)")
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(fields=["post", "user"], name="blog_post_read_unico"),
+        ]
+        verbose_name = "Lectura del blog"
+        verbose_name_plural = "Lecturas del blog"
+
+    def __str__(self):
+        return f"{self.user} leyó {self.post_id}" if self.completed_at else f"{self.user} abrió {self.post_id}"

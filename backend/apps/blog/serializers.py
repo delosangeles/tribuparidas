@@ -55,6 +55,8 @@ class BlogPostListSerializer(serializers.ModelSerializer):
     stage_names = serializers.SerializerMethodField()
 
     comments_count = serializers.IntegerField(read_only=True, default=0)
+    likes_count = serializers.IntegerField(read_only=True, default=0)
+    reads_count = serializers.IntegerField(read_only=True, default=0)
 
     class Meta:
         model = BlogPost
@@ -76,6 +78,8 @@ class BlogPostListSerializer(serializers.ModelSerializer):
             "featured",
             "reading_time",
             "comments_count",
+            "likes_count",
+            "reads_count",
         ]
 
     def get_author_name(self, obj):
@@ -110,6 +114,11 @@ class BlogPostDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
 
+    comments_count = serializers.SerializerMethodField()
+    likes_count = serializers.SerializerMethodField()
+    reads_count = serializers.SerializerMethodField()
+    liked_by_me = serializers.SerializerMethodField()
+
     class Meta:
         model = BlogPost
         fields = [
@@ -135,6 +144,10 @@ class BlogPostDetailSerializer(serializers.ModelSerializer):
             "sources",
             "seo_title",
             "seo_description",
+            "comments_count",
+            "likes_count",
+            "reads_count",
+            "liked_by_me",
         ]
 
     def get_author_name(self, obj):
@@ -142,6 +155,22 @@ class BlogPostDetailSerializer(serializers.ModelSerializer):
             obj.author.get_full_name()
             or obj.author.email
         )
+
+    def get_comments_count(self, obj):
+        return obj.comments.count()
+
+    def get_likes_count(self, obj):
+        return obj.likes.count()
+
+    def get_reads_count(self, obj):
+        # Solo cuentan quienes pasaron el tiempo mínimo en el artículo.
+        return obj.reads.filter(completed_at__isnull=False).count()
+
+    def get_liked_by_me(self, obj):
+        user = getattr(self.context.get("request"), "user", None)
+        if not user or not user.is_authenticated:
+            return False
+        return obj.likes.filter(user=user).exists()
 
 
 class BlogPostWriteSerializer(serializers.ModelSerializer):

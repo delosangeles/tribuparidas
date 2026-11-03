@@ -83,6 +83,15 @@ export const blogService = {
     );
   },
 
+  // "Me gusta" del artículo (pone o quita) y marca de lectura (el servidor mide el minuto)
+  togglePostLike(slug: string) {
+    return useApi().post<{ liked: boolean; likes_count: number }>(`/blog/${slug}/like/`);
+  },
+
+  markRead(slug: string) {
+    return useApi().post<{ read: boolean; reads_count: number }>(`/blog/${slug}/read/`);
+  },
+
   // Comentarios
   comments(slug: string, params: Record<string, unknown> = {}) {
     return useApi().get<Paginated<BlogComment>>(

@@ -18,7 +18,16 @@ from apps.core.models import FeatureFlag, log_activity
 from apps.access.services import ALL, blog_scope, can, has_module
 from apps.core.permissions import IsAdminOrReadOnly
 
-from .models import BlogCategory, BlogStage, BlogPost, BlogComment, BlogCommentLike
+from .models import (
+    READ_MIN_SECONDS,
+    BlogCategory,
+    BlogStage,
+    BlogPost,
+    BlogComment,
+    BlogCommentLike,
+    BlogPostLike,
+    BlogPostRead,
+)
 from .permissions import BlogApprovePermission, BlogPostPermission
 from .serializers import (
     BlogCategorySerializer,
@@ -192,7 +201,11 @@ class BlogPostViewSet(viewsets.ModelViewSet):
             # `annotate` + `distinct` puede perder el ordering por defecto
             # del modelo (Django avisa con UnorderedObjectListWarning al
             # paginar); se reafirma explícitamente.
-            queryset = queryset.annotate(comments_count=Count("comments")).order_by(
+            queryset = queryset.annotate(
+                comments_count=Count("comments", distinct=True),
+                likes_count=Count("likes", distinct=True),
+                reads_count=Count("reads", filter=Q(reads__completed_at__isnull=False), distinct=True),
+            ).order_by(
                 "-publication_date", "-created_at"
             )
 
@@ -329,6 +342,42 @@ def comments_queryset():
     return BlogComment.objects.select_related("author", "post").prefetch_related(
         "likes", "replies__author", "replies__likes"
     )
+
+
+class BlogPostLikeView(APIView):
+    """POST /api/blog/{slug}/like/ — pone o quita el "me gusta" del artículo
+    de quien tiene sesión. Devuelve el estado final."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug):
+        post = blog_post_for(request, slug)
+        like, created = BlogPostLike.objects.get_or_create(post=post, user=request.user)
+        if not created:
+            like.delete()
+        return Response({"liked": created, "likes_count": post.likes.count()})
+
+
+class BlogPostReadView(APIView):
+    """POST /api/blog/{slug}/read/ — la página lo llama al abrir el artículo y
+    otra vez pasado un minuto con la pestaña visible. El servidor mide el
+    tiempo (desde la primera llamada): cuenta como leído solo si pasaron al
+    menos READ_MIN_SECONDS. Cada persona cuenta una sola vez."""
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, slug):
+        post = blog_post_for(request, slug)
+        read, _ = BlogPostRead.objects.get_or_create(post=post, user=request.user)
+        if read.completed_at is None:
+            elapsed = (timezone.now() - read.started_at).total_seconds()
+            if elapsed >= READ_MIN_SECONDS:
+                read.completed_at = timezone.now()
+                read.save(update_fields=["completed_at"])
+        return Response({
+            "read": read.completed_at is not None,
+            "reads_count": post.reads.filter(completed_at__isnull=False).count(),
+        })
 
 
 class BlogPostCommentsView(generics.ListCreateAPIView):

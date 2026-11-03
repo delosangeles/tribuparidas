@@ -9,6 +9,8 @@ from .views import (
     BlogCommentDetailView,
     BlogCommentLikeView,
     BlogContentImageUploadView,
+    BlogPostLikeView,
+    BlogPostReadView,
 )
 
 router = DefaultRouter()
@@ -37,6 +39,8 @@ urlpatterns = [
         BlogContentImageUploadView.as_view(),
         name="blog-upload-image",
     ),
+    path("blog/<slug:slug>/like/", BlogPostLikeView.as_view(), name="blog-post-like"),
+    path("blog/<slug:slug>/read/", BlogPostReadView.as_view(), name="blog-post-read"),
     path(
         "blog/<slug:slug>/comments/",
         BlogPostCommentsView.as_view(),

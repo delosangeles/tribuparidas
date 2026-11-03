@@ -20,6 +20,70 @@ if (error.value) {
   }
 }
 
+// Me gusta y lecturas del artículo.
+const liked = ref(post.value?.liked_by_me ?? false);
+const likesCount = ref(post.value?.likes_count ?? 0);
+const readsCount = ref(post.value?.reads_count ?? 0);
+const likeBusy = ref(false);
+
+async function togglePostLike() {
+  if (!authStore.isAuthenticated) {
+    return navigateTo(`/login?redirect=/blog/${slug}`);
+  }
+  if (likeBusy.value) return;
+  likeBusy.value = true;
+  const before = { liked: liked.value, count: likesCount.value };
+  liked.value = !before.liked;
+  likesCount.value = before.count + (before.liked ? -1 : 1);
+  try {
+    const { data } = await blogService.togglePostLike(slug);
+    liked.value = data.liked;
+    likesCount.value = data.likes_count;
+  } catch {
+    liked.value = before.liked;
+    likesCount.value = before.count;
+  } finally {
+    likeBusy.value = false;
+  }
+}
+
+// Cuenta como "leído" tras 60 s con la pestaña visible. Se avisa al abrir y
+// otra vez al cumplir el minuto; el servidor mide el tiempo y decide.
+const READ_SECONDS = 60;
+let readTimer: ReturnType<typeof setInterval> | null = null;
+
+function stopReadTimer() {
+  if (readTimer) clearInterval(readTimer);
+  readTimer = null;
+}
+
+onMounted(async () => {
+  if (!post.value || !authStore.isAuthenticated) return;
+  try {
+    await blogService.markRead(slug);
+  } catch {
+    return;
+  }
+  let visibleSeconds = 0;
+  let asked = false;
+  readTimer = setInterval(async () => {
+    if (document.visibilityState !== "visible" || asked) return;
+    visibleSeconds += 1;
+    if (visibleSeconds < READ_SECONDS) return;
+    asked = true;
+    try {
+      const { data } = await blogService.markRead(slug);
+      readsCount.value = data.reads_count;
+      if (data.read) stopReadTimer();
+      else asked = false; // el reloj del servidor aún no llega al minuto: reintentar
+    } catch {
+      asked = false;
+    }
+  }, 1000);
+});
+
+onBeforeUnmount(stopReadTimer);
+
 const comments = ref<BlogComment[]>([]);
 const loadingComments = ref(false);
 
@@ -97,6 +161,23 @@ function formatDate(value: string) {
       </template>
       <span>·</span>
       <span>{{ post.reading_time }} min de lectura</span>
+    </div>
+
+    <div class="mt-3 flex flex-wrap items-center gap-3 text-sm text-muted">
+      <button
+        type="button"
+        class="inline-flex items-center gap-1.5 rounded-full border border-line px-3 py-1.5 transition hover:border-rose-300 hover:text-rose-500"
+        :class="liked ? '!border-rose-300 text-rose-500' : ''"
+        :aria-pressed="liked"
+        :aria-label="liked ? 'Quitar me gusta' : 'Me gusta'"
+        @click="togglePostLike"
+      >
+        <AppIcon name="heart" :size="16" :class="liked ? 'fill-current' : ''" />
+        <span>{{ likesCount }}</span>
+      </button>
+      <span v-if="readsCount">
+        {{ readsCount }} {{ readsCount === 1 ? "persona lo ha leído" : "personas lo han leído" }}
+      </span>
     </div>
 
     <img

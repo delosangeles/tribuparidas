@@ -290,6 +290,8 @@ async function remove(item: BlogPost) {
             <th class="px-4 py-3">Categoría</th>
             <th class="px-4 py-3">Autor</th>
             <th class="px-4 py-3">Estado</th>
+            <th class="px-4 py-3">Me gusta</th>
+            <th class="px-4 py-3">Leídos</th>
             <th class="px-4 py-3">Comentarios</th>
             <th class="px-4 py-3">Acciones</th>
           </tr>
@@ -334,6 +336,19 @@ async function remove(item: BlogPost) {
               >
                 {{ STATUS_LABELS[item.status] }}
               </span>
+            </td>
+
+            <!-- Me gusta -->
+            <td class="px-4 py-3 text-muted">
+              <span class="inline-flex items-center gap-1">
+                <AppIcon name="heart" :size="14" />
+                {{ item.likes_count }}
+              </span>
+            </td>
+
+            <!-- Leídos (≥ 1 minuto en el artículo) -->
+            <td class="px-4 py-3 text-muted" title="Personas que pasaron al menos 1 minuto en el artículo">
+              {{ item.reads_count }}
             </td>
 
             <!-- Comentarios -->

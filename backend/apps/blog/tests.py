@@ -6,7 +6,15 @@ from rest_framework.test import APIClient
 
 from apps.core.models import ActivityLog, FeatureFlag
 
-from .models import BlogCategory, BlogComment, BlogPost, BlogStage
+from .models import (
+    READ_MIN_SECONDS,
+    BlogCategory,
+    BlogComment,
+    BlogPost,
+    BlogPostLike,
+    BlogPostRead,
+    BlogStage,
+)
 
 User = get_user_model()
 
@@ -746,3 +754,76 @@ def test_upload_content_image_returns_url(api, visitor, media):
     response = api.post("/api/blog/upload-image/", {"image": comment_png()}, format="multipart")
     assert response.status_code == status.HTTP_201_CREATED
     assert "/blog/content/" in response.data["url"]
+
+
+# ── Me gusta y lecturas del artículo ──────────────────────────────
+
+def test_post_like_toggles_and_counts_in_detail_and_list(api, visitor, admin, published_post):
+    api.force_authenticate(user=visitor)
+    response = api.post("/api/blog/post-publicado/like/")
+    assert response.status_code == status.HTTP_200_OK
+    assert response.data == {"liked": True, "likes_count": 1}
+
+    detail = api.get("/api/blog/post-publicado/").data
+    assert detail["likes_count"] == 1 and detail["liked_by_me"] is True
+    item = next(p for p in api.get("/api/blog/").data["results"] if p["slug"] == "post-publicado")
+    assert item["likes_count"] == 1
+
+    api.force_authenticate(user=admin)
+    assert api.get("/api/blog/post-publicado/").data["liked_by_me"] is False
+    assert api.post("/api/blog/post-publicado/like/").data["likes_count"] == 2
+
+    api.force_authenticate(user=visitor)
+    assert api.post("/api/blog/post-publicado/like/").data == {"liked": False, "likes_count": 1}
+
+
+def test_post_like_requires_login_but_anonymous_sees_the_count(api, visitor, published_post):
+    assert api.post("/api/blog/post-publicado/like/").status_code in (
+        status.HTTP_401_UNAUTHORIZED, status.HTTP_403_FORBIDDEN,
+    )
+    BlogPostLike.objects.create(post=published_post, user=visitor)
+    detail = api.get("/api/blog/post-publicado/").data
+    assert detail["likes_count"] == 1 and detail["liked_by_me"] is False
+
+
+def test_read_only_counts_after_one_minute_in_the_article(api, visitor, published_post):
+    api.force_authenticate(user=visitor)
+    first = api.post("/api/blog/post-publicado/read/")
+    assert first.status_code == status.HTTP_200_OK
+    assert first.data == {"read": False, "reads_count": 0}
+
+    # Una segunda llamada inmediata (cliente tramposo) no cuenta.
+    assert api.post("/api/blog/post-publicado/read/").data["read"] is False
+
+    BlogPostRead.objects.filter(post=published_post, user=visitor).update(
+        started_at=timezone.now() - timezone.timedelta(seconds=READ_MIN_SECONDS + 1)
+    )
+    done = api.post("/api/blog/post-publicado/read/")
+    assert done.data == {"read": True, "reads_count": 1}
+
+    # Cada persona cuenta una sola vez.
+    assert api.post("/api/blog/post-publicado/read/").data["reads_count"] == 1
+    assert BlogPostRead.objects.filter(post=published_post).count() == 1
+
+    assert api.get("/api/blog/post-publicado/").data["reads_count"] == 1
+    item = next(p for p in api.get("/api/blog/").data["results"] if p["slug"] == "post-publicado")
+    assert item["reads_count"] == 1
+
+
+def test_list_counts_do_not_multiply_with_comments_likes_and_reads(api, visitor, admin, published_post):
+    for n in range(3):
+        BlogComment.objects.create(post=published_post, author=admin, content=f"c{n}")
+    BlogPostLike.objects.create(post=published_post, user=visitor)
+    BlogPostLike.objects.create(post=published_post, user=admin)
+    BlogPostRead.objects.create(post=published_post, user=visitor, completed_at=timezone.now())
+    BlogPostRead.objects.create(post=published_post, user=admin)  # solo abrió, no cuenta
+    item = next(p for p in api.get("/api/blog/").data["results"] if p["slug"] == "post-publicado")
+    assert (item["comments_count"], item["likes_count"], item["reads_count"]) == (3, 2, 1)
+
+
+def test_read_and_like_need_a_visible_post(api, visitor, admin, category):
+    make_post(admin, category, "private", "cerrado")
+    api.force_authenticate(user=visitor)
+    assert api.post("/api/blog/cerrado/read/").status_code == status.HTTP_200_OK
+    assert api.post("/api/blog/no-existe/read/").status_code == status.HTTP_404_NOT_FOUND
+    assert api.post("/api/blog/no-existe/like/").status_code == status.HTTP_404_NOT_FOUND

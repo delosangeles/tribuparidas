@@ -373,9 +373,13 @@ export interface BlogPost {
   featured: boolean;
   reading_time: number;
   comments_count: number;
+  likes_count: number;
+  /** Personas que pasaron al menos 1 minuto en el artículo. */
+  reads_count: number;
 }
 
 export interface BlogPostDetail extends BlogPost {
+  liked_by_me: boolean;
   content: string;
   category_slug: string;
   stages_detail: BlogStage[];
