@@ -263,3 +263,7 @@ Cambio de diseño pedido: quien entra directo a `/portal/registro` ya no queda e
 - Corregido: `authStore.setSession` no se exponía en la tienda (el registro lo necesita). El login ahora dice "Regístralo en el portal".
 - Tests: portal (registro, mínimos obligatorios, acceso público/privado, pendiente vs rechazado, descuentos bloqueados), tienda de sesión. Recorrido completo en navegador con capturas en `C:\Proyectos\Stephania\recorrido-portal-registro-2026-11-03`.
 - Pendiente: quien ya tiene cuenta de usuaria y quiere registrar un emprendimiento sigue usando "Crear emprendimiento" en Emprendimientos (y el admin le da acceso al portal); el formulario de ese modal todavía muestra "¿Recomendado por la tribu?" a cualquier usuaria (se puede ocultar igual que aquí).
+
+### Corrección en producción: `/portal/registro` mandaba al login
+- En producción nginx agrega la barra final (`/portal/registro/`) y la regla de "ruta pública" solo reconocía `/portal/registro`, así que quien entraba por el enlace caía en el login (en local no se veía). `utils/routePath.ts` (`normalizePath`, `isPrivatePath`) ahora compara las rutas sin barra final; el middleware `auth.global.ts` la usa también para `/acceso-pendiente`, `/login` y el área de portal. Tests en `tests/utils/routePath.test.ts` (con y sin barra, lo privado sigue privado).
+- Lección: probar enlaces de producción con barra final; el recorrido local no detecta este tipo de fallo.

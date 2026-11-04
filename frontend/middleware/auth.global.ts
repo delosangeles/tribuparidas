@@ -3,15 +3,6 @@
 // (además, cada una puede tener su propio middleware de rol: admin,
 // entrepreneur, superadmin). Escribir (comentar, preguntar, opinar, crear)
 // se valida en cada página y en la API.
-const PRIVATE_PREFIXES = ["/dashboard", "/admin", "/festejos", "/registro", "/portal", "/mi-tarjeta"];
-// El alta de cuentas del portal es pública (queda inactiva hasta que un admin la aprueba).
-const PUBLIC_EXCEPTIONS = ["/portal/registro"];
-
-function isPrivate(path: string) {
-  if (PUBLIC_EXCEPTIONS.includes(path)) return false;
-  return PRIVATE_PREFIXES.some((prefix) => path === prefix || path.startsWith(`${prefix}/`));
-}
-
 // Una cuenta "solo portal" únicamente usa /portal (el servidor también lo impone).
 function isPortalArea(path: string) {
   return path === "/portal" || path.startsWith("/portal/") || path === "/login";
@@ -25,16 +16,18 @@ const needsApproval = (auth: ReturnType<typeof useAuthStore>) =>
 
 export default defineNuxtRouteMiddleware(async (to) => {
   const authStore = useAuthStore();
+  // En producción las rutas llegan con barra final ("/portal/registro/"): se comparan sin ella.
+  const path = normalizePath(to.path);
 
-  if (to.path === PENDING_PATH) {
+  if (path === PENDING_PATH) {
     if (!authStore.isAuthenticated) return navigateTo("/login");
     if (!authStore.user) await authStore.fetchMe();
     return needsApproval(authStore) ? undefined : navigateTo("/");
   }
 
-  if (!isPrivate(to.path)) {
+  if (!isPrivatePath(path)) {
     if (authStore.isAuthenticated && !authStore.user) await authStore.fetchMe();
-    if (needsApproval(authStore) && to.path !== "/login") return navigateTo(PENDING_PATH);
+    if (needsApproval(authStore) && path !== "/login") return navigateTo(PENDING_PATH);
     return; // las cuentas de portal ven lo público como cualquier visitante
   }
 
@@ -50,5 +43,5 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   if (needsApproval(authStore)) return navigateTo(PENDING_PATH);
-  if (authStore.isPortalAccount && !isPortalArea(to.path)) return navigateTo("/portal");
+  if (authStore.isPortalAccount && !isPortalArea(path)) return navigateTo("/portal");
 });
