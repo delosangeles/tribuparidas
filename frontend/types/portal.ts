@@ -7,6 +7,8 @@ export interface PortalBusinessRef {
   name: string;
   slug: string;
   role: PortalRole;
+  /** "pending" = emprendimiento en espera de aprobación. */
+  status?: "approved" | "pending";
   logo: string | null;
 }
 

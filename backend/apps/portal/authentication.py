@@ -6,7 +6,7 @@ from rest_framework_simplejwt.authentication import JWTAuthentication
 # sitio (blog, festejos, noticias, favoritos, preguntas, opiniones…) es de
 # las usuarias de la página. Se aplica aquí, en el servidor, para no depender
 # solo de que el frontend oculte los enlaces.
-PORTAL_ACCOUNT_PREFIXES = ("/api/auth/", "/api/me/", "/api/portal/", "/api/feature-flags/", "/api/analytics/")
+PORTAL_ACCOUNT_PREFIXES = ("/api/auth/", "/api/me/", "/api/portal/", "/api/feature-flags/", "/api/analytics/", "/api/site-settings/")
 PORTAL_ACCOUNT_READ_PREFIXES = ("/api/businesses/", "/api/categories/")
 
 
@@ -35,6 +35,9 @@ class PortalAwareJWTAuthentication(JWTAuthentication):
             )
         if getattr(user, "account_type", "member") == "portal":
             path = request.path
+            # Lo público (blog y noticias) lo lee como visitante: nunca ve lo privado de la tribu.
+            if request.method in SAFE_METHODS and path.startswith(UNAPPROVED_PUBLIC_READ_PREFIXES) and not path.startswith(PORTAL_ACCOUNT_READ_PREFIXES):
+                return None
             allowed = path.startswith(PORTAL_ACCOUNT_PREFIXES) or (
                 request.method in SAFE_METHODS and path.startswith(PORTAL_ACCOUNT_READ_PREFIXES)
             )

@@ -50,7 +50,7 @@ async function save() {
         <h1 class="text-2xl font-bold text-ink">Mi emprendimiento</h1>
         <p class="text-sm text-muted">Edita la información que ven las usuarias en tu tarjeta.</p>
       </div>
-      <NuxtLink v-if="business" :to="business.public_path" class="btn-outline">Ver página pública</NuxtLink>
+      <NuxtLink v-if="business && business.status === 'approved'" :to="business.public_path" class="btn-outline">Ver página pública</NuxtLink>
     </header>
 
     <form v-if="business" class="card grid gap-4 p-5 sm:grid-cols-2" @submit.prevent="save">

@@ -264,8 +264,8 @@ function showRegister() {
 
         <!-- PORTAL DE EMPRENDIMIENTOS (solo si ya está lanzado) -->
         <p v-if="featureFlagStore.isPortalLive" class="mt-4 text-center text-sm text-muted">
-          ¿Tienes un emprendimiento en la tribu?
-          <NuxtLink to="/portal/registro" class="font-semibold text-gold hover:underline">Pide acceso al portal</NuxtLink>
+          ¿Tienes un emprendimiento?
+          <NuxtLink to="/portal/registro" class="font-semibold text-gold hover:underline">Regístralo en el portal</NuxtLink>
         </p>
 
         <!-- GO REGISTER -->

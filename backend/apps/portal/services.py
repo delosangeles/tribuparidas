@@ -14,6 +14,9 @@ from apps.core.models import FeatureFlag
 
 from .models import BusinessBenefit, BusinessChangeLog, BusinessOwner, CardCode, DataSharingConsent, DiscountRedemption, Membership
 
+# Estados del emprendimiento con los que su dueña puede usar el portal (en espera incluido: así completa sus datos mientras la aprueban).
+PORTAL_BUSINESS_STATUSES = ("approved", "pending")
+
 BOGOTA = ZoneInfo("America/Bogota")
 TOKEN_TTL_SECONDS = 90
 TICKET_TTL_SECONDS = 180  # tiempo para confirmar tras previsualizar
@@ -49,7 +52,7 @@ def portal_membership(user, business_id):
     if not user or not user.is_authenticated:
         return None
     return (
-        BusinessOwner.objects.filter(user=user, business_id=business_id, business__status="approved")
+        BusinessOwner.objects.filter(user=user, business_id=business_id, business__status__in=PORTAL_BUSINESS_STATUSES)
         .select_related("business")
         .first()
     )
@@ -171,6 +174,8 @@ def validate_redemption(user, business):
         raise CardError("membership_inactive", "Membresía inactiva.")
     if active_consent(user) is None:
         raise CardError("no_consent", "La usuaria no ha aceptado compartir sus datos con los emprendimientos.")
+    if business.status != "approved":
+        raise CardError("business_not_approved", "Este emprendimiento aún está en revisión.")
     today = bogota_today()
     benefit = BusinessBenefit.objects.filter(business=business).first()
     if benefit is None or not benefit.is_valid_on(today):

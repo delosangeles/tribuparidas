@@ -2,6 +2,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from apps.businesses.models import Business, BusinessImage
+from apps.businesses.serializers import BusinessWriteSerializer
 from apps.categories.models import Category
 from apps.reviews.models import Review
 from apps.users.models import User
@@ -168,14 +169,16 @@ class MemberNoticeSerializer(serializers.ModelSerializer):
 
 
 class PortalRegisterSerializer(serializers.ModelSerializer):
+    """Datos de la persona. Los del emprendimiento viajan con prefijo `business_` y se validan
+    con PortalRegisterBusinessSerializer (ver PortalRegisterView)."""
+
     password = serializers.CharField(write_only=True, validators=[validate_password])
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
-    business_name = serializers.CharField(max_length=150, write_only=True, help_text="Emprendimiento al que representa.")
 
     class Meta:
         model = User
-        fields = ["id", "email", "password", "first_name", "last_name", "whatsapp", "business_name"]
+        fields = ["id", "email", "password", "first_name", "last_name", "whatsapp"]
         extra_kwargs = {"whatsapp": {"required": True}, "email": {"validators": []}}
 
     def validate_email(self, value):
@@ -183,3 +186,23 @@ class PortalRegisterSerializer(serializers.ModelSerializer):
         if User.objects.filter(email=value).exists():
             raise serializers.ValidationError("Ya existe una cuenta con este email.")
         return value
+
+
+class PortalRegisterBusinessSerializer(BusinessWriteSerializer):
+    """Emprendimiento que se crea junto con la cuenta. Datos mínimos obligatorios para poder
+    revisarlo y publicarlo: nombre, logo, descripción, categoría, ubicación y WhatsApp."""
+
+    REQUIRED = ("name", "logo", "description", "category", "department", "city", "whatsapp")
+
+    class Meta(BusinessWriteSerializer.Meta):
+        # "Recomendado por la tribu" lo decide solo el equipo, no quien se registra.
+        read_only_fields = [*BusinessWriteSerializer.Meta.read_only_fields, "tribe_recommended"]
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        for name in self.REQUIRED:
+            field = self.fields[name]
+            field.required = True
+            if hasattr(field, "allow_blank"):
+                field.allow_blank = False
+            field.allow_null = False

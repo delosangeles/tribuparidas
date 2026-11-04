@@ -69,4 +69,11 @@ describe("auth store", () => {
     expect(store.isPortalAccount).toBe(false);
     expect(store.hasPortalAccess).toBe(false);
   });
+  it("setSession inicia la sesión con los tokens y el usuario (registro del portal)", () => {
+    const store = useAuthStore();
+    store.setSession({ access: "a", refresh: "r", user: mockUser as never });
+    expect(store.isAuthenticated).toBe(true);
+    expect(store.user?.email).toBe("visitante@example.com");
+    expect(store.accessToken).toBe("a");
+  });
 });

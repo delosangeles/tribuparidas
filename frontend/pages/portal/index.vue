@@ -53,7 +53,7 @@ const BENEFIT_STATUS: Record<string, string> = {
         </span>
       </NuxtLink>
 
-      <div v-if="business" class="card p-5">
+      <div v-if="business && business.status === 'approved'" class="card p-5">
         <p class="font-semibold text-ink">Tu página pública</p>
         <NuxtLink :to="business.public_path" class="mt-1 block break-all text-sm text-gold hover:underline">{{ business.public_path }}</NuxtLink>
         <p class="mt-2 text-sm text-muted">Calificación: {{ business.average_rating }} / 5</p>

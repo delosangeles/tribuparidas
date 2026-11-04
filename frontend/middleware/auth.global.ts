@@ -35,8 +35,7 @@ export default defineNuxtRouteMiddleware(async (to) => {
   if (!isPrivate(to.path)) {
     if (authStore.isAuthenticated && !authStore.user) await authStore.fetchMe();
     if (needsApproval(authStore) && to.path !== "/login") return navigateTo(PENDING_PATH);
-    if (authStore.isPortalAccount && !isPortalArea(to.path)) return navigateTo("/portal");
-    return;
+    return; // las cuentas de portal ven lo público como cualquier visitante
   }
 
   if (!authStore.isAuthenticated) {

@@ -139,6 +139,7 @@ REST_FRAMEWORK = {
         "portal_redeem": "30/min",
         "card_issue": "30/min",
         "card_visit": "60/min",
+        "portal_register": "10/hour",
     },
     "DEFAULT_PERMISSION_CLASSES": (
         "rest_framework.permissions.IsAuthenticated",

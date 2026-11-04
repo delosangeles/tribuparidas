@@ -167,11 +167,27 @@ def test_unassigned_and_anonymous_users_are_blocked(biz_a, member):
     assert APIClient().get(f"/api/portal/businesses/{biz_a.id}/").status_code == 401
 
 
-def test_pending_business_gives_no_portal_access(category):
+def test_pending_business_owner_can_use_the_portal_but_rejected_cannot(category):
     user = make_user("pend@example.com")
     business = make_business(category, user, status=Business.Status.PENDING)
     BusinessOwner.objects.create(user=user, business=business)
-    assert client_for(user).get(f"/api/portal/businesses/{business.id}/").status_code == 404
+    api = client_for(user)
+    assert api.get(f"/api/portal/businesses/{business.id}/").status_code == 200
+    me = api.get("/api/portal/me/").json()
+    assert [(row["business_id"], row["status"]) for row in me] == [(business.id, "pending")]
+    assert api.get("/api/me/").json()["has_portal_access"] is True
+    Business.objects.filter(pk=business.pk).update(status=Business.Status.REJECTED)
+    assert api.get(f"/api/portal/businesses/{business.id}/").status_code == 404
+
+
+def test_pending_business_cannot_apply_discounts_yet(category, member):
+    user = make_user("pend2@example.com", account_type="portal")
+    business = make_business(category, user, "En revisión", status=Business.Status.PENDING)
+    BusinessOwner.objects.create(user=user, business=business)
+    BusinessBenefit.objects.create(business=business, percentage=10, status="approved")
+    token = client_for(member).get("/api/me/card/").json()["token"]
+    assert preview(user, business, token=token).json()["code"] == "business_not_approved"
+    assert not DiscountRedemption.objects.exists()
 
 
 def test_seller_can_read_stats_and_scan_but_not_edit(seller_a, biz_a):
@@ -551,8 +567,9 @@ def test_portal_account_is_blocked_outside_portal(owner_a, biz_a):
     assert api.get("/api/businesses/").status_code == 200
     assert api.get("/api/categories/").status_code == 200
     assert api.post("/api/businesses/", {}, format="json").status_code in (403, 405)
-    assert api.get("/api/blog/").status_code == 403
-    assert api.get("/api/news/").status_code == 403
+    assert api.get("/api/blog/").status_code == 200  # lo público se lee como visitante
+    assert api.get("/api/news/").status_code == 200
+    assert api.post("/api/blog/", {}, format="json").status_code == 403  # pero no participa
     assert api.get("/api/festejos/").status_code == 403
     assert api.post(f"/api/businesses/{biz_a.id}/favorite/").status_code == 403
     assert api.post(f"/api/businesses/{biz_a.id}/reviews/", {"rating": 5}, format="json").status_code == 403
@@ -568,18 +585,100 @@ def test_member_with_business_has_portal_and_site(category):
     assert api.get("/api/me/").json()["has_portal_access"] is True
 
 
-def test_portal_registration_inactive_until_approved_then_convert(biz_a):
-    anon = APIClient()
+@pytest.fixture
+def media(settings, tmp_path):
+    settings.MEDIA_ROOT = tmp_path
+    return tmp_path
+
+
+def png_logo(name="logo.png"):
+    import io
+
+    from PIL import Image
+
+    buffer = io.BytesIO()
+    Image.new("RGB", (8, 8), (201, 163, 90)).save(buffer, "PNG")
+    return SimpleUploadedFile(name, buffer.getvalue(), content_type="image/png")
+
+
+def portal_register_payload(category, **overrides):
     payload = {
         "email": "nueva-portal@example.com", "password": "ClaveSegura123", "first_name": "Nora", "last_name": "N",
-        "whatsapp": "+573001234567", "business_name": "Mi Negocio",
+        "whatsapp": "+573001234567",
+        "business_name": "Mi Negocio", "business_description": "Hacemos velas artesanales.",
+        "business_category": category.id, "business_department": "Valle del Cauca", "business_city": "Cali",
+        "business_whatsapp": "+573009998877", "business_logo": png_logo(),
     }
-    assert anon.post("/api/auth/register-portal/", payload, format="json").status_code == 201
-    user = User.objects.get(email="nueva-portal@example.com")
-    assert user.account_type == "portal" and user.is_active is False
-    assert Notification.objects.filter(related_user=user).exists()
-    assert anon.post("/api/auth/login/", {"email": user.email, "password": "ClaveSegura123"}, format="json").status_code == 401
+    payload.update(overrides)
+    return {k: v for k, v in payload.items() if v is not None}
 
+
+def test_portal_registration_is_active_with_pending_business_and_owner_access(category, media):
+    anon = APIClient()
+    response = anon.post("/api/auth/register-portal/", portal_register_payload(category), format="multipart")
+    assert response.status_code == 201, response.content
+    body = response.json()
+    assert "1 o 2 días hábiles" in body["detail"] and body["access"] and body["refresh"]
+    assert body["business"]["name"] == "Mi Negocio"
+
+    user = User.objects.get(email="nueva-portal@example.com")
+    assert user.account_type == "portal" and user.is_active and user.is_approved and user.needs_review
+    business = Business.objects.get(pk=body["business"]["id"])
+    assert business.status == Business.Status.PENDING and business.owner_id == user.id and business.logo
+    assert BusinessOwner.objects.filter(user=user, business=business, role="owner").exists()
+    note = Notification.objects.get(related_user=user)
+    assert "Mi Negocio" in note.message and "pendiente de aprobar" in note.message
+
+    # Entra de una vez: puede iniciar sesión y usar el portal con su emprendimiento en espera.
+    assert anon.post("/api/auth/login/", {"email": user.email, "password": "ClaveSegura123"}, format="json").status_code == 200
+    api = APIClient()
+    api.credentials(HTTP_AUTHORIZATION=f"Bearer {body['access']}")
+    assert api.get("/api/portal/me/").json()[0]["status"] == "pending"
+    assert api.get(f"/api/portal/businesses/{business.id}/").status_code == 200
+    # ...pero el emprendimiento no se publica hasta que un admin lo apruebe.
+    assert anon.get(f"/api/businesses/{business.slug}/").status_code == 404
+    admin = make_user("admin-aprueba@example.com", is_staff=True)
+    assert client_for(admin).patch(f"/api/admin/businesses/{business.id}/approve/").status_code == 200
+    assert anon.get(f"/api/businesses/{business.slug}/").status_code == 200
+
+
+def test_portal_registration_requires_the_minimum_business_data(category, media):
+    anon = APIClient()
+    for missing in ("business_name", "business_logo", "business_description", "business_category", "business_city", "business_whatsapp"):
+        response = anon.post("/api/auth/register-portal/", portal_register_payload(category, **{missing: None}), format="multipart")
+        assert response.status_code == 400, missing
+        assert missing in response.json(), (missing, response.json())
+    assert not User.objects.filter(email="nueva-portal@example.com").exists()  # nada a medias
+    assert not Business.objects.exists() or Business.objects.filter(name="Mi Negocio").count() == 0
+    dup = make_user("nueva-portal@example.com")
+    response = anon.post("/api/auth/register-portal/", portal_register_payload(category), format="multipart")
+    assert response.status_code == 400 and "email" in response.json() and dup.businesses.count() == 0
+
+
+def test_portal_account_sees_public_content_as_a_visitor_but_not_private(category, media):
+    from apps.blog.models import BlogCategory, BlogPost
+    from apps.core.models import FeatureFlag as Flag
+
+    Flag.objects.update_or_create(key="blog_module", defaults={"is_forced_active": True})
+    author = make_user("autora@example.com")
+    cat = BlogCategory.objects.create(name="Cat", slug="cat")
+    common = dict(summary="s", content="c", category=cat, author=author, status="PUBLISHED", publication_date=timezone.now() - timedelta(days=1))
+    BlogPost.objects.create(title="Publico", slug="publico", visibility="public", **common)
+    BlogPost.objects.create(title="Privado", slug="privado", visibility="private", **common)
+
+    body = APIClient().post("/api/auth/register-portal/", portal_register_payload(category), format="multipart").json()
+    api = APIClient()
+    api.credentials(HTTP_AUTHORIZATION=f"Bearer {body['access']}")
+    assert {p["slug"] for p in api.get("/api/blog/").json()["results"]} == {"publico"}  # igual que un visitante
+    assert api.get("/api/site-settings/").status_code == 200  # número de WhatsApp para escribirle al equipo
+    assert api.get("/api/businesses/").status_code == 200
+    assert api.get("/api/festejos/").status_code == 403  # lo privado sigue cerrado
+    assert api.post("/api/blog/publico/like/").status_code == 403  # no participa como usuaria de la página
+
+
+def test_portal_registration_flow_with_admin_approval(biz_a):
+    """Una cuenta de portal que ya existe (antes del cambio) sigue pudiendo aprobarse y asignarse a mano."""
+    user = make_user("legacy-portal@example.com", is_active=False, account_type="portal", is_approved=False)
     admin = make_user("admin@example.com", is_staff=True)
     api = client_for(admin)
     assert api.patch(f"/api/admin/users/{user.id}/", {"is_approved": True}, format="json").status_code == 200
@@ -595,11 +694,11 @@ def test_portal_registration_inactive_until_approved_then_convert(biz_a):
     assert Notification.objects.filter(type="member_conversion_request", related_user=user).count() == 1
     client_for(user).post("/api/me/request-member-conversion/")
     assert Notification.objects.filter(type="member_conversion_request", related_user=user).count() == 1
-    assert jwt_client_for(user).get("/api/news/").status_code == 403
+    assert jwt_client_for(user).get("/api/my/favorites/").status_code == 403
     assert api.post(f"/api/admin/users/{user.id}/convert_to_member/").status_code == 200
     user.refresh_from_db()
     assert user.account_type == "member"
-    assert jwt_client_for(user).get("/api/news/").status_code == 200
+    assert jwt_client_for(user).get("/api/my/favorites/").status_code == 200
     assert ActivityLog.objects.filter(action="account_converted_to_member").exists()
     assert client_for(make_user("x@example.com")).post(f"/api/admin/users/{user.id}/convert_to_member/").status_code == 403
 

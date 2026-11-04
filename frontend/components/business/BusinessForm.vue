@@ -2,8 +2,16 @@
 import type { Business, BusinessFormPayload } from "~/types";
 
 const props = withDefaults(
-  defineProps<{ initial?: Business | null; submitLabel: string; loading?: boolean; showStatus?: boolean; requireAll?: boolean }>(),
-  { showStatus: false, requireAll: false }
+  defineProps<{
+    initial?: Business | null;
+    submitLabel: string;
+    loading?: boolean;
+    showStatus?: boolean;
+    requireAll?: boolean;
+    /** Solo lo mínimo para publicar: nombre, logo, descripción, categoría, ubicación y WhatsApp. */
+    minimalRequired?: boolean;
+  }>(),
+  { showStatus: false, requireAll: false, minimalRequired: false }
 );
 const emit = defineEmits<{ (e: "submit", payload: BusinessFormPayload & { status?: string }): void }>();
 
@@ -69,7 +77,7 @@ const logoFile = ref<File | null>(null);
 const logoError = ref("");
 
 function handleSubmit() {
-  if (props.requireAll && !logoFile.value && !props.initial?.logo) {
+  if ((props.requireAll || props.minimalRequired) && !logoFile.value && !props.initial?.logo) {
     logoError.value = "El logo es obligatorio.";
     return;
   }
@@ -139,7 +147,7 @@ function handleSubmit() {
           placeholder="+57 300 000 0000"
           :pattern="PHONE_PATTERN"
           :title="PHONE_ERROR_MESSAGE"
-          :required="requireAll"
+          :required="requireAll || minimalRequired"
           class="field"
         />
       </div>
@@ -168,7 +176,7 @@ function handleSubmit() {
       </div>
       <div class="sm:col-span-2 lg:col-span-3">
         <label class="mb-1 block text-sm font-medium text-ink">Descripción</label>
-        <textarea v-model="form.description" rows="4" :required="requireAll" class="field" placeholder="Cuéntale a la comunidad qué haces..." />
+        <textarea v-model="form.description" rows="4" :required="requireAll || minimalRequired" class="field" placeholder="Cuéntale a la comunidad qué haces..." />
       </div>
     </div>
 
@@ -182,7 +190,7 @@ function handleSubmit() {
             <option :value="false">No</option>
           </select>
         </div>
-        <div>
+        <div v-if="!minimalRequired">
           <label class="mb-1 block text-sm font-medium text-ink">¿Recomendado por la tribu?</label>
           <select v-model="form.tribe_recommended" class="field">
             <option :value="true">Sí</option>

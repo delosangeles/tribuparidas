@@ -126,15 +126,15 @@ export const portalService = {
   },
 
   // ---- Cuentas
-  registerPortal(payload: {
-    email: string;
-    password: string;
-    first_name: string;
-    last_name: string;
-    whatsapp: string;
-    business_name: string;
-  }) {
-    return useApi().post<{ detail: string }>("/auth/register-portal/", payload);
+  /** Alta en un solo paso: persona + emprendimiento (campos con prefijo `business_`, con logo). Devuelve la sesión iniciada. */
+  registerPortal(form: FormData) {
+    return useApi().post<{
+      detail: string;
+      access: string;
+      refresh: string;
+      user: User;
+      business: { id: number; name: string; slug: string };
+    }>("/auth/register-portal/", form, { headers: { "Content-Type": "multipart/form-data" } });
   },
   requestMemberConversion() {
     return useApi().post<{ detail: string }>("/me/request-member-conversion/");

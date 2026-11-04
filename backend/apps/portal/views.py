@@ -7,9 +7,12 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from rest_framework import filters, generics, mixins, permissions, serializers, status, viewsets
 from rest_framework.decorators import action
+from rest_framework.exceptions import ValidationError
+from rest_framework.parsers import FormParser, JSONParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.throttling import ScopedRateThrottle
 from rest_framework.views import APIView
+from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.businesses.models import Business, BusinessImage
 from apps.businesses.views import MAX_IMAGES_PER_BUSINESS
@@ -18,6 +21,7 @@ from apps.questions.models import Answer, Question
 from apps.questions.serializers import QuestionSerializer
 from apps.reviews.models import Review
 from apps.users.models import Notification, User
+from apps.users.serializers import UserSerializer
 
 from .models import (
     CONSENT_VERSION,
@@ -43,12 +47,14 @@ from .serializers import (
     MemberRowSerializer,
     PortalBusinessSerializer,
     PortalImageSerializer,
+    PortalRegisterBusinessSerializer,
     PortalRegisterSerializer,
     PortalReviewSerializer,
     ReplySerializer,
 )
 from .services import (
     BOGOTA,
+    PORTAL_BUSINESS_STATUSES,
     CardError,
     active_consent,
     bogota_today,
@@ -82,7 +88,7 @@ class PortalMeView(APIView):
     permission_classes = [permissions.IsAuthenticated, PortalModuleLive]
 
     def get(self, request):
-        rows = BusinessOwner.objects.filter(user=request.user, business__status="approved").select_related("business")
+        rows = BusinessOwner.objects.filter(user=request.user, business__status__in=PORTAL_BUSINESS_STATUSES).select_related("business")
         return Response(
             [
                 {
@@ -90,6 +96,7 @@ class PortalMeView(APIView):
                     "name": row.business.name,
                     "slug": row.business.slug,
                     "role": row.role,
+                    "status": row.business.status,
                     "logo": request.build_absolute_uri(row.business.logo.url) if row.business.logo else None,
                 }
                 for row in rows
@@ -573,25 +580,52 @@ class CardVisitView(APIView):
 
 
 class PortalRegisterView(generics.CreateAPIView):
-    """POST /api/auth/register-portal/ — cuenta solo-portal, inactiva hasta que un admin la aprueba y la asigna."""
+    """POST /api/auth/register-portal/ — alta de una emprendedora en un solo paso: crea su cuenta
+    (activa, solo-portal: ve lo público pero no lo privado de la tribu), su emprendimiento con todos
+    los datos mínimos (queda EN ESPERA hasta que un admin lo apruebe) y su acceso de dueña. Responde
+    con tokens para que entre de una vez a su portal. Los datos del emprendimiento llevan prefijo
+    `business_` (multipart, por el logo)."""
 
     serializer_class = PortalRegisterSerializer
     permission_classes = [permissions.AllowAny, PortalModuleLive]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "portal_register"
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
+        prefix = "business_"
+        business_data = {key[len(prefix):]: value for key, value in request.data.items() if key.startswith(prefix)}
+        business_serializer = PortalRegisterBusinessSerializer(data=business_data, context=self.get_serializer_context())
+        person_ok = serializer.is_valid()
+        business_ok = business_serializer.is_valid()
+        if not (person_ok and business_ok):
+            errors = dict(serializer.errors)
+            errors.update({f"{prefix}{field}": messages for field, messages in business_serializer.errors.items()})
+            raise ValidationError(errors)
+
         data = dict(serializer.validated_data)
-        business_name = data.pop("business_name")
         password = data.pop("password")
-        user = User.objects.create_user(**data, password=password, is_active=False, account_type="portal")
-        Notification.objects.create(
-            type=Notification.Type.NEW_REGISTRATION,
-            related_user=user,
-            message=f"{user.get_full_name()} ({user.email}) pidió acceso al portal para «{business_name}».",
-        )
+        with transaction.atomic():
+            user = User.objects.create_user(
+                **data, password=password, is_active=True, is_approved=True, needs_review=True, account_type="portal"
+            )
+            business = business_serializer.save(owner=user, status=Business.Status.PENDING)
+            BusinessOwner.objects.create(user=user, business=business, role=BusinessOwner.Role.OWNER)
+            Notification.objects.create(
+                type=Notification.Type.NEW_REGISTRATION,
+                related_user=user,
+                message=f"{user.get_full_name()} ({user.email}) creó el emprendimiento «{business.name}» desde el portal: pendiente de aprobar.",
+            )
+        refresh = RefreshToken.for_user(user)
         return Response(
-            {"detail": "¡Solicitud recibida! Un administrador revisará tu cuenta y te asignará tu emprendimiento."},
+            {
+                "detail": "¡Tu emprendimiento quedó en espera! Lo revisamos en 1 o 2 días hábiles.",
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": UserSerializer(user, context=self.get_serializer_context()).data,
+                "business": {"id": business.pk, "name": business.name, "slug": business.slug},
+            },
             status=status.HTTP_201_CREATED,
         )
 
