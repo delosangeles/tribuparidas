@@ -267,3 +267,43 @@ def test_madrina_cannot_reach_other_admin_modules(madrina):
     assert api.get("/api/admin/notifications/").status_code == 403
     assert api.get("/api/admin/madrinas/").status_code == 403
     assert api.get("/api/admin/reports/monthly/").status_code == 403
+
+
+# ---------- Blog: cambiar estado y autor ----------
+
+def test_madrina_with_edit_changes_status_but_publishing_needs_approve(madrina):
+    grant(madrina, "blog", categories=["lecturas"], edit=True)
+    post = post_in("lecturas", status="IN_REVIEW", slug="estado")
+    api = client_for(madrina)
+    assert api.patch(f"/api/blog/{post.slug}/", {"status": "DRAFT"}, format="json").status_code == 200
+    assert api.patch(f"/api/blog/{post.slug}/", {"status": "PUBLISHED"}, format="json").status_code == 403
+
+
+def test_madrina_changes_author_only_with_permission(madrina):
+    grant(madrina, "blog", categories=["lecturas"], edit=True)
+    post = post_in("lecturas", status="PUBLISHED", slug="autoria")
+    original = post.author
+    nueva = make_user("nueva@example.com")
+    api = client_for(madrina)
+
+    assert api.patch(f"/api/blog/{post.slug}/", {"author": nueva.id}, format="json").status_code == 200
+    post.refresh_from_db()
+    assert post.author == original  # sin permiso se ignora
+
+    ModuleAccess.objects.filter(user=madrina, module="blog").update(can_change_author=True)
+    madrina.__dict__.pop("_module_access_cache", None)
+    api = client_for(madrina)
+    assert api.patch(f"/api/blog/{post.slug}/", {"author": nueva.id}, format="json").status_code == 200
+    post.refresh_from_db()
+    assert post.author == nueva
+
+
+def test_blog_authors_list_requires_change_author_permission(madrina):
+    make_user("otra@example.com", is_approved=True)
+    grant(madrina, "blog", edit=True)
+    assert client_for(madrina).get("/api/blog/authors/").status_code == 403
+    ModuleAccess.objects.filter(user=madrina, module="blog").update(can_change_author=True)
+    madrina.__dict__.pop("_module_access_cache", None)
+    response = client_for(madrina).get("/api/blog/authors/")
+    assert response.status_code == 200
+    assert any("otra@example.com" in a["label"] for a in response.data), response.data

@@ -67,6 +67,11 @@ export const blogService = {
     return useApi().post<BlogPostDetail>(`/blog/${slug}/reject/`);
   },
 
+  // Personas que se pueden elegir como autoras (administradoras o madrinas con permiso)
+  authors() {
+    return useApi().get<{ id: number; label: string }[]>("/blog/authors/");
+  },
+
   // Categorías
   categories(params: Record<string, unknown> = {}) {
     return useApi().get<Paginated<BlogCategory>>(

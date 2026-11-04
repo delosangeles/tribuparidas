@@ -19,6 +19,8 @@ class ModuleAccess(models.Model):
     can_approve = models.BooleanField(default=False)
     can_edit = models.BooleanField(default=False)
     can_delete = models.BooleanField(default=False)
+    # Solo blog: elegir/cambiar la autora de un artículo.
+    can_change_author = models.BooleanField(default=False)
     categories = models.ManyToManyField("blog.BlogCategory", blank=True, related_name="madrinas")
     created_at = models.DateTimeField(auto_now_add=True)
 

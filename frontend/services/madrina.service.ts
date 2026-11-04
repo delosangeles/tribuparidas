@@ -6,6 +6,7 @@ export interface MadrinaAccess {
   can_approve: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  can_change_author: boolean;
   categories: { id: number; name: string; slug: string }[];
 }
 
@@ -25,6 +26,7 @@ export interface MadrinaAccessPayload {
   can_approve: boolean;
   can_edit: boolean;
   can_delete: boolean;
+  can_change_author?: boolean;
   categories: number[];
 }
 

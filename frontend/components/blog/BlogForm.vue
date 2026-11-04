@@ -19,12 +19,21 @@ const props = withDefaults(
     loading?: boolean;
     initial?: BlogPostDetail | null;
     isAdmin?: boolean;
+    /** Muestra el selector de Estado (administradoras y madrinas con permiso de editar). */
+    canChangeStatus?: boolean;
+    /** Permite elegir "Publicado" (administradoras y madrinas con permiso de aprobar). */
+    canPublish?: boolean;
+    /** Muestra el selector de Autor. */
+    canChangeAuthor?: boolean;
     authors?: { id: number; label: string }[];
   }>(),
   {
     loading: false,
     initial: null,
     isAdmin: false,
+    canChangeStatus: false,
+    canPublish: false,
+    canChangeAuthor: false,
     authors: () => [],
   }
 );
@@ -207,7 +216,7 @@ function handleSubmit() {
     seo_description: form.seo_description,
   };
 
-  if (props.isAdmin && form.author) {
+  if ((props.isAdmin || props.canChangeAuthor) && form.author) {
     payload.author = Number(form.author);
   }
 
@@ -419,9 +428,9 @@ const isOpenCategory = computed(
         Publicación
       </p>
 
-      <div v-if="isAdmin" class="mb-4 grid gap-4 sm:grid-cols-2">
+      <div v-if="isAdmin || canChangeStatus || canChangeAuthor" class="mb-4 grid gap-4 sm:grid-cols-2">
         <!-- Estado -->
-        <div>
+        <div v-if="isAdmin || canChangeStatus">
           <label class="mb-1 block text-sm font-medium text-ink">
             Estado
           </label>
@@ -434,6 +443,7 @@ const isOpenCategory = computed(
               v-for="option in STATUS_OPTIONS"
               :key="option.value"
               :value="option.value"
+              :disabled="option.value === 'PUBLISHED' && !isAdmin && !canPublish && form.status !== 'PUBLISHED'"
             >
               {{ option.label }}
             </option>
@@ -441,7 +451,7 @@ const isOpenCategory = computed(
         </div>
 
         <!-- Autor -->
-        <div>
+        <div v-if="isAdmin || canChangeAuthor">
           <label class="mb-1 block text-sm font-medium text-ink">
             Autor
           </label>

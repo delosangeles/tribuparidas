@@ -267,3 +267,9 @@ Cambio de diseño pedido: quien entra directo a `/portal/registro` ya no queda e
 ### Corrección en producción: `/portal/registro` mandaba al login
 - En producción nginx agrega la barra final (`/portal/registro/`) y la regla de "ruta pública" solo reconocía `/portal/registro`, así que quien entraba por el enlace caía en el login (en local no se veía). `utils/routePath.ts` (`normalizePath`, `isPrivatePath`) ahora compara las rutas sin barra final; el middleware `auth.global.ts` la usa también para `/acceso-pendiente`, `/login` y el área de portal. Tests en `tests/utils/routePath.test.ts` (con y sin barra, lo privado sigue privado).
 - Lección: probar enlaces de producción con barra final; el recorrido local no detecta este tipo de fallo.
+
+### Blog: madrinas cambian estado y autor; "Aprobar" visible en borradores
+- **Estado:** el formulario de edición del blog solo mostraba Estado/Autor a administradoras. Ahora las madrinas con **Editar** ven el selector de Estado ("Publicado" solo si además tienen **Aprobar**; el servidor ya lo exigía en `perform_update`).
+- **Nuevo permiso "Cambiar autor"** (solo módulo Blog) en Admin → Madrinas: campo `ModuleAccess.can_change_author` (migración `access/0002`), `can_change_blog_author()` en `access/services.py` (respeta categorías), expuesto como `module_access.blog.change_author`. `BlogPostWriteSerializer` ya no descarta el autor para esas madrinas (al editar y al crear). Nuevo `GET /api/blog/authors/` (admin o madrina con ese permiso) para llenar el selector sin depender del módulo Usuarios.
+- **Listado `/admin/blog`:** el botón **Aprobar** aparece en posts en **borrador o en revisión** (Rechazar sigue solo en revisión).
+- Tests en `apps/access/tests.py` (sin ejecutar: no hay Django/Docker activo en esta sesión; correr pytest antes de desplegar). Sin desplegar; requiere `migrate`.

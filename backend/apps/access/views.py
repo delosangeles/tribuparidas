@@ -53,7 +53,7 @@ class MadrinaDetailView(APIView):
                 access, _ = ModuleAccess.objects.update_or_create(
                     user=user,
                     module=e["module"],
-                    defaults={k: e[k] for k in ("can_add", "can_approve", "can_edit", "can_delete")},
+                    defaults={k: e[k] for k in ("can_add", "can_approve", "can_edit", "can_delete", "can_change_author")},
                 )
                 access.categories.set(e.get("categories", []))
         log_activity(request.user, "madrina_updated", f"{request.user.email} asignó accesos a {user.email}: {', '.join(modules)}.", target=user)

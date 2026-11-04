@@ -58,6 +58,21 @@ def can(user, module, action, category_id=None):
     return True
 
 
+def can_change_blog_author(user, category_id=None):
+    """¿Puede elegir o cambiar la autora de un blog? (administradoras, o madrinas con ese permiso)."""
+    if not user or not user.is_authenticated:
+        return False
+    if user.is_staff:
+        return True
+    access = get_access(user, "blog")
+    if access is None or not access.can_change_author:
+        return False
+    if category_id is not None:
+        scope = blog_scope(user)
+        return scope == ALL or category_id in scope
+    return True
+
+
 def module_access_payload(user):
     """Resumen para el frontend (menú y botones). None para administradoras: tienen todo."""
     if user.is_staff:
@@ -68,6 +83,8 @@ def module_access_payload(user):
             **{action: getattr(access, f"can_{action}") for action in ACTIONS},
             "categories": [c.slug for c in access.categories.all()] or None,  # None = todas
         }
+        if access.module == "blog":
+            payload[access.module]["change_author"] = access.can_change_author
     return payload
 
 

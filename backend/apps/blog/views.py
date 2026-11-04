@@ -15,7 +15,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from apps.core.models import FeatureFlag, log_activity
-from apps.access.services import ALL, blog_scope, can, has_module
+from apps.access.services import ALL, blog_scope, can, can_change_blog_author, has_module
 from apps.core.permissions import IsAdminOrReadOnly
 
 from .models import (
@@ -69,6 +69,24 @@ class BlogContentImageUploadView(APIView):
             {"url": request.build_absolute_uri(default_storage.url(name))},
             status=status.HTTP_201_CREATED,
         )
+
+
+class BlogAuthorListView(APIView):
+    """GET /api/blog/authors/ — personas que se pueden elegir como autoras de un
+    blog. Solo administradoras o madrinas con permiso de cambiar la autoría."""
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        if not can_change_blog_author(request.user):
+            raise PermissionDenied("No tienes permiso para cambiar la autoría.")
+        from django.contrib.auth import get_user_model
+
+        users = get_user_model().objects.filter(is_active=True, is_approved=True).order_by("first_name", "last_name", "email")[:500]
+        return Response([
+            {"id": u.id, "label": f"{u.get_full_name().strip()} ({u.email})" if u.get_full_name().strip() else u.email}
+            for u in users
+        ])
 
 
 class BlogCategoryViewSet(viewsets.ModelViewSet):

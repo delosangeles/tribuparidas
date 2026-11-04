@@ -44,6 +44,8 @@ export interface ModuleAccessInfo {
   approve: boolean;
   edit: boolean;
   delete: boolean;
+  /** Solo blog: puede elegir/cambiar la autora. */
+  change_author?: boolean;
   categories: string[] | null;
 }
 

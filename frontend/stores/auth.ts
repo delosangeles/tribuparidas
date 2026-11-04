@@ -36,6 +36,11 @@ export const useAuthStore = defineStore("auth", () => {
     return true;
   }
 
+  /** Solo blog: ¿puede elegir/cambiar la autora de un artículo? */
+  function canChangeBlogAuthor() {
+    return isAdmin.value || Boolean(moduleAccess.value?.blog?.change_author);
+  }
+
   function setSession(tokens: { access: string; refresh: string; user: User }) {
     accessToken.value = tokens.access;
     refreshToken.value = tokens.refresh;
@@ -124,6 +129,7 @@ export const useAuthStore = defineStore("auth", () => {
     isMadrina,
     canAccessAdmin,
     hasModule,
+    canChangeBlogAuthor,
     can,
     login,
     register,

@@ -9,7 +9,7 @@ definePageMeta({ layout: "admin", middleware: "superadmin" });
 // Madrinas: usuarias (no administradoras) con acceso a módulos puntuales del panel.
 // Ej.: madrina de Lecturas = puede aprobar blogs de esa categoría y eliminar sus comentarios.
 const MODULES: { key: AdminModule; label: string; hint: string; icon: string }[] = [
-  { key: "blog", label: "Blog", hint: "Aprobar, editar y eliminar blogs y comentarios, por categoría.", icon: "file-text" },
+  { key: "blog", label: "Blog", hint: "Aprobar, editar, cambiar estado y autor, y eliminar blogs y comentarios, por categoría.", icon: "file-text" },
   { key: "usuarios", label: "Usuarios", hint: "Aprobar (activar) y editar usuarias. No toca cuentas de administradoras.", icon: "users" },
   { key: "festejos", label: "Festejos", hint: "Aprobar, agregar, editar y eliminar festejos.", icon: "gift" },
 ];
@@ -43,14 +43,17 @@ const name = (m: { first_name: string; last_name: string; email: string }) => `$
 const moduleLabel = (key: string) => MODULES.find((m) => m.key === key)?.label ?? key;
 
 function summarize(access: Madrina["access"][number]) {
-  const actions = ACTIONS.filter((a) => access[`can_${a.key}` as const]).map((a) => a.label.toLowerCase()).join(", ");
+  const actions = [
+    ...ACTIONS.filter((a) => access[`can_${a.key}` as const]).map((a) => a.label.toLowerCase()),
+    ...(access.module === "blog" && access.can_change_author ? ["cambiar autor"] : []),
+  ].join(", ");
   const scope = access.module === "blog" ? (access.categories.length ? ` · ${access.categories.map((c) => c.name).join(", ")}` : " · todas las categorías") : "";
   return `${moduleLabel(access.module)}: ${actions}${scope}`;
 }
 
 // ---- editor (crear o editar)
-type ModuleForm = { enabled: boolean; can_add: boolean; can_approve: boolean; can_edit: boolean; can_delete: boolean; categories: number[] };
-const emptyModuleForm = (): ModuleForm => ({ enabled: false, can_add: false, can_approve: false, can_edit: false, can_delete: false, categories: [] });
+type ModuleForm = { enabled: boolean; can_add: boolean; can_approve: boolean; can_edit: boolean; can_delete: boolean; can_change_author: boolean; categories: number[] };
+const emptyModuleForm = (): ModuleForm => ({ enabled: false, can_add: false, can_approve: false, can_edit: false, can_delete: false, can_change_author: false, categories: [] });
 
 const showEditor = ref(false);
 const target = ref<{ id: number; label: string } | null>(null);
@@ -84,6 +87,7 @@ function resetForm(m?: Madrina) {
           can_approve: access.can_approve,
           can_edit: access.can_edit,
           can_delete: access.can_delete,
+          can_change_author: access.can_change_author,
           categories: access.categories.map((c) => c.id),
         }
       : emptyModuleForm();
@@ -128,6 +132,7 @@ async function save() {
     can_approve: form[m.key].can_approve,
     can_edit: form[m.key].can_edit,
     can_delete: form[m.key].can_delete,
+    can_change_author: m.key === "blog" ? form.blog.can_change_author : false,
     categories: m.key === "blog" ? form.blog.categories : [],
   }));
   if (!access.length) {
@@ -239,6 +244,9 @@ async function confirmRemove() {
                 <div class="mt-1 flex flex-wrap gap-x-5 gap-y-1">
                   <label v-for="a in ACTIONS" :key="a.key" class="flex items-center gap-2 text-sm text-ink">
                     <input v-model="form[m.key][`can_${a.key}` as 'can_add']" type="checkbox" class="h-4 w-4 rounded border-line" /> {{ a.label }}
+                  </label>
+                  <label v-if="m.key === 'blog'" class="flex items-center gap-2 text-sm text-ink">
+                    <input v-model="form.blog.can_change_author" type="checkbox" class="h-4 w-4 rounded border-line" /> Cambiar autor
                   </label>
                 </div>
 

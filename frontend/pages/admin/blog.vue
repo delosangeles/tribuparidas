@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { blogService } from "~/services/blog.service";
-import { userService } from "~/services/user.service";
-import type { BlogPost, BlogPostDetail, BlogFormPayload, User } from "~/types";
+import type { BlogPost, BlogPostDetail, BlogFormPayload } from "~/types";
 
 definePageMeta({ layout: "admin", middleware: "admin", module: "blog" });
 
@@ -30,7 +29,7 @@ const pagination = ref<{ next: string | null; previous: string | null }>({
   previous: null,
 });
 
-const users = ref<User[]>([]);
+const authorList = ref<{ id: number; label: string }[]>([]);
 
 const actingSlug = ref<string | null>(null);
 
@@ -39,13 +38,8 @@ const editing = ref<BlogPostDetail | null>(null);
 const formLoading = ref(false);
 const formError = ref("");
 
-function userLabel(user: { first_name: string; last_name: string; email: string }) {
-  const name = `${user.first_name} ${user.last_name}`.trim();
-  return name ? `${name} (${user.email})` : user.email;
-}
-
 const authorOptions = computed(() => {
-  const options = users.value.map((user) => ({ id: user.id, label: userLabel(user) }));
+  const options = [...authorList.value];
 
   if (editing.value && !options.some((option) => option.id === editing.value?.author)) {
     options.unshift({ id: editing.value.author, label: editing.value.author_name });
@@ -55,13 +49,13 @@ const authorOptions = computed(() => {
 });
 
 async function loadUsers() {
-  // Solo las administradoras (o madrinas con acceso a Usuarios) pueden listar autoras.
-  if (!authStore.hasModule("usuarios")) return;
+  // Solo quien puede cambiar la autoría (administradoras o madrinas con ese permiso) necesita la lista.
+  if (!authStore.canChangeBlogAuthor()) return;
   try {
-    const { data } = await userService.adminList({ page_size: 100 });
-    users.value = data.results;
+    const { data } = await blogService.authors();
+    authorList.value = data;
   } catch {
-    users.value = [];
+    authorList.value = [];
   }
 }
 
@@ -223,6 +217,9 @@ async function remove(item: BlogPost) {
         :submit-label="editing ? 'Guardar cambios' : 'Crear blog'"
         :loading="formLoading"
         :is-admin="authStore.isAdmin"
+        :can-change-status="authStore.can('blog', 'edit', editing?.category_slug)"
+        :can-publish="authStore.can('blog', 'approve', editing?.category_slug)"
+        :can-change-author="authStore.canChangeBlogAuthor()"
         :authors="authorOptions"
         @submit="handleSubmit"
       />
@@ -386,7 +383,7 @@ async function remove(item: BlogPost) {
                 </button>
 
                 <button
-                  v-if="item.status === 'IN_REVIEW' && authStore.can('blog', 'approve', item.category_slug)"
+                  v-if="(item.status === 'DRAFT' || item.status === 'IN_REVIEW') && authStore.can('blog', 'approve', item.category_slug)"
                   class="btn-outline !px-2 !py-1 text-xs !text-emerald-600"
                   :disabled="actingSlug === item.slug"
                   @click="approve(item)"

@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    BlogAuthorListView,
     BlogCategoryViewSet,
     BlogStageViewSet,
     BlogPostViewSet,
@@ -39,6 +40,7 @@ urlpatterns = [
         BlogContentImageUploadView.as_view(),
         name="blog-upload-image",
     ),
+    path("blog/authors/", BlogAuthorListView.as_view(), name="blog-authors"),
     path("blog/<slug:slug>/like/", BlogPostLikeView.as_view(), name="blog-post-like"),
     path("blog/<slug:slug>/read/", BlogPostReadView.as_view(), name="blog-post-read"),
     path(

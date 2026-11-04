@@ -6,7 +6,7 @@ from rest_framework import serializers
 
 from django.utils import timezone
 
-from apps.access.services import can
+from apps.access.services import can, can_change_blog_author
 from apps.core.validators import validate_image_file
 
 from .sanitize import sanitize_blog_html
@@ -218,8 +218,12 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
         if request.user.is_staff:
             validated_data.setdefault("author", request.user)
         elif can(request.user, "blog", "add", category_id=validated_data["category"].id):
-            # Madrina con "agregar" en esta categoría: publica sin revisión, siempre a su nombre.
-            validated_data["author"] = request.user
+            # Madrina con "agregar" en esta categoría: publica sin revisión, a su nombre
+            # salvo que tenga permiso de cambiar la autoría.
+            if not can_change_blog_author(request.user, validated_data["category"].id):
+                validated_data["author"] = request.user
+            else:
+                validated_data.setdefault("author", request.user)
             validated_data["featured"] = False
         else:
             validated_data["author"] = request.user
@@ -236,8 +240,10 @@ class BlogPostWriteSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         request = self.context["request"]
         if not request.user.is_staff:
-            # Solo las administradoras cambian la autoría y destacan blogs.
-            validated_data.pop("author", None)
+            # Solo las administradoras destacan blogs; la autoría la cambian ellas
+            # o las madrinas con ese permiso.
+            if not can_change_blog_author(request.user, instance.category_id):
+                validated_data.pop("author", None)
             validated_data.pop("featured", None)
         return super().update(instance, validated_data)
 
