@@ -12,6 +12,7 @@ class ModuleAccess(models.Model):
         USUARIOS = "usuarios", "Usuarios"
         BLOG = "blog", "Blog"
         FESTEJOS = "festejos", "Festejos"
+        ALIMENTACION = "alimentacion", "Alimentación complementaria"
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="module_access")
     module = models.CharField(max_length=20, choices=Module.choices)

@@ -49,7 +49,7 @@ export interface ModuleAccessInfo {
   categories: string[] | null;
 }
 
-export type AdminModule = "usuarios" | "blog" | "festejos";
+export type AdminModule = "usuarios" | "blog" | "festejos" | "alimentacion";
 export type AdminAction = "add" | "approve" | "edit" | "delete";
 
 export type RegistrationStatus = "registered" | "pending_registration";

@@ -15,6 +15,7 @@ const BASE_LINKS: { to: string; label: string; icon: string; module?: AdminModul
   { to: "/admin/duenas", label: "Portal de emprendimientos", icon: "briefcase" },
   { to: "/admin/membresias", label: "Membresías", icon: "shield" },
   { to: "/admin/festejos", label: "Festejos", icon: "gift", module: "festejos" },
+  { to: "/admin/alimentacion", label: "Alimentación complementaria", icon: "leaf", module: "alimentacion" },
   { to: "/admin/categories", label: "Categorías", icon: "box" },
   { to: "/admin/activity", label: "Historial", icon: "clock" },
   { to: "/admin/ajustes", label: "Ajustes", icon: "settings" },

@@ -5,7 +5,8 @@ export function normalizePath(path: string): string {
 }
 
 // Solo las rutas que empiezan con estos prefijos exigen sesión; el resto del sitio es público.
-const PRIVATE_PREFIXES = ["/dashboard", "/admin", "/festejos", "/registro", "/portal", "/mi-tarjeta"];
+// /alimentacion-complementaria es público (lectura); solo sus favoritos piden sesión.
+const PRIVATE_PREFIXES = ["/dashboard", "/admin", "/festejos", "/registro", "/portal", "/mi-tarjeta", "/alimentacion-complementaria/favoritos"];
 // El registro de emprendedoras del portal es público (crea la cuenta y su emprendimiento en espera).
 const PUBLIC_EXCEPTIONS = ["/portal/registro"];
 

@@ -4,6 +4,7 @@ const MODULE_ROUTES: [AdminModule, string][] = [
   ["usuarios", "/admin/users"],
   ["blog", "/admin/blog"],
   ["festejos", "/admin/festejos"],
+  ["alimentacion", "/admin/alimentacion"],
 ];
 
 export default defineNuxtRouteMiddleware(async (to) => {

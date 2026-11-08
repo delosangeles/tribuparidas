@@ -56,6 +56,7 @@ INSTALLED_APPS = [
     "apps.festejos",
     "apps.access",
     "apps.portal",
+    "apps.alimentacion",
 ]
 
 MIDDLEWARE = [

@@ -12,6 +12,7 @@ const MODULES: { key: AdminModule; label: string; hint: string; icon: string }[]
   { key: "blog", label: "Blog", hint: "Aprobar, editar, cambiar estado y autor, y eliminar blogs y comentarios, por categoría.", icon: "file-text" },
   { key: "usuarios", label: "Usuarios", hint: "Aprobar (activar) y editar usuarias. No toca cuentas de administradoras.", icon: "users" },
   { key: "festejos", label: "Festejos", hint: "Aprobar, agregar, editar y eliminar festejos.", icon: "gift" },
+  { key: "alimentacion", label: "Alimentación complementaria", hint: "Guías, recetas, alimentos y catálogos. «Aprobar» = publicar y ocultar.", icon: "leaf" },
 ];
 const ACTIONS: { key: AdminAction; label: string }[] = [
   { key: "add", label: "Agregar" },
@@ -57,7 +58,7 @@ const emptyModuleForm = (): ModuleForm => ({ enabled: false, can_add: false, can
 
 const showEditor = ref(false);
 const target = ref<{ id: number; label: string } | null>(null);
-const form = reactive<Record<AdminModule, ModuleForm>>({ blog: emptyModuleForm(), usuarios: emptyModuleForm(), festejos: emptyModuleForm() });
+const form = reactive<Record<AdminModule, ModuleForm>>({ blog: emptyModuleForm(), usuarios: emptyModuleForm(), festejos: emptyModuleForm(), alimentacion: emptyModuleForm() });
 const saving = ref(false);
 const editorError = ref("");
 

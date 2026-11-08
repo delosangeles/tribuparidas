@@ -23,6 +23,7 @@ urlpatterns = [
     path("api/", include("apps.festejos.urls")),
     path("api/", include("apps.access.urls")),
     path("api/", include("apps.portal.urls")),
+    path("api/", include("apps.alimentacion.urls")),
 ]
 
 if settings.DEBUG:

@@ -8,7 +8,15 @@ Cada vez que se cree un **módulo nuevo** (app de backend + sección visible en 
 3. **Frontend:** computed `is<Modulo>Live` en `stores/featureFlags.ts`; ocultar enlaces del menú (escritorio y móvil) con `|| authStore.isAdmin`, y redirigir la página si no es admin y el módulo no está lanzado.
 4. **Tests:** fixture autouse que activa el flag (los demás tests asumen "ya lanzado") y tests de que antes del lanzamiento un usuario normal no ve nada y el admin sí.
 5. Módulos existentes con flag: `blog_module`, `festejos_module`, `portal_module` (portal de emprendimientos y Mi tarjeta; `apps/portal`, `is_portal_module_live()` en `apps/portal/services.py`, permiso `PortalModuleLive`).
+   - `alimentacion_module` (Alimentación Complementaria; `apps/alimentacion`, `is_alimentacion_module_live()` en `services.py`, permiso `AlimentacionModuleLive`, `isAlimentacionLive` en el store, middleware `alimentacion.ts`). Con el flag apagado la API responde 404 (salvo al equipo del módulo) y el menú muestra «¡Próximamente!».
 6. Si el módulo no debe ocultarse, dejarlo explícito en `docs/HISTORIAL.md`.
+7. Si lo administran madrinas, sumar su clave a `ModuleAccess.Module`, a `AdminModule` (frontend), a `MODULES` de `pages/admin/madrinas.vue`, a `MODULE_ROUTES` de `middleware/admin.ts` y al `AdminSidebar`.
+
+## Alimentación Complementaria (contenido de salud)
+- **No inventar** cantidades, edades ni recomendaciones médicas. El contenido real lo carga el equipo tras la revisión de un profesional; lo de ejemplo (`manage.py seed_alimentacion_demo`) va titulado «BORRADOR DE PRUEBA» y nunca publicado. No correrlo en producción.
+- Todo se crea como borrador (`status` = `draft|published`, listo para sumar «en revisión»). Publicar/ocultar es la acción «aprobar» de `apps/access`. La sección de Seguridad no se publica sin contenido y nombre del profesional.
+- El aviso «Esta información es orientativa…» (`MedicalDisclaimer.vue`) va en todas las vistas públicas del módulo.
+- Las imágenes se suben aparte (`POST /api/alimentacion/admin/<recursos>/<id>/image/`) con `ImageUploader` (compresión en el cliente) y `validate_image_file` en el servidor.
 
 ## Portal y cuentas "solo portal"
 - `User.account_type` = `member` | `portal`. Las cuentas `portal` solo usan `/api/portal/…`, `/api/me/…` y `/api/auth/…` (lo impone `apps/portal/authentication.py`; si agregas un prefijo de API que deban usar, súmalo ahí). En los tests usa un cliente con JWT real: `force_authenticate` se salta esa clase.

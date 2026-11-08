@@ -5,6 +5,35 @@ Bitácora de lo que se hace en el proyecto, de lo más reciente a lo más antigu
 
 ---
 
+## 2026-11-08
+
+### Módulo Alimentación Complementaria (oculto tras `alimentacion_module`)
+Guía y recetas para mamás que inician la alimentación de su bebé. **Desplegar oculto**: el flag nace sin fecha, se programa en `/admin/lanzamiento`. Sin desplegar todavía (requiere `migrate`; sacar respaldo antes).
+
+**Backend (`apps/alimentacion`, migraciones `0001` modelos + `0002` catálogos iniciales, `core/0009` flag, `access/0003`)**
+- Modelos: `AgeRange`, `Allergen`, `MealType` (catálogos editables), `GuideArticle`, `Recipe`, `RecipeIngredient`, `RecipeStep`, `FoodItem`, `SafetyContent` (un solo registro), `FavoriteRecipe`. Todos con `created_at/updated_at`; los de contenido con `status` `draft|published`.
+- Siembra: solo edades (6-8, 9-11, 12+ meses) y tipos (puré, trozos/BLW, desayuno, almuerzo, snack). **Alérgenos sin sembrar.**
+- API pública `/api/alimentacion/{recetas,guias,alimentos,seguridad,catalogos}/` (lectura abierta, solo publicado; `?preview=1` muestra borradores al equipo del módulo) y con sesión `favoritos/` y `recetas/<slug>/favorito/`. Filtros `q` (sin tildes, incluye ingredientes), `edad`, `tipo`, `sin_alergeno` (excluye recetas con esos alérgenos).
+- Admin `/api/alimentacion/admin/{recetas,guias,alimentos,edades,alergenos,tipos}/` + `seguridad/`: CRUD, `publish`/`unpublish`, `reorder`, `image`. Permisos con el esquema de madrinas: nuevo módulo `alimentacion` en `ModuleAccess`; publicar = «aprobar» (una madrina sin ese permiso solo guarda borradores). Todo cambio en `ActivityLog` (`alimentacion_<recurso>_<verbo>`). Contenido HTML sanitizado con `blog/sanitize.py`.
+- Flag apagado → la API responde 404 a visitantes y usuarias; administradoras y madrinas del módulo la ven. Cuentas sin aprobar o «solo portal» no pueden usar favoritos (`/api/alimentacion/` se sumó a las lecturas públicas en `portal/authentication.py`).
+- `python manage.py seed_alimentacion_demo`: 4 registros «BORRADOR DE PRUEBA» sin contenido médico. **No correr en producción.**
+
+**Frontend**
+- Rutas: `/alimentacion-complementaria` (pestañas Recetas con buscador en tiempo real sin tildes y filtros edad/tipo/«sin alérgeno», Guía, Alimentos, Seguridad), `/alimentacion-complementaria/[slug]` (receta), `/guias/[slug]`, `/favoritos` (privada). SEO propio con `usePageSeo` (title, description, canonical, Open Graph), compartir por WhatsApp, favoritos con corazón, aviso médico fijo (`MedicalDisclaimer`).
+- Panel `/admin/alimentacion` (pestañas Recetas, Guías, Alimentos, Seguridad, Catálogos): crear/editar, ocultar/publicar, ordenar con ↑↓, vista previa y eliminar; imagen con compresión en el cliente. Enlace en `AdminSidebar` y módulo en `/admin/madrinas`.
+- Menú: ítem nuevo «Alimentación Complementaria» junto a Noticias (escritorio y móvil). Con el flag apagado muestra «¡Próximamente!» y no navega; el equipo del módulo entra con la etiqueta «Oculto al público». **Nota:** el badge no existía en el código previo; el enlace antiguo del submenú Blog (`/blog?category=alimentacion`) se conserva (son artículos del blog).
+- `featureFlags.ts` suma `isAlimentacionLive`; `middleware/alimentacion.ts` redirige a `/` si no está lanzado.
+
+**Pruebas:** backend `apps/alimentacion` 37 pasan (flag apagado/encendido/programado, borradores y vista previa, búsqueda sin tildes, filtros, favoritos y su privacidad, cuentas sin aprobar/portal, permisos de escritura y de publicar, ActivityLog, validación de imagen, catálogos protegidos); suite completa con SQLite: solo falla `test_analytics_summary_aggregates_data` (intermitente conocido). Frontend: 65 pasan (`--pool=threads`; el pool por defecto da `spawn EPERM` en este entorno) y `nuxi build` compila (`MSYS_NO_PATHCONV=1`). No se probó con Postgres/Docker ni se recorrió en navegador.
+
+**Pendiente / a decidir**
+- Contenido real y la sección de Seguridad: los carga el equipo tras revisión de un profesional (el flag no debe activarse antes).
+- SEO en SPA: las vistas previas de WhatsApp/Facebook no leen las meta (etapa posterior: prerender o nginx).
+- Plan semanal (fase 2) no implementado. Las imágenes subidas y luego reemplazadas se borran, pero no hay limpieza de huérfanos si se elimina un registro.
+- Recorrido en navegador (móvil 390 px) y prueba de subida de imagen real con HEIC.
+
+---
+
 ## 2026-10-27
 
 ### Activar ≠ aprobar: usuarias del Excel activas y registro abierto con aprobación

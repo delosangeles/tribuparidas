@@ -34,11 +34,16 @@ const BLOG_SUBMENU = [
 const adminHome = computed(() => {
   if (authStore.hasModule("blog")) return "/admin/blog";
   if (authStore.hasModule("usuarios")) return "/admin/users";
-  return "/admin/festejos";
+  if (authStore.hasModule("festejos")) return "/admin/festejos";
+  return "/admin/alimentacion";
 });
 
 // Módulo portal (Mi tarjeta y Portal de emprendimientos): mismo criterio de lanzamiento.
 const portalVisible = computed(() => featureFlagStore.isPortalLive || authStore.isAdmin);
+
+// Alimentación complementaria: el ítem siempre se ve; mientras el módulo no esté
+// lanzado muestra "¡Próximamente!" y no abre nada (solo el equipo del módulo entra a prepararlo).
+const alimentacionOpen = computed(() => featureFlagStore.isAlimentacionLive || authStore.hasModule("alimentacion"));
 
 const canSeeBlog = computed(() => featureFlagStore.isBlogLive || authStore.isAdmin);
 // Igual que el blog: los festejos se revelan en la fecha de lanzamiento, pero
@@ -81,6 +86,14 @@ async function handleLogout() {
         <NuxtLink to="/emprendimientos" class="transition hover:text-gold" active-class="text-gold">Emprendimientos</NuxtLink>
         <NuxtLink to="/noticias" class="transition hover:text-gold" active-class="text-gold">Noticias</NuxtLink>
         <NuxtLink v-if="canSeeFestejos" to="/festejos" class="transition hover:text-gold" active-class="text-gold">Festejos</NuxtLink>
+        <NuxtLink v-if="alimentacionOpen" to="/alimentacion-complementaria" class="flex items-center gap-2 transition hover:text-gold" active-class="text-gold">
+          Alimentación Complementaria
+          <span v-if="!featureFlagStore.isAlimentacionLive" class="badge bg-gold-light text-gold-dark">Oculto al público</span>
+        </NuxtLink>
+        <span v-else class="flex cursor-default items-center gap-2" aria-disabled="true">
+          Alimentación Complementaria
+          <span class="badge bg-gold-light text-gold-dark">¡Próximamente!</span>
+        </span>
 
         <div v-if="canSeeBlog" ref="blogMenuRef" class="relative">
           <button
@@ -202,6 +215,20 @@ async function handleLogout() {
       >
         Festejos
       </NuxtLink>
+      <NuxtLink
+        v-if="alimentacionOpen"
+        to="/alimentacion-complementaria"
+        class="flex items-center gap-2 rounded-xl2 px-3 py-2.5 transition hover:bg-gold-light hover:text-gold"
+        active-class="!bg-gold-light !text-gold"
+        @click="mobileNavOpen = false"
+      >
+        Alimentación Complementaria
+        <span v-if="!featureFlagStore.isAlimentacionLive" class="badge bg-gold-light text-gold-dark">Oculto al público</span>
+      </NuxtLink>
+      <span v-else class="flex cursor-default items-center gap-2 rounded-xl2 px-3 py-2.5" aria-disabled="true">
+        Alimentación Complementaria
+        <span class="badge bg-gold-light text-gold-dark">¡Próximamente!</span>
+      </span>
       <template v-if="canSeeBlog">
         <!-- Blog: al tocarlo se despliegan sus categorías (no ocupan espacio hasta entonces) -->
         <button

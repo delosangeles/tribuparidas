@@ -31,5 +31,7 @@ export const useFeatureFlagStore = defineStore("featureFlags", () => {
 
   const isPortalLive = computed(() => isActive("portal_module"));
 
-  return { flags, loaded, load, isActive, isBlogLive, isFestejosLive, isPortalLive };
+  const isAlimentacionLive = computed(() => isActive("alimentacion_module"));
+
+  return { flags, loaded, load, isActive, isBlogLive, isFestejosLive, isPortalLive, isAlimentacionLive };
 });
