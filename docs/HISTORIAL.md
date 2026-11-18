@@ -5,6 +5,17 @@ Bitácora de lo que se hace en el proyecto, de lo más reciente a lo más antigu
 
 ---
 
+## 2026-11-17
+
+### Alimentación Complementaria: «Recetarios PDF» y categoría «Familia / adultos»
+Para subir recetarios que no siguen el formato de receta (cada PDF con diseño distinto): se sube el archivo y se muestra en un visor dentro de la página. Sigue tras el flag `alimentacion_module` (no cambia el lanzamiento). Sin desplegar; requiere `migrate`.
+- **Backend:** modelo `Cookbook` (título, descripción, `pdf`, portada opcional, categoría de edad opcional, `status`), migraciones `0003_cookbook` y `0004_seed_family_age` (crea la edad «Familia / adultos», slug `familia-adultos`, con `get_or_create`). `validate_pdf_file` en `core/validators.py` (máx. `MAX_PDF_UPLOAD_SIZE_MB` = 10, igual que nginx `client_max_body_size 10M`; revisa extensión y firma `%PDF-`). API pública `/api/alimentacion/recetarios/` y admin `/api/alimentacion/admin/recetarios/` (+ `pdf/` POST/DELETE, `publish`, `reorder`, `image`). No se puede publicar sin PDF; quitar el PDF devuelve a borrador. Acciones en `ActivityLog` (`alimentacion_cookbook_*`).
+- **Frontend:** pestaña «Recetarios PDF» en `/admin/alimentacion` (`CookbooksAdmin.vue`), pestaña «Recetarios» en `/alimentacion-complementaria` y visor `/alimentacion-complementaria/recetarios/[slug]` (iframe + botones «Abrir en pantalla completa» y «Descargar»; en celulares el iframe puede no mostrarse, por eso los botones).
+- Tests: 368 backend (SQLite temporal) y 65 frontend en verde.
+- Pendiente: subir los 20 PDF desde el admin y revisar el visor en producción (los PDF los sirve nginx en `/media/`; si se cambia el límite de 10MB, cambiar también nginx).
+
+---
+
 ## 2026-11-08
 
 ### Módulo Alimentación Complementaria (oculto tras `alimentacion_module`)

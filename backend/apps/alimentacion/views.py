@@ -11,11 +11,12 @@ from rest_framework.views import APIView
 
 from apps.access.services import can, has_module
 from apps.core.models import log_activity
-from apps.core.validators import validate_image_file
+from apps.core.validators import validate_image_file, validate_pdf_file
 
 from .models import (
     AgeRange,
     Allergen,
+    Cookbook,
     FavoriteRecipe,
     FoodItem,
     GuideArticle,
@@ -28,6 +29,9 @@ from .permissions import AlimentacionAdminPermission, AlimentacionModuleLive
 from .serializers import (
     AgeRangeSerializer,
     AllergenSerializer,
+    CookbookAdminSerializer,
+    CookbookDetailSerializer,
+    CookbookListSerializer,
     FoodItemAdminSerializer,
     FoodItemSerializer,
     GuideAdminSerializer,
@@ -85,6 +89,14 @@ class RecipeViewSet(PublicBase, viewsets.ReadOnlyModelViewSet):
         context = super().get_serializer_context()
         context["favorite_ids"] = favorite_ids(self.request.user)
         return context
+
+
+class CookbookViewSet(PublicBase, viewsets.ReadOnlyModelViewSet):
+    def get_queryset(self):
+        return visible(self.request, Cookbook.objects.select_related("age_range"))
+
+    def get_serializer_class(self):
+        return CookbookDetailSerializer if self.action == "retrieve" else CookbookListSerializer
 
 
 class FoodViewSet(PublicBase, viewsets.ReadOnlyModelViewSet):
@@ -150,6 +162,10 @@ class FavoriteToggleView(APIView):
 
 class ImageUploadSerializer(serializers.Serializer):
     image = serializers.ImageField(validators=[validate_image_file])
+
+
+class PdfUploadSerializer(serializers.Serializer):
+    pdf = serializers.FileField(validators=[validate_pdf_file])
 
 
 class AdminBase(viewsets.ModelViewSet):
@@ -271,6 +287,40 @@ class GuideAdminViewSet(ImageActionMixin, AdminBase):
     serializer_class = GuideAdminSerializer
     queryset = GuideArticle.objects.all()
     entity, entity_key = "la guía", "guide"
+
+
+class CookbookAdminViewSet(ImageActionMixin, AdminBase):
+    serializer_class = CookbookAdminSerializer
+    entity, entity_key = "el recetario", "cookbook"
+
+    def get_queryset(self):
+        return Cookbook.objects.select_related("age_range")
+
+    def _set_status(self, new_status, verb, past):
+        if new_status == Status.PUBLISHED and not self.get_object().pdf:
+            return Response({"detail": "Sube el PDF antes de publicar el recetario."}, status=status.HTTP_400_BAD_REQUEST)
+        return super()._set_status(new_status, verb, past)
+
+    @action(detail=True, methods=["post", "delete"], parser_classes=[MultiPartParser])
+    def pdf(self, request, pk=None):
+        obj = self.get_object()
+        if request.method == "DELETE":
+            obj.pdf.delete(save=False)
+            obj.pdf = None
+            obj.status = Status.DRAFT
+            obj.save()
+            self._log("pdf_removed", "quitó el PDF de", obj)
+            return Response(self.get_serializer(obj).data)
+        data = PdfUploadSerializer(data=request.data)
+        data.is_valid(raise_exception=True)
+        file = data.validated_data["pdf"]
+        file.name = f"{uuid.uuid4().hex}.pdf"
+        if obj.pdf:
+            obj.pdf.delete(save=False)
+        obj.pdf = file
+        obj.save()
+        self._log("pdf_updated", "cambió el PDF de", obj)
+        return Response(self.get_serializer(obj).data)
 
 
 class FoodAdminViewSet(AdminBase):

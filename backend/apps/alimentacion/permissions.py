@@ -29,5 +29,6 @@ AlimentacionAdminPermission = module_permission(
         "unpublish": "approve",
         "reorder": "edit",
         "image": "edit",
+        "pdf": "edit",
     },
 )

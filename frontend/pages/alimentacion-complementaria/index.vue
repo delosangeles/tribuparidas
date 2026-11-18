@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { alimentacionService } from "~/services/alimentacion.service";
-import type { Catalogs, FoodItem, GuideSummary, RecipeSummary, SafetyContent } from "~/types/alimentacion";
+import type { Catalogs, CookbookSummary, FoodItem, GuideSummary, RecipeSummary, SafetyContent } from "~/types/alimentacion";
 import { filterRecipes } from "~/utils/alimentacion";
 
 definePageMeta({ middleware: "alimentacion" });
@@ -15,9 +15,10 @@ usePageSeo({
   path: "/alimentacion-complementaria",
 });
 
-type Tab = "recetas" | "guia" | "alimentos" | "seguridad";
+type Tab = "recetas" | "recetarios" | "guia" | "alimentos" | "seguridad";
 const TABS: { key: Tab; label: string }[] = [
   { key: "recetas", label: "Recetas" },
+  { key: "recetarios", label: "Recetarios" },
   { key: "guia", label: "Guía de inicio" },
   { key: "alimentos", label: "Alimentos" },
   { key: "seguridad", label: "Seguridad" },
@@ -27,6 +28,7 @@ watch(tab, (value) => navigateTo({ query: { ...route.query, seccion: value } }, 
 
 const recipes = ref<RecipeSummary[]>([]);
 const guides = ref<GuideSummary[]>([]);
+const cookbooks = ref<CookbookSummary[]>([]);
 const foods = ref<FoodItem[]>([]);
 const safety = ref<SafetyContent | null>(null);
 const catalogs = ref<Catalogs>({ ages: [], meal_types: [], allergens: [] });
@@ -38,18 +40,20 @@ async function load() {
   error.value = "";
   const params = preview.value ? { preview: "1" } : undefined;
   try {
-    const [c, r, g, f, s] = await Promise.all([
+    const [c, r, g, f, s, cb] = await Promise.all([
       alimentacionService.catalogs(),
       alimentacionService.recipes(params),
       alimentacionService.guides(preview.value),
       alimentacionService.foods(preview.value),
       alimentacionService.safety(preview.value),
+      alimentacionService.cookbooks(preview.value),
     ]);
     catalogs.value = c.data;
     recipes.value = r.data;
     guides.value = g.data;
     foods.value = f.data;
     safety.value = s.data;
+    cookbooks.value = cb.data;
   } catch (err) {
     error.value = useErrorMessage(err);
   } finally {
@@ -168,6 +172,29 @@ const queryParam = computed(() => (preview.value ? { preview: 1 } : {}));
           <RecipeCard v-for="recipe in filtered" :key="recipe.id" :recipe="recipe" :preview="preview" @favorite="setFavorite(recipe, $event)" />
         </div>
         <EmptyState v-else icon="leaf" :title="hasFilters ? 'No encontramos recetas con esos filtros' : 'Pronto tendremos recetas para ti'" />
+      </section>
+
+      <!-- Recetarios en PDF -->
+      <section v-else-if="tab === 'recetarios'" class="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <NuxtLink
+          v-for="book in cookbooks"
+          :key="book.id"
+          :to="{ path: `/alimentacion-complementaria/recetarios/${book.slug}`, query: queryParam }"
+          class="card flex flex-col overflow-hidden transition hover:shadow-card"
+        >
+          <img v-if="book.image" :src="book.image" :alt="book.title" loading="lazy" class="aspect-[16/9] w-full object-cover" />
+          <div v-else class="flex aspect-[16/9] w-full items-center justify-center bg-gold-light/40 text-gold-dark">
+            <AppIcon name="file-text" :size="40" />
+          </div>
+          <div class="space-y-2 p-4">
+            <h3 class="font-display text-lg text-ink">{{ book.title }}</h3>
+            <span v-if="book.age_range" class="badge bg-gold-light text-gold-dark">{{ book.age_range.name }}</span>
+            <p v-if="book.summary" class="line-clamp-3 text-sm text-muted">{{ book.summary }}</p>
+          </div>
+        </NuxtLink>
+        <div v-if="!cookbooks.length" class="sm:col-span-2 lg:col-span-3">
+          <EmptyState icon="file-text" title="Pronto tendremos recetarios para ti" />
+        </div>
       </section>
 
       <!-- Guía de inicio -->

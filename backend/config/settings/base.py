@@ -176,6 +176,7 @@ SPECTACULAR_SETTINGS = {
 
 # ---- Límites de subida de imágenes (usados por apps.core.validators) ----
 MAX_IMAGE_UPLOAD_SIZE_MB = 5
+MAX_PDF_UPLOAD_SIZE_MB = 10  # nginx: client_max_body_size 10M
 ALLOWED_IMAGE_CONTENT_TYPES = ["image/jpeg", "image/png", "image/webp"]
 
 FRONTEND_URL = env("FRONTEND_URL", "http://localhost:3000")

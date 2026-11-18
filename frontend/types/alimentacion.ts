@@ -127,3 +127,31 @@ export interface SafetyAdmin {
   reviewed_on: string | null;
   status: AlimentacionStatus;
 }
+
+export interface CookbookSummary {
+  id: number;
+  slug: string;
+  title: string;
+  summary: string;
+  image: string | null;
+  age_range: CatalogRef | null;
+  updated_at: string;
+}
+
+export interface CookbookDetail extends CookbookSummary {
+  pdf: string | null;
+  status: AlimentacionStatus;
+}
+
+export interface CookbookAdmin {
+  id: number;
+  slug: string;
+  title: string;
+  summary: string;
+  pdf: string | null;
+  image: string | null;
+  age_range: number | null;
+  order: number;
+  status: AlimentacionStatus;
+  updated_at: string;
+}

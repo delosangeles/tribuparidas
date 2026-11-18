@@ -6,11 +6,13 @@ from . import views
 public = DefaultRouter()
 public.register("guias", views.GuideViewSet, basename="alimentacion-guide")
 public.register("recetas", views.RecipeViewSet, basename="alimentacion-recipe")
+public.register("recetarios", views.CookbookViewSet, basename="alimentacion-cookbook")
 public.register("alimentos", views.FoodViewSet, basename="alimentacion-food")
 
 admin = DefaultRouter()
 admin.register("recetas", views.RecipeAdminViewSet, basename="alimentacion-admin-recipe")
 admin.register("guias", views.GuideAdminViewSet, basename="alimentacion-admin-guide")
+admin.register("recetarios", views.CookbookAdminViewSet, basename="alimentacion-admin-cookbook")
 admin.register("alimentos", views.FoodAdminViewSet, basename="alimentacion-admin-food")
 admin.register("edades", views.AgeAdminViewSet, basename="alimentacion-admin-age")
 admin.register("alergenos", views.AllergenAdminViewSet, basename="alimentacion-admin-allergen")

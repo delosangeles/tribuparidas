@@ -6,6 +6,7 @@ definePageMeta({ layout: "admin", middleware: "admin", module: "alimentacion" })
 
 const TABS = [
   { key: "recetas", label: "Recetas" },
+  { key: "recetarios", label: "Recetarios PDF" },
   { key: "guias", label: "Guías" },
   { key: "alimentos", label: "Alimentos" },
   { key: "seguridad", label: "Seguridad" },
@@ -54,6 +55,7 @@ const flags = useFeatureFlagStore();
     </nav>
 
     <RecipesAdmin v-if="tab === 'recetas' && ready" :ages="ages" :meal-types="mealTypes" :allergens="allergens" />
+    <CookbooksAdmin v-else-if="tab === 'recetarios' && ready" :ages="ages" />
     <GuidesAdmin v-else-if="tab === 'guias'" />
     <FoodsAdmin v-else-if="tab === 'alimentos' && ready" :ages="ages" :allergens="allergens" />
     <SafetyAdmin v-else-if="tab === 'seguridad'" />

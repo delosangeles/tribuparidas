@@ -6,6 +6,7 @@ from apps.blog.sanitize import sanitize_blog_html
 from .models import (
     AgeRange,
     Allergen,
+    Cookbook,
     FoodItem,
     GuideArticle,
     MealType,
@@ -56,6 +57,19 @@ class GuideListSerializer(serializers.ModelSerializer):
 class GuideDetailSerializer(GuideListSerializer):
     class Meta(GuideListSerializer.Meta):
         fields = GuideListSerializer.Meta.fields + ["content", "status"]
+
+
+class CookbookListSerializer(serializers.ModelSerializer):
+    age_range = CatalogRefSerializer(read_only=True)
+
+    class Meta:
+        model = Cookbook
+        fields = ["id", "slug", "title", "summary", "image", "age_range", "updated_at"]
+
+
+class CookbookDetailSerializer(CookbookListSerializer):
+    class Meta(CookbookListSerializer.Meta):
+        fields = CookbookListSerializer.Meta.fields + ["pdf", "status"]
 
 
 class IngredientSerializer(serializers.ModelSerializer):
@@ -134,6 +148,21 @@ class GuideAdminSerializer(serializers.ModelSerializer):
 
     def validate_content(self, value):
         return sanitize_blog_html(value)
+
+
+class CookbookAdminSerializer(serializers.ModelSerializer):
+    slug = serializers.SlugField(required=False, allow_blank=True)
+    age_range = serializers.PrimaryKeyRelatedField(queryset=AgeRange.objects.all(), required=False, allow_null=True)
+
+    class Meta:
+        model = Cookbook
+        fields = ["id", "slug", "title", "summary", "pdf", "image", "age_range", "order", "status", "created_at", "updated_at"]
+        read_only_fields = ["pdf", "image", "created_at", "updated_at"]
+
+    def validate(self, attrs):
+        if attrs.get("status") == Status.PUBLISHED and not (self.instance and self.instance.pdf):
+            raise serializers.ValidationError({"status": "Sube el PDF antes de publicar el recetario."})
+        return attrs
 
 
 class FoodItemAdminSerializer(serializers.ModelSerializer):

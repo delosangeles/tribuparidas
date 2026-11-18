@@ -3,7 +3,7 @@ from django.db import models
 from django.utils.text import slugify
 
 from apps.core.models import TimeStampedModel
-from apps.core.validators import validate_image_file
+from apps.core.validators import validate_image_file, validate_pdf_file
 
 from .text import normalize_text
 
@@ -90,6 +90,28 @@ class GuideArticle(SluggedModel):
         ordering = ["order", "title"]
         verbose_name = "Guía de inicio"
         verbose_name_plural = "Guías de inicio"
+
+    def __str__(self):
+        return self.title
+
+
+class Cookbook(SluggedModel):
+    """Recetario en PDF: se sube el archivo y se muestra en un visor."""
+
+    slug_source = "title"
+
+    title = models.CharField(max_length=200)
+    summary = models.TextField(blank=True)
+    pdf = models.FileField(upload_to="alimentacion/cookbooks/", blank=True, null=True, validators=[validate_pdf_file])
+    image = models.ImageField(upload_to="alimentacion/cookbooks/covers/", blank=True, null=True, validators=[validate_image_file])
+    age_range = models.ForeignKey(AgeRange, on_delete=models.SET_NULL, null=True, blank=True, related_name="cookbooks")
+    order = models.PositiveIntegerField(default=0)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.DRAFT)
+
+    class Meta:
+        ordering = ["order", "title"]
+        verbose_name = "Recetario PDF"
+        verbose_name_plural = "Recetarios PDF"
 
     def __str__(self):
         return self.title

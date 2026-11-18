@@ -1,5 +1,8 @@
 import type {
   Catalogs,
+  CookbookAdmin,
+  CookbookDetail,
+  CookbookSummary,
   FoodAdmin,
   FoodItem,
   GuideAdmin,
@@ -24,6 +27,10 @@ export const alimentacionService = {
   guides: (previewMode?: boolean) => useApi().get<GuideSummary[]>("/alimentacion/guias/", { params: preview(previewMode) }),
   guide: (slug: string, previewMode?: boolean) =>
     useApi().get<GuideDetail>(`/alimentacion/guias/${slug}/`, { params: preview(previewMode) }),
+  cookbooks: (previewMode?: boolean) =>
+    useApi().get<CookbookSummary[]>("/alimentacion/recetarios/", { params: preview(previewMode) }),
+  cookbook: (slug: string, previewMode?: boolean) =>
+    useApi().get<CookbookDetail>(`/alimentacion/recetarios/${slug}/`, { params: preview(previewMode) }),
   foods: (previewMode?: boolean) => useApi().get<FoodItem[]>("/alimentacion/alimentos/", { params: preview(previewMode) }),
   safety: (previewMode?: boolean) => useApi().get<SafetyContent>("/alimentacion/seguridad/", { params: preview(previewMode) }),
   favorites: () => useApi().get<RecipeSummary[]>("/alimentacion/favoritos/"),
@@ -44,6 +51,12 @@ export const alimentacionService = {
       form.append("image", file);
       return useApi().post<T>(`/alimentacion/admin/${kind}/${id}/image/`, form, MULTIPART);
     },
+    uploadPdf: (id: number, file: File) => {
+      const form = new FormData();
+      form.append("pdf", file);
+      return useApi().post<CookbookAdmin>(`/alimentacion/admin/recetarios/${id}/pdf/`, form, MULTIPART);
+    },
+    removePdf: (id: number) => useApi().delete<CookbookAdmin>(`/alimentacion/admin/recetarios/${id}/pdf/`),
     removeImage: <T>(kind: string, id: number) => useApi().delete<T>(`/alimentacion/admin/${kind}/${id}/image/`),
     recipes: (params?: Record<string, string>) => useApi().get<RecipeAdmin[]>("/alimentacion/admin/recetas/", { params }),
     guides: () => useApi().get<GuideAdmin[]>("/alimentacion/admin/guias/"),

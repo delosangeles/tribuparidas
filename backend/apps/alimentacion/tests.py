@@ -10,7 +10,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from apps.access.models import ModuleAccess
 from apps.core.models import ActivityLog, FeatureFlag
 
-from .models import AgeRange, Allergen, FavoriteRecipe, FoodItem, GuideArticle, MealType, Recipe, SafetyContent, Status
+from .models import AgeRange, Allergen, Cookbook, FavoriteRecipe, FoodItem, GuideArticle, MealType, Recipe, SafetyContent, Status
 from .text import normalize_text
 
 User = get_user_model()
@@ -104,7 +104,7 @@ def test_normalize_text_removes_accents_and_case():
 
 
 def test_catalogs_are_seeded_and_allergens_are_not(db):
-    assert list(AgeRange.objects.values_list("slug", flat=True)) == ["6-8-meses", "9-11-meses", "12-meses"]
+    assert list(AgeRange.objects.values_list("slug", flat=True)) == ["6-8-meses", "9-11-meses", "12-meses", "familia-adultos"]
     assert MealType.objects.count() == 5
     assert Allergen.objects.count() == 0
 
@@ -463,3 +463,57 @@ def test_can_assign_alimentacion_module_to_madrina():
     )
     assert response.status_code == 200, response.data
     assert ModuleAccess.objects.filter(user=target, module="alimentacion", can_add=True).exists()
+
+
+# ---------- Recetarios en PDF ----------
+
+def pdf_file(name="recetario.pdf", content=b"%PDF-1.4 fake"):
+    return SimpleUploadedFile(name, content, content_type="application/pdf")
+
+
+def test_family_age_is_seeded(db):
+    assert AgeRange.objects.get(slug="familia-adultos").name == "Familia / adultos"
+
+
+def test_cookbook_upload_publish_and_public_view(cats, admin):
+    api = client(admin)
+    created = api.post(BASE + "/admin/recetarios/", {"title": "60 Desayunos del mundo"}, format="json")
+    assert created.status_code == 201
+    cid = created.data["id"]
+    # sin PDF no se puede publicar
+    assert api.post(f"{BASE}/admin/recetarios/{cid}/publish/").status_code == 400
+    assert api.patch(f"{BASE}/admin/recetarios/{cid}/", {"status": "published"}, format="json").status_code == 400
+    assert client().get(BASE + "/recetarios/").data == []
+    up = api.post(f"{BASE}/admin/recetarios/{cid}/pdf/", {"pdf": pdf_file()}, format="multipart")
+    assert up.status_code == 200 and up.data["pdf"].endswith(".pdf")
+    assert api.post(f"{BASE}/admin/recetarios/{cid}/publish/").status_code == 200
+    listing = client().get(BASE + "/recetarios/").data
+    assert [c["title"] for c in listing] == ["60 Desayunos del mundo"]
+    assert "pdf" not in listing[0]
+    detail = client().get(BASE + "/recetarios/60-desayunos-del-mundo/").data
+    assert detail["pdf"].endswith(".pdf")
+    assert ActivityLog.objects.filter(action="alimentacion_cookbook_pdf_updated").exists()
+
+
+def test_cookbook_rejects_non_pdf_and_draft_hidden(cats, admin):
+    api = client(admin)
+    cid = api.post(BASE + "/admin/recetarios/", {"title": "X"}, format="json").data["id"]
+    fake = SimpleUploadedFile("a.pdf", b"no soy pdf", content_type="application/pdf")
+    assert api.post(f"{BASE}/admin/recetarios/{cid}/pdf/", {"pdf": fake}, format="multipart").status_code == 400
+    wrong_ext = SimpleUploadedFile("a.txt", b"%PDF-1.4", content_type="text/plain")
+    assert api.post(f"{BASE}/admin/recetarios/{cid}/pdf/", {"pdf": wrong_ext}, format="multipart").status_code == 400
+    assert client().get(f"{BASE}/recetarios/x/").status_code == 404
+    assert Cookbook.objects.get(pk=cid).pdf.name in ("", None)
+
+
+def test_cookbook_remove_pdf_unpublishes(cats, admin):
+    api = client(admin)
+    cid = api.post(BASE + "/admin/recetarios/", {"title": "Y", "age_range": cats["age"].id}, format="json").data["id"]
+    api.post(f"{BASE}/admin/recetarios/{cid}/pdf/", {"pdf": pdf_file()}, format="multipart")
+    api.post(f"{BASE}/admin/recetarios/{cid}/publish/")
+    r = api.delete(f"{BASE}/admin/recetarios/{cid}/pdf/")
+    assert r.status_code == 200 and r.data["status"] == "draft" and not r.data["pdf"]
+
+
+def test_cookbook_requires_module_permission(cats, user):
+    assert client(user).get(BASE + "/admin/recetarios/").status_code in (401, 403)
