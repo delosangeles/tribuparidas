@@ -60,12 +60,7 @@ if (!b) useHead({ meta: [{ name: "robots", content: "noindex" }] });
           <a :href="book.pdf" target="_blank" rel="noopener" class="btn-primary">Abrir en pantalla completa</a>
           <a :href="book.pdf" download class="btn-outline">Descargar PDF</a>
         </div>
-        <!-- En celulares algunos navegadores no incrustan PDF: por eso los botones de arriba. -->
-        <iframe
-          :src="book.pdf"
-          :title="book.title"
-          class="h-[75vh] w-full rounded-xl2 border border-line bg-white shadow-soft"
-        />
+        <ClientOnly><PdfViewer :url="book.pdf" :title="book.title" /></ClientOnly>
       </template>
       <EmptyState v-else icon="file-text" title="Este recetario aún no tiene archivo" />
     </article>
