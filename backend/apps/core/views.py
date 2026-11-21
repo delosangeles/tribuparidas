@@ -11,6 +11,7 @@ from rest_framework.views import APIView
 from apps.core.validators import validate_phone_with_country_code
 
 from .models import (
+    BOOLEAN_SITE_SETTINGS,
     SITE_SETTING_KEYS,
     ActivityLog,
     FeatureFlag,
@@ -45,7 +46,12 @@ class SiteSettingsView(APIView):
         errors = {}
         values = {}
         for key, raw in request.data.items():
-            value = str(raw or "").strip()
+            value = str(raw if raw is not None else "").strip()
+            if key in BOOLEAN_SITE_SETTINGS:
+                if value.lower() not in ("1", "0", "true", "false"):
+                    errors[key] = ["Debe ser verdadero o falso."]
+                    continue
+                value = "1" if value.lower() in ("1", "true") else "0"
             if key == "access_whatsapp" and value:
                 try:
                     validate_phone_with_country_code(value)

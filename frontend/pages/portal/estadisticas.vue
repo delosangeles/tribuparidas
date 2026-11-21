@@ -36,6 +36,12 @@ const PERIODS = [
           <StatCard v-for="p in PERIODS" :key="p.key" :label="p.label" :value="stats.redemptions[p.key]" icon="gift" />
         </div>
       </section>
+      <section v-if="stats.external_redemptions?.total">
+        <h2 class="mb-2 font-semibold text-ink">Descuentos a clientes externos</h2>
+        <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <StatCard v-for="p in PERIODS" :key="p.key" :label="p.label" :value="stats.external_redemptions[p.key]" icon="gift" />
+        </div>
+      </section>
     </template>
   </div>
 </template>

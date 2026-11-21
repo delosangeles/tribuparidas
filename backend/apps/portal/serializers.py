@@ -1,4 +1,7 @@
+from datetime import timedelta
+
 from django.contrib.auth.password_validation import validate_password
+from django.utils import timezone
 from rest_framework import serializers
 
 from apps.businesses.models import Business, BusinessImage
@@ -160,6 +163,53 @@ class BusinessOwnerSerializer(serializers.ModelSerializer):
         if not user.is_active:
             raise serializers.ValidationError("La cuenta debe estar activa (aprobada).")
         return user
+
+
+class TeamMemberSerializer(serializers.ModelSerializer):
+    """Vendedora de un emprendimiento. Se crea con el correo de una persona ya registrada;
+    `days` define cuántos días dura el acceso (vacío = sin vencimiento)."""
+
+    email = serializers.EmailField(write_only=True, required=False)
+    days = serializers.IntegerField(write_only=True, required=False, allow_null=True, min_value=1, max_value=365)
+    user_name = serializers.CharField(source="user.get_full_name", read_only=True)
+    user_email = serializers.CharField(source="user.email", read_only=True)
+    is_expired = serializers.BooleanField(read_only=True)
+
+    class Meta:
+        model = BusinessOwner
+        fields = ["id", "email", "days", "user_name", "user_email", "expires_at", "is_expired", "created_at"]
+        read_only_fields = ["id", "expires_at", "created_at"]
+
+    def validate(self, attrs):
+        business = self.context["business"]
+        if self.instance is None:
+            email = attrs.pop("email", None)
+            if not email:
+                raise serializers.ValidationError({"email": "Escribe el correo de la persona."})
+            user = User.objects.filter(email__iexact=email, is_active=True).first()
+            if user is None:
+                raise serializers.ValidationError({"email": "No hay una persona activa registrada con ese correo."})
+            existing = BusinessOwner.objects.filter(user=user, business=business).first()
+            if existing and (existing.role == BusinessOwner.Role.OWNER or not existing.is_expired):
+                raise serializers.ValidationError({"email": "Esa persona ya tiene acceso a este emprendimiento."})
+            attrs["user"] = user
+            self._existing = existing  # acceso vencido: se renueva en lugar de duplicar
+        attrs.pop("email", None)
+        if "days" in attrs:
+            days = attrs.pop("days")
+            attrs["expires_at"] = timezone.now() + timedelta(days=days) if days else None
+        elif self.instance is None:
+            attrs["expires_at"] = None
+        return attrs
+
+    def create(self, validated_data):
+        existing = getattr(self, "_existing", None)
+        if existing:
+            for key, value in validated_data.items():
+                setattr(existing, key, value)
+            existing.save()
+            return existing
+        return super().create(validated_data)
 
 
 class MemberNoticeSerializer(serializers.ModelSerializer):

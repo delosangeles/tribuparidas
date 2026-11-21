@@ -313,3 +313,15 @@ Cambio de diseño pedido: quien entra directo a `/portal/registro` ya no queda e
 - **Nuevo permiso "Cambiar autor"** (solo módulo Blog) en Admin → Madrinas: campo `ModuleAccess.can_change_author` (migración `access/0002`), `can_change_blog_author()` en `access/services.py` (respeta categorías), expuesto como `module_access.blog.change_author`. `BlogPostWriteSerializer` ya no descarta el autor para esas madrinas (al editar y al crear). Nuevo `GET /api/blog/authors/` (admin o madrina con ese permiso) para llenar el selector sin depender del módulo Usuarios.
 - **Listado `/admin/blog`:** el botón **Aprobar** aparece en posts en **borrador o en revisión** (Rechazar sigue solo en revisión).
 - Tests en `apps/access/tests.py` (sin ejecutar: no hay Django/Docker activo en esta sesión; correr pytest antes de desplegar). Sin desplegar; requiere `migrate`.
+
+### Portal: la dueña gestiona su equipo de vendedoras (`/portal/equipo`)
+- La dueña agrega como **vendedora** a una persona **ya registrada** (por correo) y puede fijar una **duración en días**; vacío = sin vencimiento. Puede cambiar la duración, renovar un acceso vencido o quitar a la vendedora.
+- **Backend:** `BusinessOwner.expires_at` (migración `portal/0003`). Al vencer, el acceso deja de valer (`services.active_access`, usado en `portal_membership`, `/portal/me` y `has_portal_access`): se aplica en cada petición, sin tarea programada. La cuenta de la persona no se desactiva, solo su acceso a ese emprendimiento. Endpoints `GET/POST /portal/businesses/<id>/team/` y `PATCH/DELETE …/team/<pk>/` (solo dueña, con `PortalBusinessMixin`); queda en el registro de actividad. Solo crea vendedoras, nunca dueñas; el admin sigue asignando dueñas.
+- **Frontend:** `pages/portal/equipo.vue`, "Mi equipo" en `PortalSidebar`, `portalService.team/addSeller/updateSeller/removeSeller`.
+- Sin FeatureFlag propio: amplía el portal ya lanzado. Tests nuevos en `apps/portal/tests.py` (171 pasan en `portal` + `users`). Requiere `migrate` al desplegar. Sin desplegar.
+
+### Lector de QR: «Aplicar descuento a cliente externo» (activable desde Admin → Ajustes)
+- **Admin → Ajustes generales:** interruptor «Descuento a cliente externo» (ajuste `external_discount_enabled`, guardado como "1"/"0" en `SiteSetting`; queda en el historial de actividad). **Apagado por defecto**: hay que activarlo para que aparezca.
+- **Portal → Escanear:** con el ajuste activo aparece el botón «Aplicar descuento a cliente externo», que pide solo nombre y apellido y aplica el beneficio vigente del emprendimiento. Lo pueden usar dueñas y vendedoras.
+- **Backend:** modelo `ExternalRedemption` (migración `portal/0004`), `POST /portal/businesses/<id>/redeem/external/` (`RedeemExternalView`, con `PortalBusinessMixin`). Responde 403 `external_disabled` si el ajuste está apagado y exige emprendimiento aprobado y beneficio vigente. Sin tope diario (no hay cuenta que identificar). Queda en el registro de actividad (`external_discount_redeemed`) y se cuenta aparte en Estadísticas (`external_redemptions`).
+- Sin FeatureFlag propio: no es un módulo nuevo, es un ajuste del portal ya lanzado. Requiere `migrate`. Sin desplegar.

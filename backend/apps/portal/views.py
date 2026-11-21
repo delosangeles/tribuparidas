@@ -16,7 +16,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 
 from apps.businesses.models import Business, BusinessImage
 from apps.businesses.views import MAX_IMAGES_PER_BUSINESS
-from apps.core.models import log_activity
+from apps.core.models import external_discount_enabled, log_activity
 from apps.questions.models import Answer, Question
 from apps.questions.serializers import QuestionSerializer
 from apps.reviews.models import Review
@@ -32,6 +32,7 @@ from .models import (
     CardVisit,
     DataSharingConsent,
     DiscountRedemption,
+    ExternalRedemption,
     MemberNotice,
     Membership,
     ReviewReply,
@@ -41,6 +42,7 @@ from .serializers import (
     AdminBenefitSerializer,
     BenefitSerializer,
     BusinessOwnerSerializer,
+    TeamMemberSerializer,
     ChangeLogSerializer,
     FAQSerializer,
     MemberNoticeSerializer,
@@ -53,6 +55,7 @@ from .serializers import (
     ReplySerializer,
 )
 from .services import (
+    active_access,
     BOGOTA,
     PORTAL_BUSINESS_STATUSES,
     CardError,
@@ -88,7 +91,9 @@ class PortalMeView(APIView):
     permission_classes = [permissions.IsAuthenticated, PortalModuleLive]
 
     def get(self, request):
-        rows = BusinessOwner.objects.filter(user=request.user, business__status__in=PORTAL_BUSINESS_STATUSES).select_related("business")
+        rows = active_access(
+            BusinessOwner.objects.filter(user=request.user, business__status__in=PORTAL_BUSINESS_STATUSES)
+        ).select_related("business")
         return Response(
             [
                 {
@@ -336,6 +341,7 @@ class PortalStatsView(PortalBusinessMixin, APIView):
             {
                 "visits": _period_counts(CardVisit.objects.filter(business=self.business)),
                 "redemptions": _period_counts(DiscountRedemption.objects.filter(business=self.business)),
+                "external_redemptions": _period_counts(ExternalRedemption.objects.filter(business=self.business)),
             }
         )
 
@@ -442,6 +448,44 @@ class RedeemConfirmView(PortalBusinessMixin, APIView):
         )
         return Response(
             {"detail": "Descuento aplicado.", "percentage": redemption.percentage, "member": {"name": user.get_full_name()}},
+            status=status.HTTP_201_CREATED,
+        )
+
+
+class RedeemExternalView(PortalBusinessMixin, APIView):
+    """POST {first_name, last_name} — aplica el descuento a un cliente externo. Solo si un admin
+    activó la opción; exige que el emprendimiento esté aprobado y con beneficio vigente."""
+
+    write_requires_owner = False
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = "portal_redeem"
+
+    def post(self, request, business_id):
+        if not external_discount_enabled():
+            return Response({"code": "external_disabled", "detail": "Esta opción no está activa."}, status=status.HTTP_403_FORBIDDEN)
+        names = {}
+        for field, label in (("first_name", "nombre"), ("last_name", "apellido")):
+            value = " ".join(str(request.data.get(field) or "").split())
+            if not value:
+                raise ValidationError({field: f"Escribe el {label}."})
+            if len(value) > 80:
+                raise ValidationError({field: f"El {label} es demasiado largo."})
+            names[field] = value
+        if self.business.status != "approved":
+            return _card_error_response(CardError("business_not_approved", "Este emprendimiento aún está en revisión."), None)
+        benefit = BusinessBenefit.objects.filter(business=self.business).first()
+        if benefit is None or not benefit.is_valid_on(bogota_today()):
+            return _card_error_response(CardError("no_benefit", "Este emprendimiento no tiene un beneficio vigente."), None)
+        redemption = ExternalRedemption.objects.create(
+            business=self.business, percentage=benefit.percentage, redeemed_by=request.user, **names
+        )
+        log_activity(
+            request.user, "external_discount_redeemed",
+            f"{request.user.email} aplicó {redemption.percentage}% a cliente externo {names['first_name']} {names['last_name']} en «{self.business.name}».",
+            target=self.business,
+        )
+        return Response(
+            {"detail": "Descuento aplicado.", "percentage": redemption.percentage, "name": f"{names['first_name']} {names['last_name']}"},
             status=status.HTTP_201_CREATED,
         )
 
@@ -652,6 +696,45 @@ class RequestMemberConversionView(APIView):
 
 
 # ---------------------------------------------------------------- Admin
+
+
+class PortalTeamView(PortalBusinessMixin, generics.ListCreateAPIView):
+    """GET/POST /api/portal/businesses/<id>/team/ — la dueña asigna vendedoras (personas ya
+    registradas) a su emprendimiento, con una duración opcional."""
+
+    owner_only = True
+    serializer_class = TeamMemberSerializer
+    pagination_class = None
+
+    def get_queryset(self):
+        return BusinessOwner.objects.filter(business=self.business, role=BusinessOwner.Role.SELLER).select_related("user")
+
+    def perform_create(self, serializer):
+        access = serializer.save(business=self.business, role=BusinessOwner.Role.SELLER, assigned_by=self.request.user)
+        log_activity(
+            self.request.user, "portal_seller_assigned",
+            f"{self.request.user.email} asignó a {access.user.email} como vendedora de «{self.business.name}».",
+            target=self.business,
+        )
+
+
+class PortalTeamDetailView(PortalBusinessMixin, generics.UpdateAPIView, generics.DestroyAPIView):
+    """PATCH/DELETE /api/portal/businesses/<id>/team/<pk>/ — cambia la duración o quita a la vendedora."""
+
+    owner_only = True
+    serializer_class = TeamMemberSerializer
+    http_method_names = ["patch", "delete", "head", "options"]
+
+    def get_queryset(self):
+        return BusinessOwner.objects.filter(business=self.business, role=BusinessOwner.Role.SELLER).select_related("user")
+
+    def perform_destroy(self, instance):
+        log_activity(
+            self.request.user, "portal_seller_removed",
+            f"{self.request.user.email} quitó a {instance.user.email} como vendedora de «{self.business.name}».",
+            target=self.business,
+        )
+        instance.delete()
 
 
 class AdminBusinessOwnerViewSet(viewsets.ModelViewSet):

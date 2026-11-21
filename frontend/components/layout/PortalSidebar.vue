@@ -15,6 +15,7 @@ const LINKS = [
   { to: "/portal/faq", label: "Preguntas frecuentes", icon: "file-text", owner: true },
   { to: "/portal/beneficio", label: "Beneficio Tribu", icon: "gift", owner: true },
   { to: "/portal/estadisticas", label: "Estadísticas", icon: "chart", owner: false },
+  { to: "/portal/equipo", label: "Mi equipo", icon: "users", owner: true },
   { to: "/portal/usuarias", label: "Usuarias", icon: "users", owner: true },
   { to: "/portal/historial", label: "Historial de cambios", icon: "clock", owner: true },
 ];

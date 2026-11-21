@@ -13,6 +13,7 @@ import type {
   PortalImage,
   PortalMember,
   PortalReview,
+  PortalTeamMember,
   PortalStats,
   Question,
   RedeemPreview,
@@ -95,8 +96,23 @@ export const portalService = {
   members(id: number, params: Record<string, unknown> = {}) {
     return useApi().get<Paginated<PortalMember>>(`${base(id)}/members/`, { params });
   },
+  team(id: number) {
+    return useApi().get<PortalTeamMember[]>(`${base(id)}/team/`);
+  },
+  addSeller(id: number, payload: { email: string; days: number | null }) {
+    return useApi().post<PortalTeamMember>(`${base(id)}/team/`, payload);
+  },
+  updateSeller(id: number, memberId: number, days: number | null) {
+    return useApi().patch<PortalTeamMember>(`${base(id)}/team/${memberId}/`, { days });
+  },
+  removeSeller(id: number, memberId: number) {
+    return useApi().delete(`${base(id)}/team/${memberId}/`);
+  },
   redeemPreview(id: number, payload: { token?: string; code?: string }) {
     return useApi().post<RedeemPreview>(`${base(id)}/redeem/preview/`, payload);
+  },
+  redeemExternal(id: number, payload: { first_name: string; last_name: string }) {
+    return useApi().post<{ detail: string; percentage: number; name: string }>(`${base(id)}/redeem/external/`, payload);
   },
   redeemConfirm(id: number, ticket: string) {
     return useApi().post<{ detail: string; percentage: number; member: { name: string } }>(

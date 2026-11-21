@@ -100,6 +100,7 @@ export interface PeriodCounts {
 export interface PortalStats {
   visits: PeriodCounts;
   redemptions: PeriodCounts;
+  external_redemptions: PeriodCounts;
 }
 
 export interface PortalMember {
@@ -168,6 +169,15 @@ export interface BusinessOwnerRow {
   business: number;
   business_name: string;
   role: PortalRole;
+  created_at: string;
+}
+
+export interface PortalTeamMember {
+  id: number;
+  user_name: string;
+  user_email: string;
+  expires_at: string | null;
+  is_expired: boolean;
   created_at: string;
 }
 

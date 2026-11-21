@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
+from django.utils import timezone
 
 from apps.businesses.models import Business
 from apps.core.models import TimeStampedModel
@@ -25,10 +26,16 @@ class BusinessOwner(models.Model):
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="+"
     )
     created_at = models.DateTimeField(auto_now_add=True)
+    # Solo para vendedoras: pasada esta fecha el acceso queda inactivo (null = sin vencimiento).
+    expires_at = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["business_id", "role", "id"]
         constraints = [models.UniqueConstraint(fields=["user", "business"], name="portal_acceso_unico")]
+
+    @property
+    def is_expired(self):
+        return self.expires_at is not None and self.expires_at <= timezone.now()
 
     def __str__(self):
         return f"{self.user} · {self.business} ({self.role})"
@@ -118,6 +125,22 @@ class DiscountRedemption(models.Model):
         constraints = [
             models.UniqueConstraint(fields=["user", "business", "local_date"], name="canje_unico_por_dia")
         ]
+        indexes = [models.Index(fields=["business", "created_at"])]
+
+
+class ExternalRedemption(models.Model):
+    """Descuento aplicado a un cliente externo (sin cuenta en la plataforma): solo nombre y
+    apellido. No hay tope diario porque no hay cuenta que identificar."""
+
+    business = models.ForeignKey(Business, on_delete=models.CASCADE, related_name="external_redemptions")
+    first_name = models.CharField(max_length=80)
+    last_name = models.CharField(max_length=80)
+    percentage = models.PositiveSmallIntegerField()
+    redeemed_by = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, related_name="+")
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
         indexes = [models.Index(fields=["business", "created_at"])]
 
 

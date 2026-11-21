@@ -8,6 +8,7 @@ from datetime import timedelta
 from zoneinfo import ZoneInfo
 
 from django.core import signing
+from django.db.models import Q
 from django.utils import timezone
 
 from apps.core.models import FeatureFlag
@@ -46,13 +47,18 @@ def is_portal_module_live():
 # ---------- Acceso al emprendimiento ----------
 
 
+def active_access(queryset):
+    """Excluye los accesos vencidos (vendedoras con duración limitada)."""
+    return queryset.filter(Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now()))
+
+
 def portal_membership(user, business_id):
     """Fila BusinessOwner de la usuaria para ese emprendimiento (o None).
     Es la única fuente de verdad de "este emprendimiento es suyo"."""
     if not user or not user.is_authenticated:
         return None
     return (
-        BusinessOwner.objects.filter(user=user, business_id=business_id, business__status__in=PORTAL_BUSINESS_STATUSES)
+        active_access(BusinessOwner.objects.filter(user=user, business_id=business_id, business__status__in=PORTAL_BUSINESS_STATUSES))
         .select_related("business")
         .first()
     )

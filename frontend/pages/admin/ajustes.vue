@@ -5,12 +5,31 @@ import { siteSettingsService } from "~/services/site-settings.service";
 definePageMeta({ layout: "admin", middleware: "admin" });
 
 const form = reactive({ access_whatsapp: "" });
+const externalEnabled = ref(false);
+const externalSaving = ref(false);
+const externalMessage = ref("");
 const saving = ref(false);
 const message = ref("");
 const error = ref("");
 
 const { data } = await siteSettingsService.get();
 form.access_whatsapp = data.access_whatsapp;
+externalEnabled.value = data.external_discount_enabled === "1";
+
+async function toggleExternal() {
+  externalSaving.value = true;
+  externalMessage.value = error.value = "";
+  const next = !externalEnabled.value;
+  try {
+    const { data: saved } = await siteSettingsService.update({ external_discount_enabled: next ? "1" : "0" });
+    externalEnabled.value = saved.external_discount_enabled === "1";
+    externalMessage.value = externalEnabled.value ? "Activado: el lector de QR ya ofrece la opción." : "Desactivado: la opción desapareció del lector.";
+  } catch (err) {
+    error.value = useErrorMessage(err);
+  } finally {
+    externalSaving.value = false;
+  }
+}
 
 const invalid = computed(() => form.access_whatsapp.trim() !== "" && !new RegExp(PHONE_PATTERN).test(form.access_whatsapp.trim()));
 const whatsappLink = computed(() => {
@@ -58,5 +77,31 @@ async function save() {
       <p v-if="message" class="text-sm text-emerald-600">{{ message }}</p>
       <button class="btn-primary" :disabled="saving || invalid">{{ saving ? "Guardando..." : "Guardar" }}</button>
     </form>
+
+    <section class="card space-y-3 p-5">
+      <div class="flex items-start justify-between gap-4">
+        <div>
+          <h2 class="font-semibold text-ink">Descuento a cliente externo</h2>
+          <p class="mt-1 text-xs text-muted">
+            Muestra en el lector de QR del portal la opción «Aplicar descuento a cliente externo», para personas sin cuenta (se pide solo
+            nombre y apellido). Aplica el beneficio vigente del emprendimiento y queda en el historial.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          :aria-checked="externalEnabled"
+          :disabled="externalSaving"
+          class="relative h-6 w-11 shrink-0 rounded-full transition-colors disabled:opacity-50"
+          :class="externalEnabled ? 'bg-gold' : 'bg-line'"
+          aria-label="Activar descuento a cliente externo"
+          @click="toggleExternal"
+        >
+          <span class="absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform" :class="externalEnabled && 'translate-x-5'" />
+        </button>
+      </div>
+      <p class="text-xs font-medium" :class="externalEnabled ? 'text-emerald-600' : 'text-muted'">{{ externalEnabled ? "Activo" : "Desactivado" }}</p>
+      <p v-if="externalMessage" class="text-sm text-emerald-600">{{ externalMessage }}</p>
+    </section>
   </div>
 </template>

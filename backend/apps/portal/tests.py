@@ -859,3 +859,122 @@ def test_migrate_registered_benefits_creates_approved_discounts_only_when_clear(
     assert APIClient().get("/api/businesses/").json()["results"] and {
         b["name"]: b["portal_benefit_percentage"] for b in APIClient().get("/api/businesses/").json()["results"]
     }["Claro"] == 10
+
+
+# ---------------------------------------------------------------- Equipo (vendedoras)
+
+
+def test_owner_assigns_existing_person_as_seller_with_duration(owner_a, biz_a):
+    person = make_user("nueva@example.com", first_name="Nora")
+    resp = client_for(owner_a).post(f"/api/portal/businesses/{biz_a.id}/team/", {"email": "NUEVA@example.com", "days": 7}, format="json")
+    assert resp.status_code == 201, resp.data
+    access = BusinessOwner.objects.get(user=person, business=biz_a)
+    assert access.role == "seller" and access.assigned_by == owner_a
+    assert timedelta(days=6, hours=23) < access.expires_at - timezone.now() <= timedelta(days=7)
+    assert client_for(owner_a).get(f"/api/portal/businesses/{biz_a.id}/team/").data[0]["user_email"] == "nueva@example.com"
+
+
+def test_team_rejects_unknown_email_and_duplicates(owner_a, seller_a, biz_a):
+    client = client_for(owner_a)
+    url = f"/api/portal/businesses/{biz_a.id}/team/"
+    assert client.post(url, {"email": "nadie@example.com"}, format="json").status_code == 400
+    assert client.post(url, {"email": seller_a.email}, format="json").status_code == 400
+    assert client.post(url, {"email": owner_a.email}, format="json").status_code == 400
+
+
+def test_seller_cannot_manage_team(seller_a, biz_a):
+    make_user("otra@example.com")
+    client = client_for(seller_a)
+    assert client.get(f"/api/portal/businesses/{biz_a.id}/team/").status_code == 403
+    assert client.post(f"/api/portal/businesses/{biz_a.id}/team/", {"email": "otra@example.com"}, format="json").status_code == 403
+
+
+def test_other_owner_cannot_touch_team(owner_b, seller_a, biz_a):
+    access = BusinessOwner.objects.get(user=seller_a)
+    client = client_for(owner_b)
+    assert client.get(f"/api/portal/businesses/{biz_a.id}/team/").status_code == 404
+    assert client.delete(f"/api/portal/businesses/{biz_a.id}/team/{access.id}/").status_code == 404
+
+
+def test_expired_seller_loses_access_and_can_be_renewed(owner_a, seller_a, biz_a):
+    access = BusinessOwner.objects.get(user=seller_a)
+    access.expires_at = timezone.now() - timedelta(minutes=1)
+    access.save()
+    seller = client_for(seller_a)
+    assert seller.get(f"/api/portal/businesses/{biz_a.id}/stats/").status_code == 404
+    assert seller.get("/api/portal/me/").data == []
+    owner = client_for(owner_a)
+    resp = owner.post(f"/api/portal/businesses/{biz_a.id}/team/", {"email": seller_a.email, "days": 30}, format="json")
+    assert resp.status_code == 201
+    assert BusinessOwner.objects.filter(user=seller_a, business=biz_a).count() == 1
+    assert seller.get(f"/api/portal/businesses/{biz_a.id}/stats/").status_code == 200
+
+
+def test_owner_updates_duration_and_removes_seller(owner_a, seller_a, biz_a):
+    access = BusinessOwner.objects.get(user=seller_a)
+    client = client_for(owner_a)
+    url = f"/api/portal/businesses/{biz_a.id}/team/{access.id}/"
+    assert client.patch(url, {"days": 3}, format="json").status_code == 200
+    access.refresh_from_db()
+    assert access.expires_at is not None
+    assert client.patch(url, {"days": None}, format="json").status_code == 200
+    access.refresh_from_db()
+    assert access.expires_at is None
+    assert client.delete(url).status_code == 204
+    assert not BusinessOwner.objects.filter(pk=access.pk).exists()
+
+
+# ---------------------------------------------------------------- Descuento a cliente externo
+
+
+@pytest.fixture
+def external_on():
+    from apps.core.models import SiteSetting
+
+    SiteSetting.objects.update_or_create(key="external_discount_enabled", defaults={"value": "1"})
+
+
+def test_external_discount_disabled_by_default(seller_a, biz_a, benefit_a):
+    resp = client_for(seller_a).post(f"/api/portal/businesses/{biz_a.id}/redeem/external/", {"first_name": "Luz", "last_name": "Rey"}, format="json")
+    assert resp.status_code == 403 and resp.data["code"] == "external_disabled"
+
+
+def test_external_discount_applies_and_counts(external_on, seller_a, owner_a, biz_a, benefit_a):
+    from apps.portal.models import ExternalRedemption
+
+    url = f"/api/portal/businesses/{biz_a.id}/redeem/external/"
+    resp = client_for(seller_a).post(url, {"first_name": "  Luz ", "last_name": "Rey"}, format="json")
+    assert resp.status_code == 201, resp.data
+    assert resp.data["percentage"] == benefit_a.percentage and resp.data["name"] == "Luz Rey"
+    row = ExternalRedemption.objects.get()
+    assert (row.first_name, row.last_name, row.redeemed_by) == ("Luz", "Rey", seller_a)
+    assert ActivityLog.objects.filter(action="external_discount_redeemed").exists()
+    assert client_for(owner_a).get(f"/api/portal/businesses/{biz_a.id}/stats/").data["external_redemptions"]["total"] == 1
+
+
+def test_external_discount_requires_names_and_valid_benefit(external_on, seller_a, biz_a, benefit_a):
+    url = f"/api/portal/businesses/{biz_a.id}/redeem/external/"
+    client = client_for(seller_a)
+    assert client.post(url, {"first_name": "Luz"}, format="json").status_code == 400
+    assert client.post(url, {"first_name": "  ", "last_name": "Rey"}, format="json").status_code == 400
+    benefit_a.delete()
+    assert client.post(url, {"first_name": "Luz", "last_name": "Rey"}, format="json").data["code"] == "no_benefit"
+
+
+def test_external_discount_is_scoped_to_own_business(external_on, owner_b, biz_a, benefit_a):
+    resp = client_for(owner_b).post(f"/api/portal/businesses/{biz_a.id}/redeem/external/", {"first_name": "Luz", "last_name": "Rey"}, format="json")
+    assert resp.status_code == 404
+
+
+def test_admin_toggles_external_discount_setting(owner_a):
+    from apps.core.models import external_discount_enabled
+
+    admin = make_user("admin@example.com", is_staff=True)
+    client = client_for(admin)
+    assert client.get("/api/site-settings/").data["external_discount_enabled"] == ""
+    assert client.patch("/api/site-settings/", {"external_discount_enabled": "1"}, format="json").data["external_discount_enabled"] == "1"
+    assert external_discount_enabled()
+    client.patch("/api/site-settings/", {"external_discount_enabled": False}, format="json")
+    assert not external_discount_enabled()
+    assert client.patch("/api/site-settings/", {"external_discount_enabled": "tal vez"}, format="json").status_code == 400
+    assert client_for(owner_a).patch("/api/site-settings/", {"external_discount_enabled": "1"}, format="json").status_code == 403

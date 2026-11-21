@@ -230,7 +230,12 @@ class UserSerializer(serializers.ModelSerializer):
         return missing_festejos_data(obj)
 
     def get_has_portal_access(self, obj):
-        return obj.portal_access.filter(business__status__in=("approved", "pending")).exists()
+        from django.db.models import Q
+        from django.utils import timezone
+
+        return obj.portal_access.filter(business__status__in=("approved", "pending")).filter(
+            Q(expires_at__isnull=True) | Q(expires_at__gt=timezone.now())
+        ).exists()
 
     def get_module_access(self, obj):
         # Madrinas: qué módulos del panel pueden usar (el frontend arma el menú con esto).

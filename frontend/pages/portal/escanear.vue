@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { portalService } from "~/services/portal.service";
+import { siteSettingsService } from "~/services/site-settings.service";
 import type { RedeemError, RedeemPreview } from "~/types";
 
 definePageMeta({ layout: "portal", middleware: "portal" });
@@ -11,6 +12,18 @@ const loading = ref(false);
 const preview = ref<RedeemPreview | null>(null);
 const failure = ref<RedeemError | null>(null);
 const done = ref<{ name: string; percentage: number } | null>(null);
+const externalEnabled = ref(false);
+const externalMode = ref(false);
+const external = reactive({ first_name: "", last_name: "" });
+
+onMounted(async () => {
+  try {
+    externalEnabled.value = (await siteSettingsService.get()).data.external_discount_enabled === "1";
+  } catch {
+    externalEnabled.value = false;
+  }
+});
+
 const scanner = ref<{ start: () => void; stop: () => void } | null>(null);
 
 function reset() {
@@ -18,6 +31,25 @@ function reset() {
   preview.value = null;
   failure.value = null;
   done.value = null;
+  externalMode.value = false;
+  external.first_name = external.last_name = "";
+}
+
+async function applyExternal() {
+  loading.value = true;
+  failure.value = null;
+  try {
+    const { data } = await portalService.redeemExternal(businessId.value, {
+      first_name: external.first_name.trim(),
+      last_name: external.last_name.trim(),
+    });
+    done.value = { name: data.name, percentage: data.percentage };
+    externalMode.value = false;
+  } catch (err) {
+    fail(err);
+  } finally {
+    loading.value = false;
+  }
 }
 
 function fail(err: unknown) {
@@ -78,7 +110,17 @@ async function confirm() {
     </div>
 
     <template v-else>
-      <div v-if="!preview" class="card space-y-4 p-5">
+      <form v-if="externalMode" class="card space-y-3 p-5" @submit.prevent="applyExternal">
+        <p class="font-semibold text-ink">Aplicar descuento a cliente externo</p>
+        <input v-model="external.first_name" required maxlength="80" autocomplete="off" class="input" placeholder="Nombre" aria-label="Nombre" />
+        <input v-model="external.last_name" required maxlength="80" autocomplete="off" class="input" placeholder="Apellido" aria-label="Apellido" />
+        <div class="flex gap-2">
+          <button class="btn-primary flex-1" :disabled="loading || !external.first_name.trim() || !external.last_name.trim()">Aplicar descuento</button>
+          <button type="button" class="btn-outline" :disabled="loading" @click="reset">Cancelar</button>
+        </div>
+      </form>
+
+      <div v-else-if="!preview" class="card space-y-4 p-5">
         <QrScanner ref="scanner" @scan="onScan" />
         <form class="flex gap-2" @submit.prevent="submitCode">
           <input
@@ -92,6 +134,9 @@ async function confirm() {
           />
           <button class="btn-primary" :disabled="loading || code.replace(/\D/g, '').length !== 6">Validar</button>
         </form>
+        <button v-if="externalEnabled" type="button" class="btn-outline w-full" @click="externalMode = true; failure = null">
+          Aplicar descuento a cliente externo
+        </button>
       </div>
 
       <div v-if="failure" class="card border-rose-200 bg-rose-50 p-5" role="alert">

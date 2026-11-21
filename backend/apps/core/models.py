@@ -124,13 +124,21 @@ class SiteSetting(models.Model):
 # clave -> etiqueta
 SITE_SETTING_KEYS = {
     "access_whatsapp": "WhatsApp para solicitar el acceso al grupo",
+    "external_discount_enabled": "Aplicar descuento a cliente externo",
 }
+
+BOOLEAN_SITE_SETTINGS = {"external_discount_enabled"}  # se guardan como "1" / "0"
 
 
 def get_site_settings():
     """Todos los ajustes conocidos (vacíos si nunca se han definido)."""
     stored = dict(SiteSetting.objects.filter(key__in=SITE_SETTING_KEYS).values_list("key", "value"))
     return {key: stored.get(key, "") for key in SITE_SETTING_KEYS}
+
+
+def external_discount_enabled():
+    """Opción "aplicar descuento a cliente externo" del lector de QR (apagada hasta que un admin la active)."""
+    return SiteSetting.objects.filter(key="external_discount_enabled", value="1").exists()
 
 
 def log_activity(actor, action, description, target=None):

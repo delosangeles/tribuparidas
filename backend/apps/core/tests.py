@@ -159,7 +159,7 @@ def test_numbers_use_dot_thousands_without_touching_text_commas():
 
 
 def test_site_settings_public_read_and_admin_edit(api):
-    assert api.get("/api/site-settings/").data == {"access_whatsapp": ""}
+    assert api.get("/api/site-settings/").data == {"access_whatsapp": "", "external_discount_enabled": ""}
     assert api.patch("/api/site-settings/", {"access_whatsapp": "+573001234567"}, format="json").status_code == 401
 
     normal = User.objects.create_user(email="normal@example.com", password="x")
